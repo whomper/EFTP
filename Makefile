@@ -12,7 +12,7 @@
 #                   FTP server (pip install pyftpdlib).
 #
 # The Atari runtime, the STinG client, the GEM interface's building
-# blocks and the build itself come from EMail (github.com/whomper/EMAIL),
+# blocks and the build itself come from EMail (github.com/whomper/EMail),
 # which took them from Claude ST (github.com/whomper/atari_claude).
 
 CROSS   ?= m68k-linux-gnu-

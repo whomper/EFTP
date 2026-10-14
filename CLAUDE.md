@@ -3,7 +3,7 @@
 - EFTP shares its runtime (`atari/`), its connection layer, charsets,
   time zones and secrets (`src/`) and its GEM building blocks (`ui/win.c`,
   `draw.c`, `dialogs.c`, `popup.c`, `font.c`, `about.c`, `theme.c`) with
-  EMail (whomper/EMAIL) and ECal; keep the look and the conventions the
+  EMail (whomper/EMail) and ECal; keep the look and the conventions the
   same: one window with panes, EMail's Settings sidebar, `EFTP.INF` with
   a note above every setting, Claude ST's About box and the SM124 icon.
 - **Every new build gets a new version.** `make` counts up the minor

@@ -72,7 +72,7 @@ itself.
 
 ## How it reaches secure servers
 
-Like [EMail](https://github.com/whomper/EMAIL) and
+Like [EMail](https://github.com/whomper/EMail) and
 [ECal](https://github.com/whomper/ECal), one of two ways:
 
 ```
@@ -94,7 +94,7 @@ Falcon, TT:  Falcon (EFTP.PRG, TLS 1.2, RSA on the DSP) ------------------------
   connection resumes the control connection's session, which saves the
   slow part of the handshake and which vsftpd and others insist on.
 
-EFTP is part of a family with [EMail](https://github.com/whomper/EMAIL),
+EFTP is part of a family with [EMail](https://github.com/whomper/EMail),
 [ECal](https://github.com/whomper/ECal) and
 [Claude ST](https://github.com/whomper/ClaudeST): the same freestanding
 TOS runtime, GEM bindings and STinG client, the same window with panes,
