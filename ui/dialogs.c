@@ -564,7 +564,8 @@ static void show_page(short p, int draw)
 			objc_draw(tree, 0, 8, x - 2, y - 2, tree[page_tab[k]].ob_width + 4,
 				  tree[page_tab[k]].ob_height + 4);
 		}
-		objc_draw(tree, 0, 8, page_area.x, page_area.y, page_area.w, page_area.h);
+		/* a framed field's frame lies a pixel or two outside it */
+		objc_draw(tree, 0, 8, page_area.x - 2, page_area.y - 2, page_area.w + 4, page_area.h + 4);
 	}
 }
 
@@ -817,8 +818,9 @@ static void part_secure(short x, short y)
 	d_field(x + 11, ROW(3), s_gate, 18, 'X');
 	d_add(G_STRING, 0, 0, (long)"Port", x + 31, ROW(3), 4, 1);
 	d_field(x + 36, ROW(3), s_gport, 5, '9');
-	d_add(G_STRING, 0, 0, (long)"gateway/install.sh on the Pi; SFTP,", x + 3, ROW(4), 35, 1);
-	d_add(G_STRING, 0, 0, (long)"and FTPS without Falcon mode, go there", x + 3, ROW(5), 38, 1);
+	d_add(G_STRING, 0, 0, (long)"SFTP goes through the Pi gateway,", x + 3, ROW(4), 33, 1);
+	d_add(G_STRING, 0, 0, (long)"FTPS too when Falcon mode is off.", x + 3, ROW(5), 33, 1);
+	d_add(G_STRING, 0, 0, (long)"On the Pi: gateway/install.sh", x + 3, ROW(6), 29, 1);
 }
 
 #define SW 13			/* the list's width */

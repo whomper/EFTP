@@ -64,7 +64,7 @@ SITE *site_new(void)
 	s = calloc(1, sizeof(SITE));
 	if (!s)
 		return 0;
-	s->port = 21;
+	s->port = 0;		/* the protocol's usual port (site_port) */
 	s->anon = 1;
 	str_copy(s->name, "New site", sizeof(s->name));
 	sites[nsites++] = s;
@@ -405,7 +405,8 @@ int store_save_settings(void)
 			    "[SITE]\r\n\r\n");
 		put_str(&b, "the site's name in the list", "NAME", s->name);
 		put_str(&b, "the server: a name (ftp.example.org) or an IP address", "HOST", s->host);
-		put_fmt(&b, "its port, usually 21", "PORT", "%u", s->port);
+		put_fmt(&b, "its port: 21 for FTP and FTPS, 990 for implicit FTPS, 22 for SFTP",
+			"PORT", "%u", site_port(s));
 		put_fmt(&b, "1 = log in anonymously (public archives), 0 = with the user and password below",
 			"ANONYMOUS", "%d", s->anon);
 		put_str(&b, "login name", "USER", s->user);

@@ -46,7 +46,7 @@ itself.
 - Runs on TOS 1.04 to 4.x, EmuTOS, MagiC and MiNT, with STinG or
   MiNTnet, from an ST in medium resolution to a Falcon in 640×480
 
-![The Site Manager](docs/sites.png)
+![The Site Manager, on an SFTP site that goes through the Pi gateway](docs/sites.png)
 
 **In more detail**
 
@@ -68,7 +68,7 @@ itself.
 - EFTP.INF in capitals, each setting with a note above it, as EMail's
 - The help: EFTP.HYP for ST-Guide, opened by the Help key
 
-![Settings: a sidebar of parts, here Transfers](docs/settings.png)
+![Settings: a sidebar of parts, here Secure: Falcon mode and the Pi gateway](docs/settings.png)
 
 ## How it reaches secure servers
 
@@ -121,7 +121,7 @@ Everything to copy to the Atari is in [`binary/`](binary):
 
 The [user guide](docs/GUIDE.md) describes everything else.
 
-![On an ST in high resolution](docs/st-mono.png)
+![EFTPST.PRG on a 1 MB ST in high resolution](docs/st-mono.png)
 
 ## Building
 
