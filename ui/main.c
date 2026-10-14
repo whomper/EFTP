@@ -12,6 +12,8 @@
 #include "../src/plat.h"
 #include "util.h"
 #include "tls.h"
+#include "crash.h"
+#include "../src/version.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
 short gl_wchar, gl_hchar;
@@ -259,6 +261,7 @@ int falcon_mode_set(int on)
 void status(const char *msg)
 {
 	char tmp[120];
+	crash_note(msg);		/* for CRASH.LOG, should EFTP crash */
 	snprintf(tmp, sizeof(tmp), " %s", msg);
 	main_status(*msg ? tmp : "");
 }
@@ -654,6 +657,8 @@ static int shortcut(short kstate, short key)
 		set_hebrew_kbd(!hebrew_kbd);
 		return 1;
 	}
+	if (crash_test(scan))		/* test builds only: F1-F4 crash on purpose */
+		return 1;
 	if (scan == 0x62) {		/* Help */
 		if (!open_help())
 			dlg_keys();
@@ -793,6 +798,25 @@ static void tip_show(void)
 	tip_on = 1;
 }
 
+/* EFTP crashed and CRASH.LOG is written (common/atari/crash.c): say so
+   and leave GEM tidy. Only the AES and VDI: the heap may be what went
+   wrong */
+static void crash_quit(const char *what)
+{
+	char a[200];
+	graf_mouse(ARROW, 0);
+	snprintf(a, sizeof(a), "[3][EFTP has crashed|(%s).|What happened is in|CRASH.LOG, in EFTP's folder.][ Quit ]", what);
+	form_alert(1, a);
+	if (main_h > 0) {
+		wind_close(main_h);
+		wind_delete(main_h);
+	}
+	theme_exit();
+	menu_bar(menu, 0);
+	v_clsvwk(vdi_h);
+	appl_exit();
+}
+
 int main(void)
 {
 	short work_out[57], msg[8], d;
@@ -819,6 +843,9 @@ int main(void)
 	graf_mouse(BUSYBEE, 0);
 
 	work_dir(dir, sizeof(dir));
+	crash_install(dir, "EFTP", ftp_version);
+	crash_cleanup = crash_quit;
+	crash_report = conn_log_append;	/* the report in EFTP.LOG too */
 	store_init(dir);
 	theme_init();
 	font_apply();
@@ -844,6 +871,8 @@ int main(void)
 	else
 		status("Connect (^K) to a server: your sites, or File > Quick connect.");
 
+	if (crash_previous())
+		alert(1, "[1][EFTP crashed last time|(%s).|What happened is in|CRASH.LOG, in EFTP's folder.][ OK ]", crash_previous());
 	if (store_lost_passwords)
 		alert(1, "[1][EFTP.KEY is missing or new: type the passwords again in File > Sites.][ OK ]");
 	evnt_set_m1(1, 0, 0, 1, 1);
@@ -917,6 +946,7 @@ int main(void)
 	theme_exit();			/* the palette back as it was */
 	menu_bar(menu, 0);
 	v_clsvwk(vdi_h);
+	crash_remove();
 	appl_exit();
 	return 0;
 }
