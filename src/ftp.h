@@ -59,6 +59,7 @@ typedef struct {
 	short mlsd, size, mdtm, mfmt, rest;	/* from FEAT */
 	short no_epsv;		/* EPSV failed once: PASV from then on */
 	short ascii;		/* TYPE A at the moment, else TYPE I */
+	short tls;		/* FTPS: commands and data encrypted */
 	short code;		/* the last reply's code */
 	char reply[200];	/* the last reply's text (last line) */
 	char err[200];		/* what went wrong, for an alert */
@@ -66,10 +67,19 @@ typedef struct {
 	unsigned long used;	/* pf_ms() of the last command (keep-alive) */
 } FTP;
 
+/* how: plain FTP, FTPS asked for with AUTH TLS on port 21 (explicit), or
+   FTPS from the first byte on port 990 (implicit) */
+#define FTP_PLAIN    0
+#define FTP_EXPLICIT 1
+#define FTP_IMPLICIT 2
+
 /* connect and log in; NULL with err set. user "" or "anonymous":
-   anonymous, with pass (an e-mail address) or "eftp@atari" */
-FTP *ftp_open(const char *host, unsigned short port, const char *user, const char *pass,
+   anonymous, with pass (an e-mail address) or "eftp@atari". port 0: the
+   usual one for sec */
+FTP *ftp_open(const char *host, unsigned short port, const char *user, const char *pass, int sec,
 	      char *err, int errlen);
+/* "TLS 1.2, ECDHE-RSA, ChaCha20-Poly1305", or "" when not encrypted */
+const char *ftp_security(FTP *f);
 /* say goodbye (QUIT) unless the line is gone, and free */
 void ftp_close(FTP *f);
 int  ftp_alive(FTP *f);			/* 0 once the server has closed */

@@ -4,27 +4,40 @@ EFTP is an FTP program for the Atari ST, STE, Mega ST/STE, TT and
 Falcon. It copies files and whole folders between your Atari and an FTP
 server, both ways, and looks after the details a modern FTP program
 does: resuming a transfer that stopped, names TOS can take, the files'
-dates, text and binary files.
+dates, text and binary files. Secure servers too: FTPS (FTP over TLS)
+and SFTP (over SSH), through a Raspberry Pi on your home network, or
+FTPS by the Falcon itself.
 
 ## What you need
 
 - An Atari with TOS 1.04 or newer (TOS 4 on the Falcon), EmuTOS, MagiC or
   MiNT, and a screen of at least 640×200 (ST medium); 640×400 (ST high)
   or the Falcon's 640×480 show more of each list
-- About 250 KB of free memory besides your TCP/IP stack: EFTP runs on a
-  1 MB ST with STinG
+- Free memory besides your TCP/IP stack: about 250 KB for `EFTPST.PRG`
+  (it runs on a 1 MB ST with STinG), about 450 KB for `EFTP.PRG` with
+  Falcon mode
 - A TCP/IP stack:
   - **STinG** on plain TOS (or STiK), or
   - **MiNTnet** under FreeMiNT (with or without GlueSTiK), or MagiC-Net
-- An FTP server: on the internet, on your NAS or router, or on a Linux
-  computer at home. FTP sends files as they are, without encryption, so
-  EFTP needs no Pi gateway and no 68030: it runs on any Atari
+- A server: on the internet, on your NAS or router, or on a Linux
+  computer at home. Plain FTP needs nothing else, on any Atari. For FTPS
+  and SFTP servers, see [Secure servers](#secure-servers-ftps-and-sftp):
+  a Raspberry Pi gateway (any Atari), or Falcon mode for FTPS (a Falcon
+  or TT)
 
 ## Installing
 
-The files are in the `binary` folder of EFTP's GitHub page. Copy
-`EFTP.PRG` into a folder of its own, for example `C:\EFTP\`. EFTP keeps
-everything next to itself:
+The files are in the `binary` folder of EFTP's GitHub page. There are
+two editions, as with ECal:
+
+| Your Atari        | Copy                         | Secure servers                       |
+|-------------------|------------------------------|--------------------------------------|
+| Falcon, TT        | `EFTP.PRG`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (Falcon mode), SFTP through the Pi |
+| ST, STE, Mega ST  | `EFTPST.PRG`                 | FTPS and SFTP through the Pi         |
+
+`EFTPST.PRG` is the same program without TLS, 110 KB smaller: rename it
+to `EFTP.PRG` if you like. Copy it into a folder of its own, for example
+`C:\EFTP\`. EFTP keeps everything next to itself:
 
 ```
 C:\EFTP\EFTP.PRG      the program
@@ -32,6 +45,9 @@ C:\EFTP\EFTP.INF      settings and sites (each setting has a note above it)
 C:\EFTP\EFTP.KEY      the key the passwords in EFTP.INF are encrypted with
 C:\EFTP\EFTP.LOG      protocol log, when switched on
 C:\EFTP\EFTP.HYP      this guide for ST-Guide (the Help key opens it)
+C:\EFTP\CACERT.PEM    Falcon mode: the root certificates (copy them here)
+C:\EFTP\ROOTS.DAT     Falcon mode: the same, decoded ahead of time
+C:\EFTP\SEED.DAT      Falcon mode: randomness kept for the next start
 ```
 
 Start it. This guide is also in `EFTP.HYP`, for ST-Guide: with ST-Guide
@@ -82,6 +98,7 @@ Double-click a site, or choose it and press Connect.
 |----------------|------------------------------------------------------------------|
 | Name           | a name for the list, e.g. "Atari archive"                        |
 | Server, Port   | the server's name (ftp.example.org) or IP address, port 21 as a rule |
+| Protocol       | FTP; FTPS (AUTH TLS, port 21), FTPS implicit (port 990), or SFTP (port 22): see Secure servers; choosing one sets its usual port |
 | Log in anonymously | for public archives; no user or password needed                |
 | User, Password | your login; the eye button shows the password                    |
 | Server folder  | where to start on the server, e.g. `/pub/atari`; empty: where the login starts |
@@ -93,7 +110,7 @@ the changes without connecting, Cancel forgets them. Passwords are kept
 encrypted in EFTP.INF, with a key in EFTP.KEY.
 
 **File > Quick connect** connects to a server without making a site:
-its name, a port, and a login (none: anonymous). Tick "Keep it in the
+its name, a port and protocol, and a login (none: anonymous). Tick "Keep it in the
 site list" to make it a site after all.
 
 EFTP uses passive mode, as every modern FTP program does: the Atari
@@ -105,6 +122,50 @@ While you look at things, EFTP tells the server every minute that it's
 still there (Settings > Connection), as servers hang up on a quiet line.
 If one does, EFTP says so and offers to connect again, to the folder
 you were in. **File > Disconnect** (^D) closes the connection.
+
+## Secure servers: FTPS and SFTP
+
+Plain FTP sends everything as it is, the password too. Most servers on
+the internet now want **FTPS** (FTP over TLS, the same encryption as
+https) or **SFTP** (file transfer over SSH, a different protocol on port
+22). An 8 MHz ST can do neither, so EFTP gets there one of two ways,
+like EMail and ECal:
+
+```
+any Atari:   Atari (EFTP) --plain FTP, home LAN--> Raspberry Pi (eftpgate.py) --FTPS or SFTP--> the server
+Falcon, TT:  Falcon (EFTP.PRG, TLS 1.2, RSA on the DSP) --------------------------------FTPS--> the server
+```
+
+- **Through the Pi gateway.** `gateway/eftpgate.py` on a Raspberry Pi
+  (or any Linux computer at home) takes EFTP's plain FTP and speaks FTPS
+  or SFTP to the server. Set it up with `gateway/install.sh` (see
+  `gateway/README.md`), then type the Pi's address in Options >
+  Settings > Secure. Any Atari can use it, a Falcon too, and SFTP always
+  goes this way. The Pi checks the servers' certificates, and remembers
+  an SSH server's key the first time and refuses the server if it
+  changes. Everything else is as with FTP: resuming, dates, text files
+  (the Pi turns their line ends for SFTP servers, which have no text
+  mode), permissions.
+- **Falcon mode.** `EFTP.PRG` on a Falcon or TT speaks FTPS itself, TLS
+  1.2 with BearSSL, as EMail and ECal do. Switch it on with **Options >
+  Falcon mode (TLS)** or in Settings > Secure. It needs a 68030 and
+  `CACERT.PEM` and `ROOTS.DAT` next to `EFTP.PRG`. **Check certificates
+  on the DSP** lets the Falcon's DSP56001 do the RSA arithmetic, much
+  faster than the 68030. Every list and file goes over its own
+  encrypted connection; EFTP resumes the first connection's TLS session
+  for them, which saves the slow part of the handshake (and which many
+  servers insist on).
+
+Give the site its real server name and choose its Protocol in File >
+Sites; EFTP decides the way from the Protocol and the settings. The
+status line says which: "Connected to ftp.example.org - TLS 1.2,
+ECDHE-RSA, ChaCha20-Poly1305", or "... through the Pi - SFTP", and the
+server's name in the toolbar shows it in its tooltip.
+
+In Falcon mode the 68030 decrypts every byte itself, so transfers are
+slower than through the Pi (EMail measured 13 KB/s against 37 KB/s); a
+bigger TCP receive window in STinG's configuration helps. The clock must
+be right for certificates to check out.
 
 ## Moving files
 
@@ -208,7 +269,7 @@ answers in black, errors in red. ^L again shows the transfers.
 
 ## Settings
 
-Options > Settings, in four parts:
+Options > Settings, in five parts:
 
 - **Transfers**: a file that is already there, keeping dates, a bell
   when a transfer of more than half a minute ends, the extensions sent
@@ -220,9 +281,15 @@ Options > Settings, in four parts:
 - **Connection**: the time zone, how long to wait for the server, how
   often to keep the line open, and a protocol log (`EFTP.LOG`, with the
   passwords left out)
+- **Secure**: Falcon mode (FTPS on this Atari) and the DSP, and the Pi
+  gateway's address and port (2121) for SFTP, and for FTPS without
+  Falcon mode
 
 Options > Font picks the font for the lists, as in EMail: the system
 font in two sizes, or any monospaced GDOS font.
+
+**Options > Falcon mode (TLS)** switches Falcon mode on and off, the
+same as the tick in Settings > Secure.
 
 F10 switches to the Israeli keyboard for typing Hebrew names.
 
@@ -262,8 +329,18 @@ During a transfer, Esc or Undo stops it.
 - **A transfer stays at 0%**: STinG's own settings: a bigger TCP
   receive window (and MTU) in STinG's configuration makes downloads
   faster, too.
-- **Not enough memory**: EFTP needs about 250 KB; with STinG on a 1 MB
-  ST, leave out accessories you don't need.
+- **Not enough memory**: EFTPST.PRG needs about 250 KB, EFTP.PRG about
+  450 KB; on a 1 MB machine use EFTPST.PRG, and leave out accessories
+  you don't need.
+- **"... needs the Raspberry Pi gateway"** or **"FTPS needs Falcon
+  mode or the Raspberry Pi gateway"**: the site is FTPS or SFTP; set up
+  the gateway (Settings > Secure), or switch on Falcon mode for FTPS.
+- **A certificate that "didn't check out"** (Falcon mode, or the Pi's
+  log): the Atari's clock, or a server whose certificate is made by its
+  own authority (a NAS): through the Pi, `--cafile` (gateway/README.md).
+- **"... SSH key has changed"**: the server isn't the one the Pi met the
+  first time. If it was really reinstalled, remove its line from
+  `/var/lib/eftpgate/known_hosts` on the Pi.
 
 ## EFTP.INF
 

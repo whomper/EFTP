@@ -709,6 +709,10 @@ static void click(WIN *w, short mx, short my, short clicks, short kstate)
 		return;
 	}
 	if (clicks > 1) {
+		/* GEM gives a double click as one event: the row it is on is
+		   what it opens (or sends), selected or not */
+		if (entry(s, row) && !s->mark[row - s->up])
+			select_only(s, row);
 		open_row(s, side, row);
 		return;
 	}

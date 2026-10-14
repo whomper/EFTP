@@ -11,6 +11,7 @@
 #include "../src/conn.h"
 #include "../src/plat.h"
 #include "../src/util.h"
+#include "../src/tls.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
 short gl_wchar, gl_hchar;
@@ -87,6 +88,7 @@ static const MITEM m_xfer[] = {
 static const MITEM m_opts[] = {
 	{ "  Settings...          ", C_SETTINGS }, { "  Font...              ", C_FONT },
 	{ "-----------------------", C_SEP },
+	{ "  Falcon mode (TLS)    ", C_FALCON }, { "-----------------------", C_SEP },
 	{ "  Hebrew keyboard  F10 ", C_HEBREW }, { "  Protocol log         ", C_PLOG }, { 0, 0 }
 };
 
@@ -224,6 +226,32 @@ void menu_update(void)
 	menu_icheck(menu, find_item(C_LOG), show_log);
 	menu_icheck(menu, find_item(C_HEBREW), hebrew_kbd);
 	menu_icheck(menu, find_item(C_PLOG), opt.log);
+	menu_icheck(menu, find_item(C_FALCON), opt.falcon);
+}
+
+/* ---------------- Falcon mode ----------------
+ * FTPS with TLS on the Atari itself (BearSSL, RSA on the DSP), as in
+ * EMail and ECal: a 68030 does a handshake in seconds, an 8 MHz ST
+ * would take minutes. Off, FTPS goes through the Pi gateway. */
+int falcon_mode_set(int on)
+{
+	if (on) {
+		if (!tls_available) {
+			alert(1, "[3][This is the ST edition: Falcon|mode is in EFTP.PRG.][ OK ]");
+			return 0;
+		}
+		if (get_cookie(0x5F435055L) < 20) {	/* _CPU */
+			alert(1, "[3][Falcon mode needs a 68020 or|better (Falcon, TT): this Atari|is too slow for TLS.][ OK ]");
+			return 0;
+		}
+		if (!pf_exists(conn_cacert)) {
+			alert(1, "[3][Falcon mode needs the root|certificates: put CACERT.PEM and|ROOTS.DAT in the EFTP folder.][ OK ]");
+			return 0;
+		}
+	}
+	opt.falcon = (short)on;
+	falcon_dsp_init();
+	return 1;
 }
 
 /* ---------------- status and helpers ---------------- */
@@ -337,6 +365,24 @@ static void idle(void)
 
 /* ---------------- connecting ---------------- */
 
+/* the way to a site: plain FTP straight to it; FTPS straight to it with
+   TLS on the Atari in Falcon mode; else FTPS and SFTP through the Pi
+   gateway, which is told the server in the login
+   ("sftp:user@host:port") */
+static FTP *open_site(SITE *s, char *err, int errlen)
+{
+	const char *user = s->anon ? "anonymous" : s->user;
+	const char *pass = s->anon ? "" : s->pass;
+	if (site_via_gateway(s)) {
+		char login[200];
+		snprintf(login, sizeof(login), "%s:%s@%s:%u", s->proto == PR_SFTP ? "sftp" :
+			 s->proto == PR_FTPSI ? "ftps-implicit" : "ftps", user, s->host, site_port(s));
+		return ftp_open(opt.gate, opt.gateport, login, pass, FTP_PLAIN, err, errlen);
+	}
+	return ftp_open(s->host, site_port(s), user, pass, s->proto == PR_FTPS ? FTP_EXPLICIT :
+			s->proto == PR_FTPSI ? FTP_IMPLICIT : FTP_PLAIN, err, errlen);
+}
+
 
 int connect_site(SITE *s)
 {
@@ -352,12 +398,23 @@ int connect_site(SITE *s)
 		alert(1, "[3][No network: EFTP needs STinG|(or MiNTnet) to be loaded.][ OK ]");
 		return 0;
 	}
-	snprintf(m, sizeof(m), "Connecting to %s...   (Esc stops)", s->host);
+	if (site_via_gateway(s) && !opt.gate[0]) {
+		if (s->proto == PR_SFTP || !tls_available)
+			alert(1, "[1][%s needs the Raspberry Pi gateway:|install gateway/install.sh on a Pi|and type its address in|Settings > Secure.][ OK ]",
+			      proto_name(s->proto));
+		else
+			alert(1, "[1][FTPS needs Falcon mode (Options|menu, a 68030 Atari) or the|Raspberry Pi gateway (Settings >|Secure).][ OK ]");
+		return 0;
+	}
+	if (site_via_gateway(s))
+		snprintf(m, sizeof(m), "Connecting to %s through %s...   (Esc stops)", s->host, opt.gate);
+	else
+		snprintf(m, sizeof(m), "Connecting to %s...   (Esc stops)", s->host);
 	status(m);
 	busy(1);
 	conn_stop = 0;
 	ftp_timeout = opt.timeout;
-	f = ftp_open(s->host, s->port, s->anon ? "anonymous" : s->user, s->anon ? "" : s->pass, err, sizeof(err));
+	f = open_site(s, err, sizeof(err));
 	busy(0);
 	if (!f) {
 		status("");
@@ -371,7 +428,13 @@ int connect_site(SITE *s)
 	if (s != &conn_site)
 		conn_site = *s;
 	cur_site = &conn_site;
-	snprintf(m, sizeof(m), "Connected to %s%s%s", f->host, f->system[0] ? "  -  " : "", f->system);
+	/* the server's own name (not the gateway's), and how it is secured */
+	if (site_via_gateway(s))
+		snprintf(m, sizeof(m), "Connected to %s through the Pi  -  %s", s->host, proto_name(s->proto));
+	else if (ftp_security(f)[0])
+		snprintf(m, sizeof(m), "Connected to %s  -  %s", s->host, ftp_security(f));
+	else
+		snprintf(m, sizeof(m), "Connected to %s%s%s", f->host, f->system[0] ? "  -  " : "", f->system);
 	/* where the site says to start, on both sides */
 	if (s->rdir[0] && !ftp_cd(ftp, s->rdir) && check_line())
 		alert(1, "[1][The folder %s isn't there:|%s][ OK ]", s->rdir, ftp->err);
@@ -414,7 +477,7 @@ int reconnect(void)
 	snprintf(m, sizeof(m), "Connecting to %s again...   (Esc stops)", s.host);
 	status(m);
 	busy(1);
-	f = ftp_open(s.host, s.port, s.anon ? "anonymous" : s.user, s.anon ? "" : s.pass, err, sizeof(err));
+	f = open_site(&s, err, sizeof(err));
 	busy(0);
 	if (!f) {
 		status("");
@@ -563,6 +626,10 @@ static void command(short cmd)
 		break;
 	case C_FONT: font_menu(); break;
 	case C_HEBREW: set_hebrew_kbd(!hebrew_kbd); break;
+	case C_FALCON:
+		if (falcon_mode_set(!opt.falcon))
+			store_save_settings();
+		break;
 	case C_PLOG:
 		opt.log = !opt.log;
 		set_logging();
@@ -758,6 +825,7 @@ int main(void)
 	hebrew_kbd = opt.hebrew;
 	set_logging();
 	net_init();
+	falcon_dsp_init();
 	pf_idle = idle;
 	ftp_timeout = opt.timeout;
 

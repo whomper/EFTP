@@ -11,6 +11,9 @@
  *
  * EXISTS=n (store.h EX_*), SHORTEN=0/1, LOWER=0/1 in the environment
  * set those options; STOPAT=n stops a transfer after n bytes (Esc).
+ * FTPS=1 (AUTH TLS) or 2 (implicit) with CACERT=roots.pem talks FTPS
+ * with EFTP's own TLS (Falcon mode); SECURITY=1 prints what was agreed,
+ * LOG=file writes the protocol log there.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,6 +22,7 @@
 #include "../../src/xfer.h"
 #include "../../src/store.h"
 #include "../../src/util.h"
+#include "../../src/tls.h"
 
 static long stop_at = -1;
 
@@ -104,11 +108,20 @@ int main(int argc, char **argv)
 	xfer_changed = progress_changed;
 	xfer_ask = ask;
 	conn_tick = tick;
-	f = ftp_open(argv[1], (unsigned short)atoi(argv[2]), argv[3], argv[4], err, sizeof(err));
+	if (getenv("LOG"))
+		str_copy(conn_logfile, getenv("LOG"), sizeof(conn_logfile));
+	if (getenv("CACERT")) {
+		str_copy(conn_cacert, getenv("CACERT"), sizeof(conn_cacert));
+		str_copy(tls_roots_cache, "", sizeof(tls_roots_cache));
+	}
+	f = ftp_open(argv[1], (unsigned short)atoi(argv[2]), argv[3], argv[4],
+		     getenv("FTPS") ? atoi(getenv("FTPS")) : FTP_PLAIN, err, sizeof(err));
 	if (!f) {
 		fprintf(stderr, "connect: %s\n", err);
 		return 1;
 	}
+	if (getenv("SECURITY"))
+		printf("security: %s\n", ftp_security(f));
 	c = argv[5];
 	if (!strcmp(c, "ls") || !strcmp(c, "lslist")) {
 		FLIST l;
@@ -176,5 +189,6 @@ int main(int argc, char **argv)
 	if (!ok && f->err[0])
 		fprintf(stderr, "error: %s\n", f->err);
 	ftp_close(f);
+	conn_log_flush();
 	return ok ? 0 : 1;
 }

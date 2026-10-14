@@ -1030,7 +1030,12 @@ int win_tip(short mx, short my, char *out, int size)
 			return 1;
 		}
 	if (inside(&r_name, mx, my) && ftp) {
-		snprintf(out, size, "%s:%u  %s", ftp->host, ftp->port, ftp->system);
+		/* the server, and how it is reached: the second line, dim */
+		SITE *s = cur_site;
+		snprintf(out, size, "%s:%u  %s|%s", s ? s->host : ftp->host, s ? site_port(s) : ftp->port, ftp->system,
+			 s && site_via_gateway(s) ? (s->proto == PR_SFTP ? "SFTP through the Pi gateway" :
+						      "FTPS through the Pi gateway") :
+			 ftp_security(ftp)[0] ? ftp_security(ftp) : "FTP: not encrypted");
 		return 1;
 	}
 	w = win_at(mx, my);

@@ -72,7 +72,10 @@ static void draw_icon(short x, short y, short sx, short sy)
 		}
 	memset(&src, 0, sizeof(src));
 	memset(&dst, 0, sizeof(dst));
-	src.fd_addr = icon_big;
+	src.fd_addr = st_ram(sizeof(icon_big));
+	if (!src.fd_addr)
+		return;
+	memcpy(src.fd_addr, icon_big, sizeof(icon_big));
 	src.fd_w = w;
 	src.fd_h = h;
 	src.fd_wdwidth = wpl;
@@ -164,9 +167,12 @@ void dlg_about(void)
 	EVENT e;
 
 	(void)online;
-	snprintf(conn, sizeof(conn), "%s  \xF9  %s",
+	/* the network, the server, and how secure sites are reached (as ECal) */
+	snprintf(conn, sizeof(conn), "%s  \xF9  %.24s  \xF9  %s",
 		 strcmp(net_stack(), "none") ? net_stack() : "no network",
-		 ftp ? ftp->host : "not connected");
+		 ftp ? (cur_site ? cur_site->host : ftp->host) : "not connected",
+		 opt.falcon ? (strcmp(falcon_dsp_state(), "DSP") ? "Falcon" : "Falcon/DSP") :
+		 opt.gate[0] ? "Gateway" : "No gateway");
 
 	dw = 50 * cw;
 	if (dw > desk_w - 2 * cw)

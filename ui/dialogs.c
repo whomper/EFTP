@@ -13,8 +13,9 @@
 #include "../src/charset.h"
 #include "../src/tz.h"
 #include "theme.h"
+#include "../src/tls.h"
 
-#define DMAX 72
+#define DMAX 80
 #define TMAX 24
 
 static OBJECT tree[DMAX];
@@ -447,10 +448,11 @@ short alert(short def, const char *fmt, ...)
  * words), framed fields and choice buttons that open a list. */
 
 static char s_zone[40], s_zlabel[42], s_xlabel[42], s_timeout[4], s_keep[4], s_text[40];
-static short s_on[9], s_exists;
-enum { T_TIMES, T_BEEP, T_SHORTEN, T_LOWER, T_COLOUR, T_HIDDEN, T_DIRS, T_LOG, T_HEB };
+static char s_gate[64], s_gport[6];
+static short s_on[11], s_exists;
+enum { T_TIMES, T_BEEP, T_SHORTEN, T_LOWER, T_COLOUR, T_HIDDEN, T_DIRS, T_LOG, T_HEB, T_FALCON, T_DSP };
 
-#define NTICK 10
+#define NTICK 12
 static short tick_box[NTICK], tick_lbl[NTICK], tick_var[NTICK], nticks;
 static short page_of[DMAX], npages, cur_page, page_tab[6];
 static GRECT page_area;
@@ -742,6 +744,10 @@ static void settings_load(void)
 	s_on[T_DIRS] = opt.dirsfirst;
 	s_on[T_LOG] = opt.log;
 	s_on[T_HEB] = opt.hebrew;
+	s_on[T_FALCON] = opt.falcon;
+	s_on[T_DSP] = opt.dsp;
+	str_copy(s_gate, opt.gate, sizeof(s_gate));
+	snprintf(s_gport, sizeof(s_gport), "%u", opt.gateport);
 }
 
 /* the settings of each part, at (x, y); fields in one column */
@@ -795,12 +801,32 @@ static void part_connection(short x, short y)
 	d_tick(x, ROW(3), "Write a protocol log (EFTP.LOG)", T_LOG);
 }
 
+/* FTPS and SFTP, as EMail's and ECal's Connection: TLS on the Atari, or
+   the Pi gateway */
+static void part_secure(short x, short y)
+{
+	int can = tls_available && get_cookie(0x5F435055L) >= 20;	/* _CPU */
+	const char *note = can ? "Needs CACERT.PEM, ROOTS.DAT in EFTP" :
+			   !tls_available ? "Not in the ST edition: EFTP.PRG has it" :
+			   "Needs a 68030 (Falcon or TT)";
+	rows_at(y);
+	d_tick(x, ROW(0), "Falcon mode: FTPS on this Atari", T_FALCON);
+	d_tick(x + 3, ROW(1), "Check certificates on the DSP", T_DSP);
+	d_add(G_STRING, 0, 0, (long)note, x + 3, ROW(2), (short)strlen(note), 1);
+	d_add(G_STRING, 0, 0, (long)"Pi gateway", x, ROW(3), 10, 1);
+	d_field(x + 11, ROW(3), s_gate, 18, 'X');
+	d_add(G_STRING, 0, 0, (long)"Port", x + 31, ROW(3), 4, 1);
+	d_field(x + 36, ROW(3), s_gport, 5, '9');
+	d_add(G_STRING, 0, 0, (long)"gateway/install.sh on the Pi; SFTP,", x + 3, ROW(4), 35, 1);
+	d_add(G_STRING, 0, 0, (long)"and FTPS without Falcon mode, go there", x + 3, ROW(5), 38, 1);
+}
+
 #define SW 13			/* the list's width */
 #define SX (SW + 2)		/* where the settings start */
 
 static short settings_sidebar(short *ok)
 {
-	static const char *names[] = { "  Transfers", "  Names", "  Look", "  Connection" };
+	static const char *names[] = { "  Transfers", "  Names", "  Look", "  Connection", "  Secure" };
 	short k, box, from, gap = (short)(gl_hchar / 2);
 	d_begin(SX + 42, 16);
 	nticks = 0;
@@ -811,14 +837,14 @@ static short settings_sidebar(short *ok)
 	/* the list: plain words on white, the chosen one in a black bar, a
 	   line between it and the settings */
 	d_add(G_BOX, 0, 0, 0x00001171L, SW, 1, (short)(0 | (1 << 8)), 15);
-	for (k = 0; k < 4; k++) {
+	for (k = 0; k < 5; k++) {
 		npages++;
 		page_tab[npages] = d_add(G_BOXTEXT, TOUCHEXIT, 0, (long)d_ted(names[k], 0, 0x1180),
 					 (short)(0 | (2 << 8)), (short)((2 + k * 2) | ((k * gap) << 8)),
 					 (short)((SW - 1) | (6 << 8)), 1);
 	}
 	box = d_add(G_IBOX, 0, 0, 0, SX - 1, 2, 42, 12);
-	for (k = 1; k <= 4; k++) {
+	for (k = 1; k <= 5; k++) {
 		from = nobj;
 		adding_page = k;
 		d_add(G_STRING, 0, 0, (long)(names[k - 1] + 2), SX, 2, (short)strlen(names[k - 1] + 2), 1);
@@ -829,8 +855,10 @@ static short settings_sidebar(short *ok)
 			part_names(SX, 4);
 		else if (k == 3)
 			part_look(SX, 4);
-		else
+		else if (k == 4)
 			part_connection(SX, 4);
+		else
+			part_secure(SX, 4);
 		page_mark(from);
 	}
 	adding_page = 0;
@@ -865,6 +893,13 @@ int dlg_settings(void)
 	opt.dirsfirst = s_on[T_DIRS];
 	opt.log = s_on[T_LOG];
 	opt.hebrew = s_on[T_HEB];
+	str_copy(opt.gate, s_gate, sizeof(opt.gate));
+	str_trim(opt.gate);
+	opt.gateport = (unsigned short)(atoi(s_gport) > 0 ? atoi(s_gport) : 2121);
+	opt.dsp = s_on[T_DSP];
+	if (s_on[T_FALCON] != opt.falcon)
+		falcon_mode_set(s_on[T_FALCON]);	/* says why when it can't */
+	falcon_dsp_init();
 	return 1;
 }
 
@@ -1206,11 +1241,48 @@ static short nwork, wsel;
 static char f_name[26], f_host[42], f_port[6], f_user[34], f_pass[34], f_rdir[42], f_ldir[42];
 static char srow[SROWS][SLW + 2];
 
+/* ---- a site's protocol: a choice button with a popup list ---- */
+static const char *const proto_items[4] = {
+	"FTP", "FTPS (AUTH TLS, port 21)", "FTPS (implicit, port 990)", "SFTP (SSH, port 22)"
+};
+static char f_plabel[24];
+
+static unsigned short proto_port(int proto)
+{
+	return proto == PR_SFTP ? 22 : proto == PR_FTPSI ? 990 : 21;
+}
+
+static void proto_label(int proto)
+{
+	choice_label(f_plabel, 21, proto_name(proto), "");
+}
+
+/* the list under the button; the port follows when it was the usual one */
+static int proto_pick(short btn, short proto, char *port)
+{
+	char lab[4][32];
+	const char *items[4];
+	short bx, by, i;
+	for (i = 0; i < 4; i++) {
+		snprintf(lab[i], sizeof(lab[i]), "%c %s", i == proto ? '\x08' : ' ', proto_items[i]);
+		items[i] = lab[i];
+	}
+	objc_offset(tree, btn, &bx, &by);
+	i = popup(bx, by + tree[btn].ob_height, items, 4);
+	if (i < 0 || i == proto)
+		return proto;
+	if (!port[0] || atoi(port) == proto_port(proto))
+		snprintf(port, 6, "%u", proto_port(i));
+	proto_label(i);
+	return i;
+}
+
 static void fields_from(SITE *s)
 {
 	str_copy(f_name, s->name, sizeof(f_name));
 	str_copy(f_host, s->host, sizeof(f_host));
-	snprintf(f_port, sizeof(f_port), "%u", s->port ? s->port : 21);
+	snprintf(f_port, sizeof(f_port), "%u", site_port(s));
+	proto_label(s->proto);
 	str_copy(f_user, s->user, sizeof(f_user));
 	str_copy(f_pass, s->pass, sizeof(f_pass));
 	str_copy(f_rdir, s->rdir, sizeof(f_rdir));
@@ -1221,9 +1293,7 @@ static void fields_to(SITE *s)
 {
 	str_copy(s->name, f_name[0] ? f_name : (f_host[0] ? f_host : "Site"), sizeof(s->name));
 	str_copy(s->host, str_trim(f_host), sizeof(s->host));
-	s->port = (unsigned short)atoi(f_port);
-	if (!s->port)
-		s->port = 21;
+	s->port = (unsigned short)atoi(f_port);	/* 0: the protocol's usual one */
 	str_copy(s->user, f_user, sizeof(s->user));
 	str_copy(s->pass, f_pass, sizeof(s->pass));
 	str_copy(s->rdir, f_rdir, sizeof(s->rdir));
@@ -1269,7 +1339,7 @@ static int pick_folder(char *dir, int size)
 static SITE *sites_dialog(void)
 {
 	short row[SROWS], b_up, b_down, b_new, b_copy, b_del, b_cancel, b_save, b_conn, f_anon;
-	short e_name, e_host, e_port, e_user, e_rdir, e_ldir, b_ldir, m_ext, m_txt, m_bin, list;
+	short e_name, e_host, e_port, e_user, e_rdir, e_ldir, b_ldir, m_ext, m_txt, m_bin, list, b_proto;
 	short x, y, w, h, r, first = 0, k, chosen = -1, keep = 0, i;
 	static short anon_on;
 	const short W = SLW + 47;
@@ -1280,7 +1350,6 @@ static SITE *sites_dialog(void)
 	if (!nwork) {
 		memset(&work[0], 0, sizeof(SITE));
 		str_copy(work[0].name, "New site", sizeof(work[0].name));
-		work[0].port = 21;
 		work[0].anon = 1;
 		nwork = 1;
 	}
@@ -1313,6 +1382,7 @@ static SITE *sites_dialog(void)
 	e_host = d_edit(x + 10, 4, f_host, 28, 'X');
 	d_text(x, 5, "Port:");
 	e_port = d_edit(x + 10, 5, f_port, 5, '9');
+	b_proto = d_choice(x + 17, 5, 21, f_plabel);
 	s_on[0] = anon_on;
 	f_anon = d_tick(x, 7, "Log in anonymously", 0);
 	d_text(x, 8, "User:");
@@ -1364,6 +1434,12 @@ static SITE *sites_dialog(void)
 			objc_draw(tree, 0, 8, x, y, w, h);
 			continue;
 		}
+		if (r == b_proto && nwork) {
+			tree[r].ob_state &= ~SELECTED;
+			work[wsel].proto = (short)proto_pick(b_proto, work[wsel].proto, f_port);
+			objc_draw(tree, 0, 8, x, y, w, h);
+			continue;
+		}
 		/* what the fields say goes into the site shown */
 		if (nwork) {
 			fields_to(&work[wsel]);
@@ -1400,7 +1476,6 @@ static SITE *sites_dialog(void)
 			} else {
 				memset(n, 0, sizeof(*n));
 				str_copy(n->name, "New site", sizeof(n->name));
-				n->port = 21;
 				n->anon = 1;
 			}
 			wsel = nwork++;
@@ -1415,10 +1490,8 @@ static SITE *sites_dialog(void)
 					wsel = nwork - 1;
 				if (wsel < 0)
 					wsel = 0;
-				if (!nwork) {
+				if (!nwork)
 					memset(&work[0], 0, sizeof(SITE));
-					work[0].port = 21;
-				}
 				first = wsel - wsel % SROWS;
 			}
 			win_redraw_area(0);
@@ -1490,7 +1563,8 @@ SITE *dlg_quick(void)
 {
 	static SITE q;
 	static char host[42], port[6] = "21", user[34], pass[34];
-	short e_host, ok, keep, r;
+	static short proto;
+	short e_host, ok, keep, r, b_proto;
 	d_begin(50, 13);
 	nticks = 0;
 	d_band(50, " Quick connect");
@@ -1498,6 +1572,8 @@ SITE *dlg_quick(void)
 	e_host = d_edit(13, 2, host, 34, 'X');
 	d_text(2, 3, "Port:");
 	d_edit(13, 3, port, 5, '9');
+	proto_label(proto);
+	b_proto = d_choice(20, 3, 21, f_plabel);
 	d_text(2, 5, "User:");
 	d_edit(13, 5, user, 30, 'X');
 	d_text(2, 6, "Password:");
@@ -1523,6 +1599,12 @@ SITE *dlg_quick(void)
 				evnt_timer_(120);
 				continue;
 			}
+			if (r == b_proto) {
+				tree[r].ob_state &= ~SELECTED;
+				proto = (short)proto_pick(b_proto, proto, port);
+				objc_draw(tree, 0, 8, x, y, w, h);
+				continue;
+			}
 			break;
 		}
 		form_dial(FMD_FINISH, x, y, w, h);
@@ -1537,8 +1619,7 @@ SITE *dlg_quick(void)
 	str_copy(q.host, str_trim(host), sizeof(q.host));
 	str_copy(q.name, q.host, sizeof(q.name));
 	q.port = (unsigned short)atoi(port);
-	if (!q.port)
-		q.port = 21;
+	q.proto = proto;
 	q.anon = !user[0] || !strcasecmp(user, "anonymous");
 	str_copy(q.user, user, sizeof(q.user));
 	str_copy(q.pass, pass, sizeof(q.pass));

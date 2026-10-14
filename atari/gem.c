@@ -443,12 +443,16 @@ static void vdi(short op, short nptsin, short nintin, short h)
 		: : "r"((long)vdipb) : "d0", "d1", "d2", "a0", "a1", "a2", "memory", "cc");
 }
 
+enum { A_WR, A_FINT, A_FSTY, A_FCOL, A_FPER, A_LCOL, A_TCOL, A_TEFF, A_N };
+static short attr_h = -1, attr[A_N];
+
 short v_opnvwk_(short phys, short *work_out)
 {
 	short i;
 	for (i = 0; i < 10; i++)
 		vintin[i] = 1;
 	vintin[10] = 2;		/* raster coordinates */
+	attr_h = -1;		/* a new workstation: its attributes are the defaults */
 	vdi(100, 0, 11, phys);
 	for (i = 0; i < 45; i++)
 		work_out[i] = vintout[i];
@@ -478,14 +482,35 @@ void vs_clip(short h, short on, const short *pxy)
 	vdi(129, 2, 1, h);
 }
 
-void vswr_mode(short h, short mode) { vintin[0] = mode; vdi(32, 0, 1, h); }
-void vsf_interior(short h, short s) { vintin[0] = s; vdi(23, 0, 1, h); }
-void vsf_style(short h, short s) { vintin[0] = s; vdi(24, 0, 1, h); }
-void vsf_color(short h, short c) { vintin[0] = c; vdi(25, 0, 1, h); }
-void vsf_perimeter(short h, short on) { vintin[0] = on; vdi(104, 0, 1, h); }
-void vsl_color(short h, short c) { vintin[0] = c; vdi(17, 0, 1, h); }
-void vst_color(short h, short c) { vintin[0] = c; vdi(22, 0, 1, h); }
-void vst_effects(short h, short fx) { vintin[0] = fx; vdi(106, 0, 1, h); }
+/* VDI attributes as last set (ECal's draw.c does this; here in the
+   bindings, so every caller gets it and none can make it stale): each
+   call is a trap, and on an 8 MHz ST setting them again for every piece
+   of text cost more than the text. One workstation at a time: another
+   handle starts again. */
+
+static void vdi_attr(short h, int which, short v, short op)
+{
+	if (h != attr_h) {
+		short i;
+		for (i = 0; i < A_N; i++)
+			attr[i] = -32768;
+		attr_h = h;
+	}
+	if (attr[which] == v)
+		return;
+	attr[which] = v;
+	vintin[0] = v;
+	vdi(op, 0, 1, h);
+}
+
+void vswr_mode(short h, short mode) { vdi_attr(h, A_WR, mode, 32); }
+void vsf_interior(short h, short s) { vdi_attr(h, A_FINT, s, 23); }
+void vsf_style(short h, short s) { vdi_attr(h, A_FSTY, s, 24); }
+void vsf_color(short h, short c) { vdi_attr(h, A_FCOL, c, 25); }
+void vsf_perimeter(short h, short on) { vdi_attr(h, A_FPER, on, 104); }
+void vsl_color(short h, short c) { vdi_attr(h, A_LCOL, c, 17); }
+void vst_color(short h, short c) { vdi_attr(h, A_TCOL, c, 22); }
+void vst_effects(short h, short fx) { vdi_attr(h, A_TEFF, fx, 106); }
 
 void vst_alignment(short h, short hor, short ver)
 {

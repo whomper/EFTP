@@ -9,8 +9,14 @@
 
 #include "util.h"
 
+/* how a connection is protected */
+#define SEC_PLAIN 0	/* none (plain FTP, or through the Pi gateway) */
+#define SEC_TLS   1	/* TLS from the first byte (implicit FTPS, port 990) */
+
 typedef struct {
 	int h;
+	void *tls;		/* TLS *, when encrypted */
+	unsigned long tls_ms;	/* how long the handshake took */
 	char *buf;		/* right after the CONN: small for commands, more for data */
 	long bufsize, pos, len;
 	long timeout_ms;
@@ -21,8 +27,18 @@ typedef struct {
 
 /* bufsize: what is read from the network at a time (memory is short on
    a 1 MB ST: 2 KB for the commands, 8 KB for the files) */
-CONN *conn_open(const char *name, const char *host, unsigned short port, long bufsize,
+CONN *conn_open(const char *name, const char *host, unsigned short port, long bufsize, int sec,
 		char *err, int errlen);
+/* switch to TLS on an open connection (FTP's AUTH TLS, and its data
+   connections); host names the server for the certificate and the
+   session to resume. 0 with err on failure; conn_tls_retry is then set
+   if a new connection should try again (with every cipher, or ECDSA) */
+int   conn_starttls(CONN *c, const char *host, char *err, int errlen);
+extern int conn_tls_retry;
+/* the root certificates (CACERT.PEM), loaded at the first TLS connection */
+extern char conn_cacert[200];
+/* "TLS 1.2, ECDHE-RSA, ChaCha20-Poly1305, resumed", or "" */
+const char *conn_security(CONN *c);
 void  conn_close(CONN *c);
 /* close after what was written has gone out (the end of an upload) */
 void  conn_close_flush(CONN *c);

@@ -1,7 +1,8 @@
 /*
- * conn.c - buffered TCP connection on top of plat.h's net_*. From EMail
- * (whomper/EMAIL), without TLS: FTP sends its commands and files in the
- * clear, so EFTP runs on every Atari down to a 68000 ST.
+ * conn.c - buffered TCP connection on top of plat.h's net_*, with TLS
+ * when Falcon mode talks FTPS itself. From EMail and ECal: EMail's cipher
+ * retries (ChaCha20 alone first, then every cipher; RSA certificates
+ * first, then ECDSA), ECal's handshake timing in the log.
  */
 #include <stdlib.h>
 #include <string.h>
@@ -9,8 +10,87 @@
 #include <stdarg.h>
 #include "plat.h"
 #include "conn.h"
+#include "tls.h"
 
 char conn_logfile[200];
+char conn_cacert[200];
+int conn_tls_retry;
+
+/* servers that only have ECDSA certificates, and servers that refused
+   ChaCha20 alone: later connections offer that at once */
+static char ecdsa_hosts[8][64], aes_hosts[8][64];
+
+static int listed(char list[8][64], const char *host)
+{
+	int i;
+	for (i = 0; i < 8; i++)
+		if (!strcmp(list[i], host))
+			return 1;
+	return 0;
+}
+
+static void note_host(char list[8][64], int *next, const char *host)
+{
+	if (listed(list, host))
+		return;
+	str_copy(list[*next], host, 64);
+	*next = (*next + 1) % 8;
+}
+
+/* TLS on the open socket of c; host names the server for its
+   certificate and for the session kept to resume */
+static int start_tls(CONN *c, const char *host, char *err, int errlen)
+{
+	static int next_ecdsa, next_aes;
+	TLS *t;
+	int retry = 0;
+	char msg[200];
+	unsigned long t0;
+	conn_tls_retry = 0;
+	if (!tls_anchor_count()) {
+		int n;
+		t0 = pf_ms();
+		n = tls_load_anchors(conn_cacert, err, errlen);
+		if (!n) {
+			conn_log(c->name, " !! ", err, strlen(err));
+			return 0;
+		}
+		snprintf(msg, sizeof(msg), "%d root certificates read in %lu ms", n, pf_ms() - t0);
+		conn_log("TLS", " -- ", msg, strlen(msg));
+	}
+	t0 = pf_ms();
+	t = tls_start(c->h, host, (listed(ecdsa_hosts, host) ? 0 : TLS_RSA_ONLY) |
+		      (listed(aes_hosts, host) ? 0 : TLS_CHACHA_ONLY), &retry, err, errlen);
+	c->tls_ms = pf_ms() - t0;
+	if (!t) {
+		if (retry == TLS_RETRY_ANY_CIPHER) {
+			conn_log(c->name, " -- ", "no ChaCha20 here: again with every cipher", 41);
+			note_host(aes_hosts, &next_aes, host);
+			conn_tls_retry = 1;
+		} else {
+			conn_log(c->name, " !! ", err, strlen(err));
+			if (retry) {
+				note_host(ecdsa_hosts, &next_ecdsa, host);
+				conn_tls_retry = 1;
+			}
+		}
+		return 0;
+	}
+	c->tls = t;
+	snprintf(msg, sizeof(msg), "secure: %s (%lu ms)", tls_describe(t), c->tls_ms);
+	conn_log(c->name, " -- ", msg, strlen(msg));
+	return 1;
+}
+
+int conn_starttls(CONN *c, const char *host, char *err, int errlen)
+{
+	return start_tls(c, host, err, errlen);
+}
+
+const char *conn_security(CONN *c)
+{
+	return c && c->tls ? tls_describe(c->tls) : "";
+}
 
 long conn_bytes, conn_bytes_out;
 int conn_stop;
@@ -117,10 +197,22 @@ static CONN *open_plain(const char *name, const char *host, unsigned short port,
 	return c;
 }
 
-CONN *conn_open(const char *name, const char *host, unsigned short port, long bufsize,
+CONN *conn_open(const char *name, const char *host, unsigned short port, long bufsize, int sec,
 		char *err, int errlen)
 {
-	return open_plain(name, host, port, bufsize, err, errlen);
+	int attempt;
+	for (attempt = 0; attempt < 3; attempt++) {	/* ChaCha20 alone, then ECDSA */
+		CONN *c = open_plain(name, host, port, bufsize, err, errlen);
+		if (!c || sec != SEC_TLS)
+			return c;
+		if (start_tls(c, host, err, errlen))
+			return c;
+		conn_close(c);
+		if (!conn_tls_retry)
+			return 0;
+	}
+	conn_tls_retry = 0;	/* tried every way */
+	return 0;
 }
 
 void conn_close(CONN *c)
@@ -128,6 +220,8 @@ void conn_close(CONN *c)
 	if (!c)
 		return;
 	conn_log(c->name, " -- ", "closed", 6);
+	if (c->tls)
+		tls_close(c->tls);
 	net_close(c->h);
 	free(c);
 }
@@ -155,7 +249,7 @@ int conn_write(CONN *c, const char *data, long n)
 	/* in pieces, so a long upload can show how far it got */
 	while (n > 0) {
 		long k = n > 4096 ? 4096 : n;
-		if (conn_stop || net_write(c->h, data, k) != k) {
+		if (conn_stop || (c->tls ? tls_write(c->tls, data, k) : net_write(c->h, data, k)) != k) {
 			str_copy(c->err, "connection lost while sending", sizeof(c->err));
 			return 0;
 		}
@@ -210,7 +304,7 @@ static int fill(CONN *c)
 		return 1;
 	c->pos = c->len = 0;
 	for (;;) {
-		long r = net_read(c->h, c->buf, c->bufsize);
+		long r = c->tls ? tls_read(c->tls, c->buf, c->bufsize) : net_read(c->h, c->buf, c->bufsize);
 		if (r > 0) {
 			c->len = r;
 			conn_bytes += r;
@@ -293,7 +387,7 @@ long conn_read(CONN *c, char *buf, long max)
 		return -1;
 	}
 	while (c->pos >= c->len) {
-		long r = net_read(c->h, c->buf, c->bufsize);
+		long r = c->tls ? tls_read(c->tls, c->buf, c->bufsize) : net_read(c->h, c->buf, c->bufsize);
 		if (r > 0) {
 			c->pos = 0;
 			c->len = r;
@@ -329,7 +423,7 @@ int conn_pending(CONN *c)
 	long r;
 	if (c->pos < c->len)
 		return 1;
-	r = net_read(c->h, c->buf, c->bufsize);
+	r = c->tls ? tls_read(c->tls, c->buf, c->bufsize) : net_read(c->h, c->buf, c->bufsize);
 	if (r > 0) {
 		c->pos = 0;
 		c->len = r;
@@ -345,6 +439,8 @@ void conn_close_flush(CONN *c)
 	if (!c)
 		return;
 	conn_log(c->name, " -- ", "closed", 6);
+	if (c->tls)
+		tls_close(c->tls);	/* close_notify: the server knows the file is whole */
 	net_close_wait(c->h, 30);
 	free(c);
 }

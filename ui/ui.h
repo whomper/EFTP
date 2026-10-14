@@ -83,6 +83,7 @@ extern short text_pen;		/* the colour of text (theme.h pens); set, draw, set bac
 #define text_pen_at(p, x, y, s, n, cols, fl) \
 	do { text_pen = (p); text_at(x, y, s, n, cols, fl); text_pen = 1; } while (0)
 void clip_on(GRECT *r);
+void *st_ram(long n);		/* a bitmap's room in ST RAM, for the blitter (n <= 512) */
 void text_at(short x, short y, const char *s, long n, short cols, short flags);
 void hline(short x1, short x2, short y);
 void frame(GRECT *r, short color);
@@ -164,7 +165,7 @@ enum {
 	C_SITES, C_QUICK, C_DISCONNECT, C_QUIT,
 	C_TRANSFER, C_NEWFOLDER, C_RENAME, C_DELETE, C_CHMOD, C_SELALL, C_REFRESH, C_HIDDEN,
 	C_RETRY, C_CLEARDONE, C_CLEARALL, C_LOG,
-	C_SETTINGS, C_FONT, C_HEBREW, C_PLOG,
+	C_SETTINGS, C_FONT, C_HEBREW, C_PLOG, C_FALCON,
 	C_SEP, C_ACC
 };
 void ui_command(short cmd);
@@ -199,5 +200,10 @@ void date_str(CTIME t, int wall, char *out, int size);
 #define K_ALT 0x08
 #define KEY_SCAN(k)  (((unsigned short)(k)) >> 8)
 #define KEY_ASCII(k) ((unsigned char)((k) & 0xff))
+
+/* Falcon mode (dsp.c): RSA on the DSP when there is one */
+void falcon_dsp_init(void);
+int  falcon_mode_set(int on);	/* main.c: 0 and an alert when it can't be */
+const char *falcon_dsp_state(void);	/* "DSP" or "68030" */
 
 #endif

@@ -485,24 +485,14 @@ static void read_feat(FTP *f)
 	}
 }
 
-FTP *ftp_open(const char *host, unsigned short port, const char *user, const char *pass,
-	      char *err, int errlen)
+/* the control connection, and TLS on it as sec asks: 220 read. 0 with
+   f->err or err set */
+static int connect_ctl(FTP *f, int sec, char *err, int errlen)
 {
-	FTP *f = calloc(1, sizeof(FTP));
-	int code, anon = !user[0] || !strcasecmp(user, "anonymous") || !strcasecmp(user, "ftp");
-	if (!f) {
-		str_copy(err, "out of memory", errlen);
-		return 0;
-	}
-	sb_init(&f->welcome);
-	str_copy(f->host, host, sizeof(f->host));
-	f->port = port ? port : 21;
-	watch("-", "connecting...");
-	f->c = conn_open("FTP", host, f->port, 2048, err, errlen);
+	int code;
+	f->c = conn_open("FTP", f->host, f->port, 2048, sec == FTP_IMPLICIT ? SEC_TLS : SEC_PLAIN, err, errlen);
 	if (!f->c) {
 		watch("!", err);
-		sb_free(&f->welcome);
-		free(f);
 		return 0;
 	}
 	f->c->timeout_ms = (long)ftp_timeout * 1000L;
@@ -512,9 +502,58 @@ FTP *ftp_open(const char *host, unsigned short port, const char *user, const cha
 	if (code != 220) {
 		if (code)
 			fail(f, "The server says: %s", f->reply);
-		goto bad;
+		return 0;
 	}
 	sb_add(&f->welcome, lines.s, lines.len);
+	if (sec == FTP_EXPLICIT) {
+		/* RFC 4217: AUTH TLS, then TLS on this same connection */
+		code = cmd(f, 0, "AUTH TLS");
+		if (code != 234) {
+			if (code)
+				fail(f, "The server won't encrypt (AUTH TLS): %s", f->reply);
+			return 0;
+		}
+		if (!conn_starttls(f->c, f->host, err, errlen)) {
+			f->c->dead = 1;
+			fail(f, "%s", err);
+			return 0;
+		}
+	}
+	f->tls = sec != FTP_PLAIN;
+	return 1;
+}
+
+FTP *ftp_open(const char *host, unsigned short port, const char *user, const char *pass, int sec,
+	      char *err, int errlen)
+{
+	FTP *f = calloc(1, sizeof(FTP));
+	int code, attempt, anon = !user[0] || !strcasecmp(user, "anonymous") || !strcasecmp(user, "ftp");
+	if (!f) {
+		str_copy(err, "out of memory", errlen);
+		return 0;
+	}
+	sb_init(&f->welcome);
+	str_copy(f->host, host, sizeof(f->host));
+	f->port = port ? port : sec == FTP_IMPLICIT ? 990 : 21;
+	watch("-", "connecting...");
+	err[0] = 0;
+	/* a TLS handshake a server refused (ChaCha20 alone, RSA alone) is
+	   tried again on a new connection, as EMail does */
+	for (attempt = 0;; attempt++) {
+		if (connect_ctl(f, sec, err, errlen))
+			break;
+		if (!conn_tls_retry || attempt >= 2) {
+			if (f->c)
+				goto bad;
+			sb_free(&f->welcome);
+			free(f);
+			return 0;
+		}
+		conn_close(f->c);
+		f->c = 0;
+		sb_reset(&f->welcome);
+		f->err[0] = 0;
+	}
 	conn_log_login("FTP", anon ? "anonymous" : user, pass);
 	code = cmd(f, 0, "USER %s", anon ? "anonymous" : user);
 	if (code == 331 || code == 332)
@@ -527,6 +566,15 @@ FTP *ftp_open(const char *host, unsigned short port, const char *user, const cha
 	if (lines.len) {
 		sb_addc(&f->welcome, '\n');
 		sb_add(&f->welcome, lines.s, lines.len);
+	}
+	if (f->tls) {
+		/* the files and listings encrypted too */
+		cmd(f, 0, "PBSZ 0");
+		if (cmd(f, 0, "PROT P") / 100 != 2) {
+			if (f->code)
+				fail(f, "The server won't encrypt the files (PROT P): %s", f->reply);
+			goto bad;
+		}
 	}
 	if (cmd(f, 0, "FEAT") == 211)
 		read_feat(f);
@@ -542,9 +590,14 @@ FTP *ftp_open(const char *host, unsigned short port, const char *user, const cha
 		goto bad;
 	return f;
 bad:
-	str_copy(err, f->err[0] ? f->err : "the server closed the connection", errlen);
+	str_copy(err, f->err[0] ? f->err : err[0] ? err : "the server closed the connection", errlen);
 	ftp_close(f);
 	return 0;
+}
+
+const char *ftp_security(FTP *f)
+{
+	return f && f->c ? conn_security(f->c) : "";
 }
 
 void ftp_close(FTP *f)
@@ -558,7 +611,8 @@ void ftp_close(FTP *f)
 		cmd(f, 0, "QUIT");
 		conn_stop = keep;
 	}
-	conn_close(f->c);
+	if (f->c)
+		conn_close(f->c);
 	sb_free(&f->welcome);
 	free(f);
 }
@@ -713,7 +767,7 @@ static CONN *data_open(FTP *f)
 		if (!unroutable(ip))
 			snprintf(host, sizeof(host), "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
 	}
-	d = conn_open("DATA", host, port, 8192, err, sizeof(err));
+	d = conn_open("DATA", host, port, 8192, SEC_PLAIN, err, sizeof(err));
 	if (!d) {
 		fail(f, "Can't open the data connection: %s", err);
 		return 0;
@@ -757,11 +811,30 @@ static int closing_reply(FTP *f, int stopped)
 
 /* send cmd on the control connection once d is open; 1 if the server
    starts the transfer (125/150) */
+static int closing_reply(FTP *f, int stopped);
+
 static int start(FTP *f, CONN *d, const char *fmt, const char *arg)
 {
 	int code = cmd(f, 0, fmt, arg);
-	if (code == 125 || code == 150)
+	if (code == 125 || code == 150) {
+		/* FTPS: the data connection is encrypted once the server is
+		   ready for it (after this reply; earlier, the server would
+		   still be waiting for the command while we wait for its
+		   hello). It takes up the control connection's TLS session, as
+		   servers like vsftpd insist, and is checked against the
+		   server's name, wherever passive mode sent it */
+		if (f->tls) {
+			char err[160];
+			int ok = conn_starttls(d, f->host, err, sizeof(err));
+			if (!ok) {
+				conn_close(d);
+				fail(f, "Can't encrypt the data connection: %s", err);
+				closing_reply(f, 1);
+				return 0;
+			}
+		}
 		return 1;
+	}
 	conn_close(d);
 	if (code / 100 == 2)		/* finished already (an empty listing) */
 		return 2;

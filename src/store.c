@@ -12,6 +12,8 @@
 #include "secret.h"
 #include "tz.h"
 #include "util.h"
+#include "conn.h"
+#include "tls.h"
 
 OPTIONS opt;
 SITE *sites[MAXSITE];
@@ -37,6 +39,8 @@ static void defaults(void)
 	str_copy(opt.text, "TXT,ASC,DOC,ME,NFO,DIZ,HTM,HTML,INF", sizeof(opt.text));
 	opt.font_id = 1;
 	opt.font_pt = 0;	/* the system font at the screen's size */
+	opt.dsp = 1;
+	opt.gateport = 2121;
 }
 
 /* "a,b,c,d" -> up to n shorts */
@@ -111,6 +115,9 @@ static void set_site(SITE *s, const char *k, const char *v)
 	else if (!strcmp(k, "remotedir")) str_copy(s->rdir, v, sizeof(s->rdir));
 	else if (!strcmp(k, "localdir")) str_copy(s->ldir, v, sizeof(s->ldir));
 	else if (!strcmp(k, "mode")) s->ascii = (short)atoi(v);
+	else if (!strcmp(k, "protocol"))
+		s->proto = !strcasecmp(v, "sftp") ? PR_SFTP : !strcasecmp(v, "ftps-implicit") ? PR_FTPSI :
+			   !strcasecmp(v, "ftps") ? PR_FTPS : PR_FTP;
 }
 
 static void set_opt(const char *k, const char *v)
@@ -136,6 +143,10 @@ static void set_opt(const char *k, const char *v)
 	else if (!strcmp(k, "hebfont")) opt.hebfont = n >= 0 && n <= 2 ? n : 0;
 	else if (!strcmp(k, "localdir")) str_copy(opt.ldir, v, sizeof(opt.ldir));
 	else if (!strcmp(k, "sort")) opt.sort = n;
+	else if (!strcmp(k, "falcon")) opt.falcon = n != 0 && tls_available;
+	else if (!strcmp(k, "dsp")) opt.dsp = n != 0;
+	else if (!strcmp(k, "gate")) str_copy(opt.gate, v, sizeof(opt.gate));
+	else if (!strcmp(k, "gateport")) opt.gateport = (unsigned short)(atoi(v) > 0 ? atoi(v) : 2121);
 }
 
 /* ---------------- the time zone ---------------- */
@@ -260,6 +271,11 @@ int store_init(const char *workdir)
 		secret_init(kf);
 		store_lost_passwords = 0;
 	}
+	/* Falcon mode: the root certificates and the random seed next to
+	   EFTP.PRG */
+	path_join(conn_cacert, sizeof(conn_cacert), workdir, "CACERT.PEM");
+	path_join(tls_roots_cache, sizeof(tls_roots_cache), workdir, "ROOTS.DAT");
+	path_join(tls_seed_path, sizeof(tls_seed_path), workdir, "SEED.DAT");
 	buf = pf_load(inf_path, 0);
 	if (buf) {
 		for (line = buf; line && *line; line = next) {
@@ -298,6 +314,7 @@ int store_init(const char *workdir)
 	}
 	if (!opt.tzname[0] || !tz_find(opt.tzname))
 		zone_detect();		/* written with the next save */
+	tls_tz_minutes = tz_offset(zone(), zone_utc_now());
 	return nsites;
 }
 
@@ -375,6 +392,13 @@ int store_save_settings(void)
 	put_fmt(&b, "sort the lists by 0 name, 1 size, 2 date; add 8 for the other way round",
 		"SORT", "%d", opt.sort);
 	put_str(&b, "the Atari folder shown last", "LOCALDIR", opt.ldir);
+	put_fmt(&b, "1 = Falcon mode: FTPS with TLS on this Atari (Falcon, TT; EFTP.PRG); 0 = through the Pi gateway",
+		"FALCON", "%d", opt.falcon);
+	put_fmt(&b, "Falcon mode: 1 = the DSP checks the servers' signatures, 0 = the 68030 does",
+		"DSP", "%d", opt.dsp);
+	put_str(&b, "the Raspberry Pi gateway's address, for FTPS and SFTP servers (gateway/install.sh on the Pi)",
+		"GATE", opt.gate);
+	put_fmt(&b, "the gateway's port", "GATEPORT", "%u", opt.gateport);
 	for (i = 0; i < nsites; i++) {
 		SITE *s = sites[i];
 		sb_adds(&b, "; one [SITE] part per server, up to 24; File > Sites edits them\r\n"
@@ -390,10 +414,39 @@ int store_save_settings(void)
 		put_str(&b, "the Atari folder to show with it; empty = the one shown before", "LOCALDIR", s->ldir);
 		put_fmt(&b, "files go 0 = as text or binary by their extension, 1 = all as text, 2 = all binary",
 			"MODE", "%d", s->ascii);
+		put_str(&b, "ftp, ftps (AUTH TLS, port 21), ftps-implicit (port 990) or sftp (SSH, port 22)",
+			"PROTOCOL", s->proto == PR_SFTP ? "sftp" : s->proto == PR_FTPSI ? "ftps-implicit" :
+				    s->proto == PR_FTPS ? "ftps" : "ftp");
 	}
 	r = pf_save(inf_path, b.s, b.len);
 	sb_free(&b);
 	return r;
+}
+
+unsigned short site_port(const SITE *s)
+{
+	if (s->port)
+		return s->port;
+	return s->proto == PR_SFTP ? 22 : s->proto == PR_FTPSI ? 990 : 21;
+}
+
+int site_via_gateway(const SITE *s)
+{
+	if (s->proto == PR_SFTP)
+		return 1;		/* SSH isn't done on the Atari */
+	if (s->proto == PR_FTPS || s->proto == PR_FTPSI)
+		return !opt.falcon;
+	return 0;
+}
+
+const char *proto_name(int proto)
+{
+	switch (proto) {
+	case PR_FTPS: return "FTPS";
+	case PR_FTPSI: return "FTPS (implicit)";
+	case PR_SFTP: return "SFTP";
+	}
+	return "FTP";
 }
 
 int is_text(const char *name, const SITE *s)

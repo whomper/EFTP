@@ -11,6 +11,7 @@ with Skip, stops a download half way and resumes it; the test checks
 every byte on both sides.
 
     net_test.py WORKDIR EMUTOS.IMG     (Xvfb, xdotool, pip install pyftpdlib)
+    EFTP_PRG=EFTPST.PRG net_test.py ...  the ST edition, on a 1 MB machine
 """
 import os
 import sys
@@ -25,7 +26,10 @@ os.makedirs(work, exist_ok=True)
 srv, home = server.ftp_server(work)
 hd = server.drive_c(work)
 bridge, serial = server.bridge(work)
-r = rig.Rig(work, tos, serial=serial)
+# EFTP.PRG (with TLS) on a 4 MB Falcon; EFTP_PRG=EFTPST.PRG, the ST
+# edition, on 1 MB, the smallest machine it is for
+r = rig.Rig(work, tos, serial=serial,
+            extra=["--memsize", "1" if os.environ.get("EFTP_PRG") == "EFTPST.PRG" else "4"])
 fails = []
 
 

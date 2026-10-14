@@ -68,7 +68,9 @@ def drive_c(work, inf_extra="", desk=None):
         if not p.endswith("/"):
             with open(path, "wb") as f:
                 f.write(os.urandom(size))
-    shutil.copy(os.path.join(ROOT, "binary", "EFTP.PRG"), hd)
+    # EFTP.PRG (Falcon mode, TLS) or, with EFTP_PRG=EFTPST.PRG, the ST
+    # edition; either runs as C:\EFTP.PRG
+    shutil.copy(os.path.join(ROOT, "binary", os.environ.get("EFTP_PRG", "EFTP.PRG")), os.path.join(hd, "EFTP.PRG"))
     shutil.copy(os.path.join(ROOT, "tools", "fakesting", "FAKESTNG.PRG"), os.path.join(hd, "AUTO"))
     with open(os.path.join(hd, "EFTP.INF"), "w", newline="") as f:
         f.write("[OPTIONS]\r\nTIMEZONE=Asia/Jerusalem\r\nLOG=1\r\nLOCALDIR=C:\\\r\n" + inf_extra +

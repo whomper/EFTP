@@ -10,10 +10,20 @@
   number in `VERSION` each time it links `binary/EFTP.PRG`; commit
   `VERSION` with the program, and never reuse a number for a different
   program.
-- Before pushing: `make test`, `make itest` (pip install pyftpdlib) and,
-  when the Atari side changes, `tests/hatari/net_test.py` in Hatari with
-  EmuTOS. `make help HCP=...` rebuilds `binary/EFTP.HYP` when
-  `docs/GUIDE.md` changes.
+- Two editions, as ECal: `EFTP.PRG` (BearSSL, Falcon mode, for Falcon
+  and TT) and `EFTPST.PRG` (`src/tls_none.c`, through the Pi gateway
+  only, for a 1 MB ST). The TLS code (`src/tls.c`, `third_party/bearssl`,
+  `dsp/`, `ui/dsp.c`) is EMail's and ECal's; keep it in step with them.
+- FTPS data connections: the TLS handshake comes after the 125/150
+  reply (before it, servers deadlock), and resumes the control
+  connection's session (vsftpd's require_ssl_reuse).
+- `gateway/eftpgate.py` is standard Python plus paramiko (Raspberry Pi
+  OS: python3-paramiko); keep it that way, like ECal's gateway.
+- Before pushing: `make test`, `make itest` (pip install pyftpdlib
+  pyopenssl paramiko) and, when the Atari side changes,
+  `tests/hatari/net_test.py` (4 MB, and `EFTP_PRG=EFTPST.PRG` on 1 MB)
+  and `tests/hatari/secure_test.py` in Hatari with EmuTOS. `make help
+  HCP=...` rebuilds `binary/EFTP.HYP` when `docs/GUIDE.md` changes.
 - The small C library has no `%o` or floating point: format octal by hand
   and keep `double` out (it pulls in libgcc code that needs a GOT).
 - Memory is short on a 1 MB ST with STinG: keep big buffers out of BSS and

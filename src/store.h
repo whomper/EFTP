@@ -18,7 +18,14 @@ typedef struct {
 	char rdir[160];		/* the server folder to open, "" = the login's own */
 	char ldir[160];		/* the Atari folder to open with it, "" = as before */
 	short ascii;		/* 0 by the file's extension, 1 all text, 2 all binary */
+	short proto;		/* PR_*: how the server is spoken to */
 } SITE;
+
+/* a site's protocol */
+#define PR_FTP     0	/* plain FTP, straight to the server */
+#define PR_FTPS    1	/* FTP over TLS, AUTH TLS on port 21 (explicit) */
+#define PR_FTPSI   2	/* FTP over TLS from the first byte, port 990 (implicit) */
+#define PR_SFTP    3	/* SFTP (SSH), port 22: always through the Pi gateway */
 
 /* when a file is already there */
 #define EX_ASK       0
@@ -53,6 +60,10 @@ typedef struct {
 	short hebfont;		/* where the font has its Hebrew letters: HEB_* */
 	char ldir[200];		/* the Atari folder shown last */
 	short sort;		/* 0 name, 1 size, 2 date; +8 reversed */
+	short falcon;		/* Falcon mode: FTPS with TLS on the Atari (and its DSP), no gateway */
+	short dsp;		/* Falcon mode may use the DSP (else the 68030 does it all) */
+	char gate[64];		/* the Raspberry Pi gateway's address, "" = none */
+	unsigned short gateport;
 	char workdir[200];	/* where EFTP.PRG is */
 } OPTIONS;
 
@@ -66,6 +77,12 @@ int  store_save_settings(void);
 SITE *site_new(void);			/* added to the list; NULL when full */
 void site_delete(SITE *s);
 SITE *site_copy(SITE *s);
+
+/* the site's port, or the usual one for its protocol */
+unsigned short site_port(const SITE *s);
+/* how the site is reached now: 1 through the gateway, 0 straight to it */
+int  site_via_gateway(const SITE *s);
+const char *proto_name(int proto);	/* "FTP", "FTPS", "FTPS (implicit)", "SFTP" */
 
 /* is name sent as text (opt.text, the site's choice) */
 int  is_text(const char *name, const SITE *s);
