@@ -202,3 +202,21 @@ the same against secure servers: FTPS in Falcon mode (RSA on the
 emulated DSP, every data connection resuming the TLS session) and SFTP
 through `eftpgate.py`, and checks the files' bytes and line ends. It's for the emulator
 only; never install it on a real Atari.
+
+## Licence
+
+EFTP is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 2 of the License, or (at your option)
+any later version. It is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [COPYING](COPYING).
+
+Copyright (C) 2026 Erez Yaary.
+
+It includes, under their own licences (compatible with the GPL):
+
+- [BearSSL](third_party/bearssl) by Thomas Pornin: MIT licence
+  ([LICENSE.txt](third_party/bearssl/LICENSE.txt))
+- `CACERT.PEM`, the root certificates for Falcon mode, from Mozilla's CA
+  list (Mozilla Public License 2.0)
