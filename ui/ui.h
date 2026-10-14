@@ -44,6 +44,8 @@ extern short ap_id;
 /* the window (win.c) */
 extern WIN w_local, w_remote, w_queue;
 extern short main_h;
+extern short main_iconified;		/* shown as the icon */
+void icon_window(GRECT *area);		/* the iconified window: icon and how far a transfer is */
 void main_open(void);
 void main_close(void);
 void main_status(const char *s);		/* the window's info line */

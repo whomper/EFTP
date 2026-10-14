@@ -87,6 +87,11 @@ The dividers between the panes can be dragged, the size box is at the
 bottom right, and EFTP remembers both. The pane you clicked last has the
 keyboard: its header is dark. Tab moves the keyboard to the next pane.
 
+Where the AES can iconify windows (MultiTOS, MagiC, XaAES, N.AES), the
+window has the iconify button: EFTP shrinks to its icon, with how far
+the transfer has got under it ("42%"). Transfers go on while it is
+iconified.
+
 Click a column title to sort the lists by name, size or date; click it
 again for the other way round.
 

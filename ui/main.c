@@ -225,6 +225,9 @@ static void handle_poll_event(short which, short *msg, AEVENT *ev)
 		case WM_MOVED:
 		case WM_SIZED:
 		case WM_FULLED:
+		case WM_ICONIFY:
+		case WM_UNICONIFY:
+		case WM_ALLICONIFY:
 			win_message(msg);
 			break;
 		case MN_SELECTED:
@@ -819,7 +822,7 @@ int main(void)
 		short which, hovering;
 		unsigned long wait = 1000;
 		evnt_set_m1(1, hover_x, hover_y, 1, 1);
-		hovering = !tip_tried && hover_x >= 0;
+		hovering = !tip_tried && hover_x >= 0 && !main_iconified;
 		if (hovering)
 			wait = 100;
 		/* 0x102/3/0: wake on any button press, left or right, the
@@ -828,7 +831,7 @@ int main(void)
 				    wait, msg, &ev);
 		if (which & (MU_M1 | MU_KEYBD | MU_BUTTON | MU_MESAG)) {
 			short k;
-			if (which & MU_M1) {
+			if ((which & MU_M1) && !main_iconified) {
 				graf_mkstate(&hover_x, &hover_y, &k, &k);
 				win_hover(hover_x, hover_y);
 			}
@@ -855,6 +858,8 @@ int main(void)
 					win_message(msg);
 			}
 		}
+		if (main_iconified)	/* an icon takes no keys or clicks */
+			which &= ~(MU_KEYBD | MU_BUTTON);
 		if (which & MU_KEYBD) {
 			WIN *top = win_focused();
 			if (!shortcut(ev.kstate, ev.kreturn) && top && top->key)
