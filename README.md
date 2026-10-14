@@ -140,10 +140,10 @@ The ST-Guide help file `binary/EFTP.HYP` is made from `docs/GUIDE.md` by
 `make help HCP=/path/to/hcp`.
 
 No MiNTLib is needed: the program is freestanding (`atari/`) and
-`tools/elf2tos.py` writes the TOS executable. It is built for the 68000,
+`common/tools/elf2tos.py` writes the TOS executable. It is built for the 68000,
 so it runs on every Atari from the ST to the Falcon; BearSSL
-(`third_party/bearssl`, in EFTP.PRG only) is built for the 68030.
-`tools/mkroots.c` decodes `CACERT.PEM` into `ROOTS.DAT`. The desktop icon is
+(`common/third_party/bearssl`, in EFTP.PRG only) is built for the 68030.
+`common/tools/mkroots.c` decodes `CACERT.PEM` into `ROOTS.DAT`. The desktop icon is
 drawn by `tools/icon/make_icon.py` (which also writes `ui/icon.h`,
 `ui/icon16.h` and the previews in `docs/`) and `tools/icon/make_rsc.py`.
 
@@ -156,12 +156,13 @@ src/     the FTP core: the protocol and its listings (ftp.c), the
          transfer queue and names (xfer.c), settings and sites (store.c),
          the connection (conn.c), TLS (tls.c; tls_none.c in EFTPST.PRG),
          charsets, time zones
-dsp/     the DSP56001 program for RSA (from EMail)
+common/  code shared with the other AERA programs (from AERA-Atari):
+         BearSSL, the DSP RSA, bidi, dates, passwords, build tools
 gateway/ eftpgate.py for the Raspberry Pi, install.sh, its tests
 ui/      the GEM program: the window and its panes, the file lists, the
          transfers, dialogs, menus, the toolbar
 tests/   unit and integration tests, the Hatari test rig
-tools/   elf2tos.py, the icon generator, the help builder,
+tools/   the icon generator, the help builder, sync-common.sh,
          FAKESTNG.PRG (for testing in Hatari only)
 binary/  what goes on the Atari: EFTP.PRG, EFTP.HYP and the desktop icon
 ```
@@ -216,7 +217,7 @@ Copyright (C) 2026 Erez Yaary.
 
 It includes, under their own licences (compatible with the GPL):
 
-- [BearSSL](third_party/bearssl) by Thomas Pornin: MIT licence
-  ([LICENSE.txt](third_party/bearssl/LICENSE.txt))
+- [BearSSL](common/third_party/bearssl) by Thomas Pornin: MIT licence
+  ([LICENSE.txt](common/third_party/bearssl/LICENSE.txt))
 - `CACERT.PEM`, the root certificates for Falcon mode, from Mozilla's CA
   list (Mozilla Public License 2.0)

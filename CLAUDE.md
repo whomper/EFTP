@@ -12,8 +12,13 @@
   program.
 - Two editions, as ECal: `EFTP.PRG` (BearSSL, Falcon mode, for Falcon
   and TT) and `EFTPST.PRG` (`src/tls_none.c`, through the Pi gateway
-  only, for a 1 MB ST). The TLS code (`src/tls.c`, `third_party/bearssl`,
-  `dsp/`, `ui/dsp.c`) is EMail's and ECal's; keep it in step with them.
+  only, for a 1 MB ST). The TLS code (`src/tls.c`) is EMail's and ECal's;
+  keep it in step with them.
+- **`common/` is shared AERA code** (BearSSL, the DSP RSA, bidi, dates,
+  passwords, libc headers, build tools), a git subtree of
+  github.com/whomper/AERA-Atari. Don't edit it here: change it in
+  AERA-Atari, then run `tools/sync-common.sh`. Follow the AERA Atari
+  app guidelines (AERA-Atari, `standards/ATARI-APP-GUIDELINES.md`).
 - FTPS data connections: the TLS handshake comes after the 125/150
   reply (before it, servers deadlock), and resumes the control
   connection's session (vsftpd's require_ssl_reuse).
