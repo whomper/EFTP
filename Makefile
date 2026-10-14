@@ -25,7 +25,7 @@ CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
            -fno-pic -fno-pie -fno-tree-loop-distribute-patterns -fno-store-merging \
            -fno-asynchronous-unwind-tables -Wall -Wno-pointer-sign \
            -DFTP_TOS -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include \
-           -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/third_party/bearssl/inc \
+           -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/ui -Icommon/third_party/bearssl/inc \
            -DTLS_FULL_EDITION=\"EFTP.PRG\"
 LDFLAGS := -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/atari/link.ld \
            -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments
@@ -44,7 +44,7 @@ HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
 CORE    := util charset conn ftp xfer store futil bidi secret ctime tz
 ATARI   := libc tos plat_tos net_tos sting gem dsprsa crash
-UI      := main draw win files queue dialogs popup font about theme dsp
+UI      := main draw win files queue dialogs popup font about theme dsp help
 
 OBJDIR  := build
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/crash_s.o \
