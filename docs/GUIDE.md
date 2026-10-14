@@ -44,15 +44,17 @@ C:\EFTP\EFTP.PRG      the program
 C:\EFTP\EFTP.INF      settings and sites (each setting has a note above it)
 C:\EFTP\EFTP.KEY      the key the passwords in EFTP.INF are encrypted with
 C:\EFTP\EFTP.LOG      protocol log, when switched on
-C:\EFTP\EFTP.HYP      this guide for ST-Guide (the Help key opens it)
+C:\EFTP\CRASH.LOG     what happened, if EFTP ever crashes
+C:\EFTP\EFTP.HYP      this guide, for EHypView or ST-Guide (the Help key opens it)
 C:\EFTP\CACERT.PEM    Falcon mode: the root certificates (copy them here)
 C:\EFTP\ROOTS.DAT     Falcon mode: the same, decoded ahead of time
 C:\EFTP\SEED.DAT      Falcon mode: randomness kept for the next start
 ```
 
-Start it. This guide is also in `EFTP.HYP`, for ST-Guide: with ST-Guide
-installed (as an accessory or under MultiTOS/MagiC) and `EFTP.HYP` next
-to `EFTP.PRG`, the Help key opens it. Without ST-Guide, Help shows the
+Start it. This guide is also in `EFTP.HYP`, a hypertext: with EHypView,
+ST-Guide or HypView running (as an accessory, or as a program under
+MultiTOS or MagiC), the Help key opens it, from next to `EFTP.PRG` or
+from the viewer's own help folder. Without a viewer, Help shows the
 keys.
 
 The desktop icon, the same monitor as EMail's and ECal's showing a
@@ -341,6 +343,13 @@ During a transfer, Esc or Undo stops it.
 - **"... SSH key has changed"**: the server isn't the one the Pi met the
   first time. If it was really reinstalled, remove its line from
   `/var/lib/eftpgate/known_hosts` on the Pi.
+- **A crash**: if EFTP itself goes wrong (what would be 2 to 8 bombs),
+  it says so, writes what happened to `CRASH.LOG` next to `EFTP.PRG` and
+  quits, leaving the Atari running. A crash in the system or a driver
+  still gives the bombs; TOS keeps a record of them, and EFTP adds it to
+  `CRASH.LOG` the next time it starts (and says so if the crash was in
+  EFTP). Send `CRASH.LOG`, with `EFTP.LOG` if the log was on, to the author. Under MiNT or MagiC, which
+  handle crashes themselves, there is no `CRASH.LOG`.
 
 ## EFTP.INF
 
