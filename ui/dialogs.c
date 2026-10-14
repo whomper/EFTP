@@ -12,6 +12,7 @@
 #include "util.h"
 #include "charset.h"
 #include "tz.h"
+#include "clip.h"
 #include "theme.h"
 #include "tls.h"
 
@@ -283,7 +284,7 @@ static int pw_key(PWFIELD *p, short key, short *idx)
 	if (scan == 0x0e) {			/* Backspace */
 		if (n)
 			p->real[n - 1] = 0;
-	} else if (scan == 0x01 || scan == 0x53) {	/* Esc, Delete: clear */
+	} else if (scan == 0x01 || scan == 0x53) {	/* Delete (Esc: where nothing cancels): clear */
 		p->real[0] = 0;
 	} else if (scan == 0x4b || scan == 0x4d) {	/* the cursor stays at the end */
 		return 1;
@@ -309,7 +310,35 @@ static short first_editable(void)
 	return 0;
 }
 
-/* form_do, with password fields */
+/* ^V in a password field: the clipboard's first line typed in (nothing is
+   ever copied out of one) */
+static void pw_paste(PWFIELD *p, short *idx)
+{
+	char buf[64], *c;
+	clip_get(buf, sizeof(buf));
+	for (c = clip_line(buf); *c; c++)
+		pw_key(p, (unsigned char)*c, idx);
+}
+
+/* what Esc presses (the guidelines, 3.2): Cancel, else the only button
+   that ends the dialog (OK in a box that only says something); 0 when
+   neither is there */
+static short esc_button(void)
+{
+	short i, exits = 0, last = 0;
+	for (i = 1; i < nobj; i++) {
+		if (tree[i].ob_type != G_BUTTON || !(tree[i].ob_flags & EXIT))
+			continue;
+		if (!strcmp((const char *)tree[i].ob_spec, "Cancel"))
+			return i;
+		exits++;
+		last = i;
+	}
+	return exits == 1 ? last : 0;
+}
+
+/* form_do, with password fields, the clipboard (^C ^X ^V) and Esc for
+   Cancel */
 static short form_loop(short start)
 {
 	short next = start ? start : first_editable(), edit = 0, idx = 0, cont = 1;
@@ -326,7 +355,15 @@ static short form_loop(short start)
 			PWFIELD *p = pw_of(edit);
 			short scan = KEY_SCAN(e.kreturn);
 			short nav = scan == 0x1c || scan == 0x72 || scan == 0x0f || scan == 0x48 || scan == 0x50;
-			if (!(p && !nav && pw_key(p, e.kreturn, &idx))) {
+			if (scan == 0x01 && esc_button()) {
+				next = esc_button();	/* as if it were clicked */
+				cont = 0;
+			} else if (edit && clip_key(e.kreturn)) {
+				if (!p)
+					clip_edit(tree, edit, &idx, e.kreturn);
+				else if (clip_key(e.kreturn) == CLIP_PASTE)
+					pw_paste(p, &idx);
+			} else if (!(p && !nav && pw_key(p, e.kreturn, &idx))) {
 				short kr;
 				cont = form_keybd(tree, edit, next, e.kreturn, &next, &kr);
 				if (kr)
@@ -371,7 +408,7 @@ short d_do(short edit)
 	wind_update(3);			/* BEG_MCTRL: the dialog owns the mouse */
 	form_dial(FMD_START, x, y, w, h);
 	objc_draw(tree, 0, 8, x, y, w, h);
-	r = (npw ? form_loop(edit) : form_do(tree, edit)) & 0x7fff;
+	r = form_loop(edit) & 0x7fff;
 	form_dial(FMD_FINISH, x, y, w, h);
 	wind_update(2);
 	wind_update(END_UPDATE);
@@ -631,7 +668,7 @@ static short settings_run(short pages_box)
 	page_area.h = tree[pages_box].ob_height;
 	objc_draw(tree, 0, 8, x, y, w, h);
 	for (;;) {
-		r = form_do(tree, first_edit()) & 0x7fff;
+		r = form_loop(first_edit()) & 0x7fff;
 		for (k = 0; k < nticks; k++)
 			if (r == tick_box[k] || r == tick_lbl[k]) {
 				s_on[tick_var[k]] = !s_on[tick_var[k]];
@@ -1154,6 +1191,7 @@ void dlg_keys(void)
 		"^N  new folder             ^E  rename",
 		"Del delete                 ^I  permissions",
 		"^A  select all             ^R, Esc  read again",
+		"^C  copy the names chosen  (in dialogs ^C ^X ^V)",
 		"Shift+click  one more      Control+click  a range",
 		"Space  select and move on  a letter: to that name",
 		"^L  server messages        F10 Hebrew keyboard",

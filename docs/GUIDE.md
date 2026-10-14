@@ -201,7 +201,16 @@ the progress shows. Esc, Undo or the red Stop button stops the transfer.
 Files and folders handed to EFTP while it runs, by a desktop such as
 Thing, jinnee or Gemini (or any program, with the AV protocol's
 VA_START), go to the server folder shown, as if dragged there from the
-left. Connect first: without a connection EFTP says so.
+left. Connect first: without a connection EFTP says so. Under MultiTOS,
+MagiC or XaAES you can drag them onto EFTP's window too. While a
+transfer runs, a drop is refused: drop them again when it is done.
+
+**Copy** (^C, Edit > Copy) puts the full names of the files you chose on
+the clipboard, a line each: `C:\GAMES\STARGLD.PRG` on the left,
+`/pub/atari/demo.zip` on the server. In dialogs, ^C copies a field, ^X
+cuts it and ^V pastes into it (a host name or a long folder, say);
+nothing is ever copied out of a password field, but you can paste one
+in.
 
 ## Names
 
@@ -320,6 +329,8 @@ F10 switches to the Israeli keyboard for typing Hebrew names.
 | Del            | delete                                         |
 | ^I             | permissions                                    |
 | ^A             | select all                                     |
+| ^C             | copy the names of the files chosen             |
+| ^C ^X ^V       | in a dialog: copy, cut, paste a field          |
 | ^R, Esc        | read the lists again                           |
 | Space, Insert  | select the file under the cursor and move on   |
 | ^L             | server messages / transfers                    |

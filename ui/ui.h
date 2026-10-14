@@ -114,6 +114,7 @@ void remote_cd(const char *dir);
 void files_titles(void);
 long files_count(int side);		/* what a command would work on */
 void files_select_all(int side);
+void files_copy(int side);			/* ^C: the chosen files' names, a line each */
 void files_transfer(int side);		/* the selection to the other side */
 int  files_upload_path(const char *path);	/* a file or folder on the Atari to the server */
 void files_new_folder(int side);
@@ -168,6 +169,7 @@ OBJECT *d_tree(void);
 enum {
 	C_NONE, C_ABOUT,
 	C_SITES, C_QUICK, C_DISCONNECT, C_QUIT,
+	C_CUT, C_COPY, C_PASTE,
 	C_TRANSFER, C_NEWFOLDER, C_RENAME, C_DELETE, C_CHMOD, C_SELALL, C_REFRESH, C_HIDDEN,
 	C_RETRY, C_CLEARDONE, C_CLEARALL, C_LOG,
 	C_SETTINGS, C_FONT, C_HEBREW, C_PLOG, C_FALCON

@@ -13,6 +13,7 @@
 #include "theme.h"
 #include "util.h"
 #include "charset.h"
+#include "clip.h"
 
 FTP *ftp;
 SITE *cur_site;
@@ -906,6 +907,38 @@ static int tip(WIN *w, short mx, short my, char *out, int size)
 	snprintf(out, size, "%s|%s%s%s%s%s", e->disp, e->type == FE_DIR ? "folder" : sz,
 		 dt[0] ? ", " : "", dt, e->perm[0] ? ", " : "", e->perm);
 	return 1;
+}
+
+/* ^C: the chosen files' full names, a line each (the one with the cursor
+   when none is chosen): C:\\FOLDER\\NAME.TXT here, /folder/name on the
+   server */
+void files_copy(int side)
+{
+	SIDE *s = &sd[side];
+	FENTRY *cur = entry(s, s->cur);
+	char p[400], *t;
+	long i, n = 0, cap;
+	if (!s->ok || (!s->nmarks && !cur))
+		return;
+	cap = (s->nmarks ? s->nmarks : 1) * (long)sizeof(p) + 1;
+	if (!(t = malloc(cap)))
+		return;
+	for (i = 0; i < s->l.n; i++) {
+		FENTRY *e = &s->l.e[i];
+		if (s->nmarks ? !s->mark[i] : e != cur)
+			continue;
+		if (side == SIDE_REMOTE)
+			rpath_join(p, sizeof(p), ftp ? ftp->cwd : "", e->disp);
+		else
+			path_join(p, sizeof(p), ldir, e->name);
+		if (n)
+			t[n++] = '\n';
+		strcpy(t + n, p);
+		n += (long)strlen(p);
+	}
+	t[n] = 0;
+	main_status(clip_put(t, n) ? "Copied to the clipboard." : "Couldn't write the clipboard.");
+	free(t);
 }
 
 /* ---------------- commands ---------------- */

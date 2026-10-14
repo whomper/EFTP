@@ -15,6 +15,8 @@
 #include "crash.h"
 #include "help.h"
 #include "av.h"
+#include "clip.h"
+#include "dd.h"
 #include "aboutbox.h"
 #include "mbar.h"
 #include "../src/version.h"
@@ -62,9 +64,16 @@ static const MBAR_ITEM m_files[] = {
 	{ "Delete...", "Del", C_DELETE },
 	{ "Permissions...", "^I", C_CHMOD },
 	{ "-", 0, 0 },
-	{ "Select all", "^A", C_SELALL },
 	{ "Refresh", "^R", C_REFRESH },
 	{ "Show hidden files", 0, C_HIDDEN },
+	{ 0, 0, 0 }
+};
+static const MBAR_ITEM m_edit[] = {
+	{ "Cut", "^X", C_CUT },
+	{ "Copy", "^C", C_COPY },
+	{ "Paste", "^V", C_PASTE },
+	{ "-", 0, 0 },
+	{ "Select all", "^A", C_SELALL },
 	{ 0, 0, 0 }
 };
 static const MBAR_ITEM m_xfer[] = {
@@ -89,6 +98,7 @@ static const MBAR_ITEM m_opts[] = {
 static const MBAR_TITLE bar[] = {
 	{ " EFTP ", m_desk },
 	{ " File ", m_file },
+	{ " Edit ", m_edit },
 	{ " Files ", m_files },
 	{ " Transfers ", m_xfer },
 	{ " Options ", m_opts },
@@ -113,6 +123,9 @@ static int focus_side(void)
 void menu_update(void)
 {
 	int side = focus_side(), n = (int)files_count(side);
+	enable(C_CUT, 0);		/* in dialogs only: no text in the window */
+	enable(C_COPY, side_of(win_focused()) >= 0);
+	enable(C_PASTE, 0);
 	enable(C_DISCONNECT, ftp != 0);
 	enable(C_TRANSFER, ftp && n > 0);
 	enable(C_NEWFOLDER, side == SIDE_REMOTE ? ftp != 0 : ldir[0] != 0);
@@ -237,6 +250,12 @@ static void handle_poll_event(short which, short *msg, AEVENT *ev)
 			conn_stop = 1;
 			quit = 1;
 			break;
+		default: {
+			/* a drop now is refused, not left unanswered */
+			DROP d;
+			dd_message(msg, 0, &d);
+			dd_done(&d);
+		}
 		}
 	}
 	if (which & MU_KEYBD) {
@@ -493,6 +512,10 @@ static void command(short cmd)
 	case C_DELETE: files_delete(side); break;
 	case C_CHMOD: files_chmod(); break;
 	case C_SELALL: files_select_all(side); break;
+	case C_COPY:
+		if (side_of(win_focused()) >= 0)
+			files_copy(side_of(win_focused()));
+		break;
 	case C_REFRESH:
 		files_refresh(SIDE_LOCAL);
 		if (ftp)
@@ -580,6 +603,7 @@ static int shortcut(short kstate, short key)
 		case 0x12: cmd = C_RENAME; break;	/* E */
 		case 0x17: cmd = C_CHMOD; break;	/* I */
 		case 0x1e: cmd = C_SELALL; break;	/* A */
+		case 0x2e: cmd = C_COPY; break;		/* C */
 		case 0x13: cmd = C_REFRESH; break;	/* R */
 		case 0x26: cmd = C_LOG; break;		/* L */
 		}
@@ -851,11 +875,19 @@ int main(void)
 			case AP_TERM:
 				quit = 1;
 				break;
-			default:
-				if (av_message(msg, &va) == AV_START)
-					av_start(va);
-				else
-					win_message(msg);
+			default: {
+				DROP d;
+				/* files dropped go up, as VA_START's */
+				switch (dd_message(msg, DD_WANT_FILES, &d)) {
+				case DD_FILES: av_start(d.data); break;
+				case DD_NONE:
+					if (av_message(msg, &va) == AV_START)
+						av_start(va);
+					else
+						win_message(msg);
+				}
+				dd_done(&d);
+			}
 			}
 		}
 		if (main_iconified)	/* an icon takes no keys or clicks */

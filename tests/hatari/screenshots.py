@@ -78,15 +78,15 @@ try:
     time.sleep(10)
     keep(r, "screenshot", "screenshot.png")
     time.sleep(25)
-    r.click(290, 9)                            # Options > Settings
+    r.click(338, 9)                            # Options > Settings
     time.sleep(1)
-    r.click(310, 27)
+    r.click(358, 27)
     time.sleep(2)
     r.click(140, 321)                          # the Secure part
     r.move(600, 450)
     time.sleep(1.5)
     keep(r, "settings", "settings.png")
-    r.click(395, 353)                          # Cancel (Esc would empty a field)
+    r.click(395, 353)                          # Cancel
     time.sleep(1.5)
     r.click(400, row(4))
     r.rclick(420, row(4))
