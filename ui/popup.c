@@ -86,7 +86,7 @@ short popup(short x, short y, const char *const *lab, short n)
 	short i, w = 0, sel = -1, res = -1, held, moved = 0, bh;
 	short mx, my, ox, oy, m[8], clipr[4];
 	GRECT shadow, body;
-	EVENT e;
+	AEVENT e;
 
 	for (i = 0; i < n; i++) {
 		short l = (short)strlen(lab[i]) - (lab[i][0] == '~' || lab[i][0] == '\x08');

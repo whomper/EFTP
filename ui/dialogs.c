@@ -314,7 +314,7 @@ static short form_loop(short start)
 {
 	short next = start ? start : first_editable(), edit = 0, idx = 0, cont = 1;
 	short m[8];
-	EVENT e;
+	AEVENT e;
 	while (cont) {
 		if (next && next != edit) {
 			edit = next;

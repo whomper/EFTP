@@ -314,7 +314,7 @@ void set_hebrew_kbd(short on)
  * A transfer runs in one go, but the screen stays alive: pf_idle (while
  * waiting for the network) and every progress update come here, where
  * windows are redrawn, and Esc, Undo or the Stop button stop it. */
-static void handle_poll_event(short which, short *msg, EVENT *ev)
+static void handle_poll_event(short which, short *msg, AEVENT *ev)
 {
 	if (which & MU_MESAG) {
 		switch (msg[0]) {
@@ -347,7 +347,7 @@ static void handle_poll_event(short which, short *msg, EVENT *ev)
 void ui_poll(void)
 {
 	short msg[8], which;
-	EVENT ev;
+	AEVENT ev;
 	which = evnt_multi_(MU_MESAG | MU_KEYBD | MU_BUTTON | MU_TIMER, 1, 1, 1, 0, msg, &ev);
 	if (which & ~MU_TIMER)
 		handle_poll_event(which, msg, &ev);
@@ -357,7 +357,7 @@ void ui_poll(void)
 static void idle(void)
 {
 	short msg[8], which;
-	EVENT ev;
+	AEVENT ev;
 	which = evnt_multi_(MU_MESAG | MU_KEYBD | MU_BUTTON | MU_TIMER, 1, 1, 1, 5, msg, &ev);
 	if (which & ~MU_TIMER)
 		handle_poll_event(which, msg, &ev);
@@ -797,7 +797,7 @@ int main(void)
 {
 	short work_out[57], msg[8], d;
 	char dir[200];
-	EVENT ev;
+	AEVENT ev;
 
 	{
 		extern int mem_unaligned_ok;

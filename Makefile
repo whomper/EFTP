@@ -98,8 +98,10 @@ $(OBJDIR)/%.o: common/atari/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 $(OBJDIR)/%.o: common/ui/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
-$(OBJDIR)/crt0.o: atari/crt0.S | $(OBJDIR)
-	$(CC) -m68000 -c -o $@ $<
+# a 24 KB stack (48 KB by default): EFTP's deepest is a folder deleted
+# inside folders, and memory is short on a 1 MB ST
+$(OBJDIR)/crt0.o: common/atari/crt0.S | $(OBJDIR)
+	$(CC) -m68000 -DSTACK_SIZE=24576 -c -o $@ $<
 $(OBJDIR)/sting_s.o: common/atari/sting.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
 $(OBJDIR)/nf.o: common/atari/nf.S | $(OBJDIR)

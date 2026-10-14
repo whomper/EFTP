@@ -617,7 +617,7 @@ void font_menu(void)
 {
 	static char heb_label[3][24];
 	short i, x, y, w, h, o_cancel, o_fam, o_size, done = 0, ok = 0, m[8];
-	EVENT e;
+	AEVENT e;
 
 	list_families();
 	sel_heb = opt.hebfont;
