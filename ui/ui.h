@@ -157,7 +157,7 @@ short  d_pass(short x, short y, char *real, short len);
 void   d_end(void);
 short  d_do(short edit);
 OBJECT *d_tree(void);
-short alert(short def, const char *fmt, ...);
+#include "alert.h"		/* alert(): common/ui */
 
 /* menu commands (main.c) */
 enum {

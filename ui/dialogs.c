@@ -380,65 +380,6 @@ short d_do(short edit)
 	return r;
 }
 
-
-/* ---------------- alerts ---------------- */
-
-/* format, then make the message part fit: no brackets, words wrapped
-   into lines of at most 30 characters (what every TOS shows), at most 5 */
-#define ALW 30
-
-short alert(short def, const char *fmt, ...)
-{
-	char raw[600], out[600];
-	const char *msg, *btn;
-	va_list ap;
-	short o, lines = 0;
-	va_start(ap, fmt);
-	vsnprintf(raw, sizeof(raw), fmt, ap);
-	va_end(ap);
-	msg = strstr(raw, "][");
-	btn = 0;
-	{
-		const char *p;
-		for (p = raw; (p = strstr(p, "][")); p++)
-			btn = p;
-	}
-	if (!msg || !btn || btn == msg)
-		return form_alert(def, raw);
-	msg += 2;
-	memcpy(out, raw, msg - raw);
-	o = msg - raw;
-	while (msg < btn && lines < 5) {
-		/* one line: up to the next '|', or the last space that fits */
-		const char *end = msg, *cut;
-		short n;
-		while (end < btn && *end != '|')
-			end++;
-		cut = end;
-		if (end - msg > ALW) {
-			cut = msg + ALW;
-			while (cut > msg && *cut != ' ')
-				cut--;
-			if (cut == msg)
-				cut = msg + ALW;	/* one long word: break it */
-		}
-		if (lines)
-			out[o++] = '|';
-		for (n = 0; msg < cut && o < (short)sizeof(out) - 40; n++) {
-			char c = *msg++;
-			out[o++] = c == '[' ? '(' : c == ']' ? ')' : c;
-		}
-		lines++;
-		while (msg < btn && *msg == ' ')
-			msg++;
-		if (msg < btn && *msg == '|')
-			msg++;
-	}
-	str_copy(out + o, btn, sizeof(out) - o);
-	return form_alert(def, out);
-}
-
-
 /* ---------------- settings ---------------- */
 
 /* ---------------- settings ----------------
