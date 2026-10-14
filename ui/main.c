@@ -14,6 +14,7 @@
 #include "tls.h"
 #include "crash.h"
 #include "help.h"
+#include "av.h"
 #include "mbar.h"
 #include "../src/version.h"
 
@@ -711,6 +712,35 @@ static void crash_quit(const char *what)
 	appl_exit();
 }
 
+/* VA_START (common/ui/av.c), from the desktop or another program:
+   nothing brings the window to the front; files and folders go to the
+   server folder shown, as if dragged there */
+static void av_start(const char *s)
+{
+	char path[200];
+	const char *p = s;
+	int added = 0;
+	main_open();
+	if (!*s)
+		return;
+	if (!ftp) {
+		alert(1, "[1][Connect to a server first,|then send the files again.][ OK ]");
+		return;
+	}
+	if (running) {
+		alert(1, "[1][EFTP is busy with transfers:|send the files again when|they are done.][ OK ]");
+		return;
+	}
+	while ((p = av_arg(p, path, sizeof(path))) != 0) {
+		if (files_upload_path(path))
+			added++;
+		else
+			alert(1, "[1][Can't send %s:|it isn't there.][ OK ]", path);
+	}
+	if (added)
+		queue_run();
+}
+
 int main(void)
 {
 	short work_out[57], msg[8], d;
@@ -739,6 +769,7 @@ int main(void)
 	work_dir(dir, sizeof(dir));
 	crash_install(dir, "EFTP", ftp_version);
 	help_init();			/* memory the help viewer may read */
+	av_init("EFTP|EFTPST");		/* the desktop's AV server, if there is one */
 	crash_cleanup = crash_quit;
 	crash_report = conn_log_append;	/* the report in EFTP.LOG too */
 	store_init(dir);
@@ -801,6 +832,7 @@ int main(void)
 			tip_show();
 		}
 		if (which & MU_MESAG) {
+			const char *va;
 			switch (msg[0]) {
 			case MN_SELECTED:
 				command(mbar_command(&mb, msg[4]));
@@ -810,7 +842,10 @@ int main(void)
 				quit = 1;
 				break;
 			default:
-				win_message(msg);
+				if (av_message(msg, &va) == AV_START)
+					av_start(va);
+				else
+					win_message(msg);
 			}
 		}
 		if (which & MU_KEYBD) {
@@ -845,6 +880,7 @@ int main(void)
 	store_save_settings();
 	theme_exit();			/* the palette back as it was */
 	menu_bar(mb.tree, 0);
+	av_exit();
 	v_clsvwk(vdi_h);
 	crash_remove();
 	appl_exit();

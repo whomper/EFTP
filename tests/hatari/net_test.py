@@ -8,7 +8,9 @@ EFTP connects to a site from the Site Manager, opens a folder with a
 double click, downloads a whole folder (8+3 names, dates kept), uploads
 a folder by dragging it to the server's pane, answers "already there"
 with Skip, stops a download half way and resumes it; the test checks
-every byte on both sides.
+every byte on both sides. At the end a stand-in desktop (THING.ACC from
+common/tests/av: make -C common/tests/av) hands EFTP a file with the AV
+protocol's VA_START, which goes to the server folder shown.
 
     net_test.py WORKDIR EMUTOS.IMG     (Xvfb, xdotool, pip install pyftpdlib)
     EFTP_PRG=EFTPST.PRG net_test.py ...  the ST edition, on a 1 MB machine
@@ -25,6 +27,19 @@ work, tos = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
 os.makedirs(work, exist_ok=True)
 srv, home = server.ftp_server(work)
 hd = server.drive_c(work)
+# the stand-in desktop: it waits for EFTP to tell it it takes VA_START,
+# then for C:\GO.TXT, then sends itself, C:\THING.ACC (binary: a .TXT
+# would go as text, its line ends changed)
+thing = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "common", "tests", "av",
+                     "build", "THING.ACC")
+av = os.path.exists(thing)
+if av:
+    import shutil
+    shutil.copy(thing, os.path.join(hd, "THING.ACC"))
+    with open(os.path.join(hd, "AVSEND.TXT"), "w", newline="") as f:
+        f.write("until EFTP\r\nawait GO.TXT\r\nsend EFTP|C:\\THING.ACC\r\nwait 60\r\ndone\r\n")
+else:
+    print("skip VA_START: make -C common/tests/av first")
 bridge, serial = server.bridge(work)
 # EFTP.PRG (with TLS) on a 4 MB Falcon; EFTP_PRG=EFTPST.PRG, the ST
 # edition, on 1 MB, the smallest machine it is for
@@ -129,6 +144,23 @@ try:
     check("REST %d" % size in open(os.path.join(hd, "EFTP.LOG"), errors="replace").read(), "resumed with REST")
     time.sleep(3)
     r.shot("t7-done")
+
+    if av:
+        # VA_START: a file from the desktop goes to the server folder shown
+        open(os.path.join(hd, "GO.TXT"), "w").write("go")
+        atari = os.path.join(home, "pub", "atari")
+
+        def thing():
+            for n in os.listdir(atari):
+                if n.lower() == "thing.acc":
+                    return os.path.join(atari, n)
+            return ""
+        check(wait_for(lambda: same(thing(), os.path.join(hd, "THING.ACC")), 60),
+              "a file handed over with VA_START is uploaded, every byte")
+        r.shot("t8-va-start")
+        avlog = open(os.path.join(hd, "AVLOG.TXT"), errors="replace").read()
+        check("AV_PROTOKOLL bits 0016 name EFTP" in avlog, "EFTP told the desktop it takes VA_START")
+        check("AV_STARTED" in avlog, "and answered it")
 finally:
     r.stop()
     bridge.terminate()

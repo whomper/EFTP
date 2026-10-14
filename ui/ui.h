@@ -113,6 +113,7 @@ void files_titles(void);
 long files_count(int side);		/* what a command would work on */
 void files_select_all(int side);
 void files_transfer(int side);		/* the selection to the other side */
+int  files_upload_path(const char *path);	/* a file or folder on the Atari to the server */
 void files_new_folder(int side);
 void files_rename(int side);
 void files_delete(int side);

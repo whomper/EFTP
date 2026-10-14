@@ -586,6 +586,36 @@ void files_transfer(int side)
 		queue_run();
 }
 
+/* a file or folder on the Atari, named by its path (VA_START from the
+   desktop or another program), to the server folder shown: as if it
+   were dragged there from the left. 1 when it is in the queue; the
+   caller starts it (queue_run) */
+int files_upload_path(const char *path)
+{
+	char dir[300], rp[400], rn[200];
+	const char *base = strrchr(path, '\\');
+	FLIST l;
+	long i;
+	int added = 0;
+	if (!base || !base[1] || !ftp)
+		return 0;
+	str_copy(dir, path, sizeof(dir));
+	dir[base - path < (long)sizeof(dir) ? base - path : 0] = 0;
+	if (!local_list(dir, &l, 1))
+		return 0;
+	for (i = 0; i < l.n && !added; i++) {
+		FENTRY *e = &l.e[i];
+		if (strcasecmp(e->name, base + 1))
+			continue;
+		remote_name(e->name, rn, sizeof(rn), ftp->utf8);
+		rpath_join(rp, sizeof(rp), ftp->cwd, rn);
+		added = xfer_add(XD_UP, e->type == FE_DIR, rp, path, e->disp, e->size, e->mtime, 1,
+				 is_text(e->name, cur_site)) != 0;
+	}
+	flist_free(&l);
+	return added;
+}
+
 /* ---------------- dragging to the other side ---------------- */
 
 static void xor_rect(GRECT *r)

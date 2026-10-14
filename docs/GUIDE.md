@@ -191,6 +191,13 @@ Double-click a folder (or Return) to open it, `..` or Backspace goes up.
 While files go, the window stays alive: other windows can be moved and
 the progress shows. Esc, Undo or the red Stop button stops the transfer.
 
+## From other programs
+
+Files and folders handed to EFTP while it runs, by a desktop such as
+Thing, jinnee or Gemini (or any program, with the AV protocol's
+VA_START), go to the server folder shown, as if dragged there from the
+left. Connect first: without a connection EFTP says so.
+
 ## Names
 
 TOS takes names of 8 letters and an extension of 3, in capitals, and no
