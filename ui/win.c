@@ -12,8 +12,8 @@
 #include <stdio.h>
 #include "ui.h"
 #include "theme.h"
-#include "../src/util.h"
-#include "../src/bidi.h"
+#include "util.h"
+#include "bidi.h"
 
 WIN w_local, w_remote, w_queue;
 static WIN *panes[] = { &w_local, &w_remote, &w_queue };

@@ -21,7 +21,7 @@
 #include "../../src/ftp.h"
 #include "../../src/xfer.h"
 #include "../../src/store.h"
-#include "../../src/util.h"
+#include "util.h"
 #include "../../src/tls.h"
 
 static long stop_at = -1;

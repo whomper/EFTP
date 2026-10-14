@@ -11,8 +11,8 @@
 #include <stdlib.h>
 #include "ui.h"
 #include "theme.h"
-#include "../src/util.h"
-#include "../src/charset.h"
+#include "util.h"
+#include "charset.h"
 
 FTP *ftp;
 SITE *cur_site;
