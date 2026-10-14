@@ -13,7 +13,7 @@
 #include "charset.h"
 #include "tz.h"
 #include "theme.h"
-#include "../src/tls.h"
+#include "tls.h"
 
 #define DMAX 80
 #define TMAX 24

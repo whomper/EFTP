@@ -8,10 +8,10 @@
 #include <stdlib.h>
 #include "ui.h"
 #include "theme.h"
-#include "../src/conn.h"
+#include "conn.h"
 #include "../src/plat.h"
 #include "util.h"
-#include "../src/tls.h"
+#include "tls.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
 short gl_wchar, gl_hchar;

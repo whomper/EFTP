@@ -22,7 +22,7 @@
 #include "../../src/xfer.h"
 #include "../../src/store.h"
 #include "util.h"
-#include "../../src/tls.h"
+#include "tls.h"
 
 static long stop_at = -1;
 
