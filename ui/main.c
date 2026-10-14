@@ -15,6 +15,7 @@
 #include "crash.h"
 #include "help.h"
 #include "av.h"
+#include "aboutbox.h"
 #include "mbar.h"
 #include "../src/version.h"
 
@@ -28,11 +29,13 @@ static SITE conn_site;			/* the site connected to */
 
 /* ---------------- help ---------------- */
 
-/* the user guide, EFTP.HYP, in EHypView or ST-Guide (common/ui/help.c);
-   0 when no viewer runs, and the Help key shows the keys */
-static int open_help(void)
+/* the Help key: the user guide, EFTP.HYP, in EHypView or ST-Guide
+   (common/ui/help.c), else an alert saying how to get a viewer, which
+   can show the keys instead */
+static void help_key_pressed(void)
 {
-	return help_show(opt.workdir, "EFTP.HYP", 0);
+	if (help_key(opt.workdir, "EFTP.HYP", 0, "Keys"))
+		dlg_keys();
 }
 
 /* ---------------- menu ---------------- */
@@ -555,8 +558,7 @@ static int shortcut(short kstate, short key)
 	if (crash_test(scan))		/* test builds only: F1-F4 crash on purpose */
 		return 1;
 	if (scan == 0x62) {		/* Help */
-		if (!open_help())
-			dlg_keys();
+		help_key_pressed();
 		return 1;
 	}
 	if (scan == 0x01) {		/* Esc: read again, as the desktop does */
@@ -569,6 +571,7 @@ static int shortcut(short kstate, short key)
 		case 0x25: cmd = C_SITES; break;	/* K */
 		case 0x20: cmd = C_DISCONNECT; break;	/* D */
 		case 0x10: cmd = C_QUIT; break;		/* Q */
+		case 0x11: cmd = C_QUIT; break;		/* W: closes the one window */
 		case 0x14: cmd = C_TRANSFER; break;	/* T */
 		case 0x31: cmd = C_NEWFOLDER; break;	/* N */
 		case 0x12: cmd = C_RENAME; break;	/* E */
@@ -762,6 +765,11 @@ int main(void)
 	scr_h = work_out[1] + 1;
 	vq_extnd(vdi_h, 1, work_out);
 	planes = work_out[4];
+	if (!screen_check("EFTP", scr_w)) {	/* not in ST low */
+		v_clsvwk(vdi_h);
+		appl_exit();
+		return 1;
+	}
 	vst_alignment(vdi_h, 0, 5);
 	wind_get(0, WF_WORKXYWH, &desk_x, &desk_y, &desk_w, &desk_h);
 	graf_mouse(BUSYBEE, 0);
@@ -802,8 +810,7 @@ int main(void)
 	else
 		status("Connect (^K) to a server: your sites, or File > Quick connect.");
 
-	if (crash_previous())
-		alert(1, "[1][EFTP crashed last time|(%s).|What happened is in|CRASH.LOG, in EFTP's folder.][ OK ]", crash_previous());
+	crash_offer("EFTP", "in EFTP's folder");
 	if (store_lost_passwords)
 		alert(1, "[1][EFTP.KEY is missing or new: type the passwords again in File > Sites.][ OK ]");
 	evnt_set_m1(1, 0, 0, 1, 1);

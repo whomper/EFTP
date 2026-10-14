@@ -1074,6 +1074,9 @@ void win_message(short *msg)
 		if (!running)
 			main_closed();
 		break;
+	case WM_BOTTOMED:
+		wind_set(main_h, WF_BOTTOM, 0, 0, 0, 0);
+		break;
 	case WM_FULLED: {
 		GRECT c, f, p;
 		wind_get(main_h, WF_CURRXYWH, &c.x, &c.y, &c.w, &c.h);

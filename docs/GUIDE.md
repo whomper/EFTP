@@ -54,8 +54,8 @@ C:\EFTP\SEED.DAT      Falcon mode: randomness kept for the next start
 Start it. This guide is also in `EFTP.HYP`, a hypertext: with EHypView,
 ST-Guide or HypView running (as an accessory, or as a program under
 MultiTOS or MagiC), the Help key opens it, from next to `EFTP.PRG` or
-from the viewer's own help folder. Without a viewer, Help shows the
-keys.
+from the viewer's own help folder. Without a viewer, Help says how to
+get one and offers the list of keys instead.
 
 The desktop icon, the same monitor as EMail's and ECal's showing a
 folder and the two ways files go, is in `binary/icons/`: `EFTP.RSC` for
@@ -320,7 +320,7 @@ F10 switches to the Israeli keyboard for typing Hebrew names.
 | ^L             | server messages / transfers                    |
 | F10            | Hebrew keyboard                                |
 | Help           | this guide, or the keys                        |
-| ^Q             | quit                                           |
+| ^Q, ^W         | quit (^W closes the window, EFTP's only one)  |
 
 During a transfer, Esc or Undo stops it.
 

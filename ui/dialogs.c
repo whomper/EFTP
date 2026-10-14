@@ -1158,7 +1158,7 @@ void dlg_keys(void)
 		"Space  select and move on  a letter: to that name",
 		"^L  server messages        F10 Hebrew keyboard",
 		"During a transfer: Esc or Stop ends it",
-		"^Q  quit"
+		"^W, ^Q  quit"
 	};
 	short i, n = (short)(sizeof(lines) / sizeof(lines[0]));
 	d_begin(54, n + 6);
