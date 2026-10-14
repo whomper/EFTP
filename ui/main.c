@@ -14,6 +14,7 @@
 #include "tls.h"
 #include "crash.h"
 #include "help.h"
+#include "mbar.h"
 #include "../src/version.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
@@ -35,152 +36,68 @@ static int open_help(void)
 
 /* ---------------- menu ---------------- */
 
-typedef struct {
-	const char *text;
-	short cmd;
-} MITEM;
-
-static const MITEM m_desk[] = {
-	{ "  About EFTP...      ", C_ABOUT }, { "---------------------", C_SEP },
-	{ "  Desk Accessory 1   ", C_ACC }, { "  Desk Accessory 2   ", C_ACC },
-	{ "  Desk Accessory 3   ", C_ACC }, { "  Desk Accessory 4   ", C_ACC },
-	{ "  Desk Accessory 5   ", C_ACC }, { "  Desk Accessory 6   ", C_ACC }, { 0, 0 }
+/* the menu bar, built by the AERA programs' shared builder
+   (common/ui/mbar.c): titles, items, shortcuts, commands */
+static const MBAR_ITEM m_desk[] = {
+	{ "About EFTP...", 0, C_ABOUT },
+	{ 0, 0, 0 }
 };
-static const MITEM m_file[] = {
-	{ "  Sites...          ^K ", C_SITES }, { "  Quick connect...      ", C_QUICK },
-	{ "  Disconnect        ^D ", C_DISCONNECT }, { "------------------------", C_SEP },
-	{ "  Quit              ^Q ", C_QUIT }, { 0, 0 }
+static const MBAR_ITEM m_file[] = {
+	{ "Sites...", "^K", C_SITES },
+	{ "Quick connect...", 0, C_QUICK },
+	{ "Disconnect", "^D", C_DISCONNECT },
+	{ "-", 0, 0 },
+	{ "Quit", "^Q", C_QUIT },
+	{ 0, 0, 0 }
 };
-static const MITEM m_files[] = {
-	{ "  Upload / Download  ^T ", C_TRANSFER }, { "-------------------------", C_SEP },
-	{ "  New folder...      ^N ", C_NEWFOLDER }, { "  Rename...          ^E ", C_RENAME },
-	{ "  Delete...         Del ", C_DELETE }, { "  Permissions...     ^I ", C_CHMOD },
-	{ "-------------------------", C_SEP },
-	{ "  Select all         ^A ", C_SELALL }, { "  Refresh            ^R ", C_REFRESH },
-	{ "  Show hidden files     ", C_HIDDEN }, { 0, 0 }
+static const MBAR_ITEM m_files[] = {
+	{ "Upload / Download", "^T", C_TRANSFER },
+	{ "-", 0, 0 },
+	{ "New folder...", "^N", C_NEWFOLDER },
+	{ "Rename...", "^E", C_RENAME },
+	{ "Delete...", "Del", C_DELETE },
+	{ "Permissions...", "^I", C_CHMOD },
+	{ "-", 0, 0 },
+	{ "Select all", "^A", C_SELALL },
+	{ "Refresh", "^R", C_REFRESH },
+	{ "Show hidden files", 0, C_HIDDEN },
+	{ 0, 0, 0 }
 };
-static const MITEM m_xfer[] = {
-	{ "  Retry the failed ones   ", C_RETRY }, { "  Clear the finished ones ", C_CLEARDONE },
-	{ "  Clear the list          ", C_CLEARALL }, { "---------------------------", C_SEP },
-	{ "  Server messages      ^L ", C_LOG }, { 0, 0 }
+static const MBAR_ITEM m_xfer[] = {
+	{ "Retry the failed ones", 0, C_RETRY },
+	{ "Clear the finished ones", 0, C_CLEARDONE },
+	{ "Clear the list", 0, C_CLEARALL },
+	{ "-", 0, 0 },
+	{ "Server messages", "^L", C_LOG },
+	{ 0, 0, 0 }
 };
-static const MITEM m_opts[] = {
-	{ "  Settings...          ", C_SETTINGS }, { "  Font...              ", C_FONT },
-	{ "-----------------------", C_SEP },
-	{ "  Falcon mode (TLS)    ", C_FALCON }, { "-----------------------", C_SEP },
-	{ "  Hebrew keyboard  F10 ", C_HEBREW }, { "  Protocol log         ", C_PLOG }, { 0, 0 }
+static const MBAR_ITEM m_opts[] = {
+	{ "Settings...", 0, C_SETTINGS },
+	{ "Font...", 0, C_FONT },
+	{ "-", 0, 0 },
+	{ "Falcon mode (TLS)", 0, C_FALCON },
+	{ "-", 0, 0 },
+	{ "Hebrew keyboard", "F10", C_HEBREW },
+	{ "Protocol log", 0, C_PLOG },
+	{ 0, 0, 0 }
 };
 
-static const char *titles[] = { " EFTP ", " File ", " Files ", " Transfers ", " Options " };
-static const MITEM *drops[] = { m_desk, m_file, m_files, m_xfer, m_opts };
-#define NTITLES 5
+static const MBAR_TITLE bar[] = {
+	{ " EFTP ", m_desk },
+	{ " File ", m_file },
+	{ " Files ", m_files },
+	{ " Transfers ", m_xfer },
+	{ " Options ", m_opts },
+	{ 0, 0 }
+};
 
-#define MMAX 64
-static OBJECT menu[MMAX];
-static short menu_cmd[MMAX];
-
-static short find_item(short cmd)
-{
-	short i;
-	for (i = 0; i < MMAX; i++)
-		if (menu_cmd[i] == cmd)
-			return i;
-	return -1;
-}
-
-/* the menu bar, built in code as EMail's (no .RSC file) */
-static void menu_build(void)
-{
-	short n = 0, t, i, cols = scr_w / gl_wchar, x = 0;
-	short first_title, first_drop, screen, prev_drop = -1;
-	memset(menu, 0, sizeof(menu));
-	/* 0 root, 1 bar, 2 active (titles), titles, screen, drops */
-	menu[0].ob_type = G_IBOX;
-	menu[0].ob_next = -1;
-	menu[0].ob_head = 1;
-	menu[0].ob_width = cols;
-	menu[0].ob_height = scr_h / gl_hchar;
-	menu[1].ob_type = G_BOX;
-	menu[1].ob_spec = 0x1100L;
-	menu[1].ob_head = menu[1].ob_tail = 2;
-	menu[1].ob_width = cols;
-	menu[1].ob_height = 0x201;
-	menu[2].ob_type = G_IBOX;
-	menu[2].ob_next = 1;
-	menu[2].ob_x = 2;
-	menu[2].ob_height = 0x301;
-	n = 3;
-	first_title = n;
-	for (t = 0; t < NTITLES; t++) {
-		OBJECT *o = &menu[n];
-		o->ob_type = G_TITLE;
-		o->ob_spec = (long)titles[t];
-		o->ob_head = o->ob_tail = -1;
-		o->ob_x = x;
-		o->ob_width = (short)strlen(titles[t]);
-		o->ob_height = 0x301;
-		o->ob_next = t + 1 < NTITLES ? n + 1 : 2;
-		x += o->ob_width;
-		n++;
-	}
-	menu[2].ob_head = first_title;
-	menu[2].ob_tail = n - 1;
-	menu[2].ob_width = x;
-	screen = n++;
-	menu[1].ob_next = screen;
-	menu[0].ob_tail = screen;
-	menu[screen].ob_type = G_IBOX;
-	menu[screen].ob_next = 0;
-	menu[screen].ob_y = 0x301;
-	menu[screen].ob_width = cols;
-	menu[screen].ob_height = 19;
-	first_drop = n;
-	x = 2;
-	for (t = 0; t < NTITLES; t++) {
-		const MITEM *it = drops[t];
-		short d = n++, k = 0, w = 0, dx = x + menu[first_title + t].ob_x;
-		for (i = 0; it[i].text; i++)
-			if ((short)strlen(it[i].text) > w)
-				w = (short)strlen(it[i].text);
-		if (dx + w > cols)
-			dx = cols - w;
-		menu[d].ob_type = G_BOX;
-		menu[d].ob_spec = 0xFF1100L;
-		menu[d].ob_x = t == 0 ? x : dx;
-		menu[d].ob_width = w;
-		menu[d].ob_head = n;
-		if (prev_drop >= 0)
-			menu[prev_drop].ob_next = d;
-		prev_drop = d;
-		for (i = 0; it[i].text; i++, k++) {
-			OBJECT *o = &menu[n];
-			o->ob_type = G_STRING;
-			o->ob_spec = (long)it[i].text;
-			o->ob_head = o->ob_tail = -1;
-			o->ob_y = k;
-			o->ob_width = w;
-			o->ob_height = 1;
-			o->ob_state = it[i].cmd == C_SEP ? DISABLED : 0;
-			o->ob_next = it[i + 1].text ? n + 1 : d;
-			menu_cmd[n] = it[i].cmd;
-			n++;
-		}
-		menu[d].ob_tail = n - 1;
-		menu[d].ob_height = k;
-	}
-	menu[prev_drop].ob_next = screen;
-	menu[screen].ob_head = first_drop;
-	menu[screen].ob_tail = prev_drop;
-	menu[n - 1].ob_flags |= LASTOB;
-	for (i = 0; i < n; i++)
-		rsrc_obfix(menu, i);
-}
+static MBAR mb;
 
 static void enable(short cmd, int on)
 {
-	short i = find_item(cmd);
+	short i = mbar_object(&mb, cmd);
 	if (i >= 0)
-		menu_ienable(menu, i, on ? 1 : 0);
+		menu_ienable(mb.tree, i, on ? 1 : 0);
 }
 
 static int focus_side(void)
@@ -201,11 +118,11 @@ void menu_update(void)
 	enable(C_RETRY, xfer_count(XS_FAIL) + xfer_count(XS_STOP) > 0);
 	enable(C_CLEARDONE, xfer_count(XS_DONE) + xfer_count(XS_SKIP) > 0);
 	enable(C_CLEARALL, xn > 0);
-	menu_icheck(menu, find_item(C_HIDDEN), opt.hidden);
-	menu_icheck(menu, find_item(C_LOG), show_log);
-	menu_icheck(menu, find_item(C_HEBREW), hebrew_kbd);
-	menu_icheck(menu, find_item(C_PLOG), opt.log);
-	menu_icheck(menu, find_item(C_FALCON), opt.falcon);
+	menu_icheck(mb.tree, mbar_object(&mb, C_HIDDEN), opt.hidden);
+	menu_icheck(mb.tree, mbar_object(&mb, C_LOG), show_log);
+	menu_icheck(mb.tree, mbar_object(&mb, C_HEBREW), hebrew_kbd);
+	menu_icheck(mb.tree, mbar_object(&mb, C_PLOG), opt.log);
+	menu_icheck(mb.tree, mbar_object(&mb, C_FALCON), opt.falcon);
 }
 
 /* ---------------- Falcon mode ----------------
@@ -307,7 +224,7 @@ static void handle_poll_event(short which, short *msg, AEVENT *ev)
 			win_message(msg);
 			break;
 		case MN_SELECTED:
-			menu_tnormal(menu, msg[3], 1);	/* not now */
+			menu_tnormal(mb.tree, msg[3], 1);	/* not now */
 			break;
 		case AP_TERM:
 			conn_stop = 1;
@@ -789,7 +706,7 @@ static void crash_quit(const char *what)
 		wind_delete(main_h);
 	}
 	theme_exit();
-	menu_bar(menu, 0);
+	menu_bar(mb.tree, 0);
 	v_clsvwk(vdi_h);
 	appl_exit();
 }
@@ -836,8 +753,13 @@ int main(void)
 
 	files_init();
 	queue_init();
-	menu_build();
-	menu_bar(menu, 1);
+	if (mbar_build(&mb, bar, gl_wchar, gl_hchar, scr_w, scr_h)) {
+		form_alert(1, "[3][EFTP: not enough memory.][ Quit ]");
+		v_clsvwk(vdi_h);
+		appl_exit();
+		return 1;
+	}
+	menu_bar(mb.tree, 1);
 	graf_mouse(ARROW, 0);
 
 	main_open();
@@ -881,8 +803,8 @@ int main(void)
 		if (which & MU_MESAG) {
 			switch (msg[0]) {
 			case MN_SELECTED:
-				command(menu_cmd[msg[4]]);
-				menu_tnormal(menu, msg[3], 1);
+				command(mbar_command(&mb, msg[4]));
+				menu_tnormal(mb.tree, msg[3], 1);
 				break;
 			case AP_TERM:
 				quit = 1;
@@ -922,7 +844,7 @@ int main(void)
 	main_close();
 	store_save_settings();
 	theme_exit();			/* the palette back as it was */
-	menu_bar(menu, 0);
+	menu_bar(mb.tree, 0);
 	v_clsvwk(vdi_h);
 	crash_remove();
 	appl_exit();
