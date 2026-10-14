@@ -108,6 +108,8 @@ try:
     oids = os.path.join(hd, "GAMES", "OIDS.ZIP")
     check(wait_for(lambda: same(oids, os.path.join(home, "pub", "atari", "games", "oids.zip")), 60),
           "the rest came after Skip")
+    time.sleep(4)                                   # oids.zip came first (it sorts first): let the
+                                                    # batch end and the panes be read again
 
     r.click(REMOTE_X, row(4))                       # STinG 1.26.zip, 244 KB
     time.sleep(1.5)

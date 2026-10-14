@@ -149,6 +149,22 @@ static void use_sys(void)
 	ch = gl_hchar;
 }
 
+/* dialogs, popups and the About box keep the system font (gemui.h, for
+   the shared popup and About box); the chosen one is for the window */
+static short sys_depth;
+
+void font_sys_push(void)
+{
+	if (!sys_depth++)
+		use_sys();
+}
+
+void font_sys_pop(void)
+{
+	if (sys_depth && !--sys_depth)
+		font_apply();
+}
+
 /* ---------------- the fonts ---------------- */
 
 /* whether a font is monospaced: 'i', 'W' and 'm' as wide */

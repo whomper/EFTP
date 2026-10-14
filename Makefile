@@ -44,7 +44,7 @@ HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
 CORE    := util charset conn ftp xfer store futil bidi secret ctime tz
 ATARI   := libc tos plat_tos net_tos sting gem dsprsa crash
-UI      := main draw win files queue dialogs popup font about theme dsp help alert mbar
+UI      := main draw win files queue dialogs popup font about theme dsp help alert mbar aboutbox
 
 OBJDIR  := build
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/crash_s.o \

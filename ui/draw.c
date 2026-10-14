@@ -36,6 +36,15 @@ void *st_ram(long n)
 	return n <= (long)sizeof(st_fallback) ? st_buf : 0;
 }
 
+/* no clipping: the whole screen (the shared popup and About box) */
+void clip_off(void)
+{
+	short pxy[4] = { 0, 0, 0, 0 };
+	pxy[2] = scr_w - 1;
+	pxy[3] = scr_h - 1;
+	vs_clip(vdi_h, 0, pxy);
+}
+
 void fill(GRECT *r, short color)
 {
 	short pxy[4];

@@ -78,11 +78,13 @@ extern int running;				/* a transfer is going */
 #define TX_RIGHT    4	/* align right-to-left text to the right edge */
 #define TX_LIGHT    8
 #define TX_LTR     16	/* left-to-right paragraph even when it starts in Hebrew */
+#define TX_DIM     TX_LIGHT	/* what can't be used: the shared popup's disabled items */
 void fill(GRECT *r, short color);
 extern short text_pen;		/* the colour of text (theme.h pens); set, draw, set back to 1 */
 #define text_pen_at(p, x, y, s, n, cols, fl) \
 	do { text_pen = (p); text_at(x, y, s, n, cols, fl); text_pen = 1; } while (0)
 void clip_on(GRECT *r);
+void clip_off(void);
 void *st_ram(long n);		/* a bitmap's room in ST RAM, for the blitter (n <= 512) */
 void text_at(short x, short y, const char *s, long n, short cols, short flags);
 void hline(short x1, short x2, short y);
@@ -170,11 +172,13 @@ enum {
 void ui_command(short cmd);
 void menu_update(void);
 
-/* right-click menus (popup.c): the chosen item, or -1 */
-short popup(short x, short y, const char *const *labels, short n);
+/* right-click menus (common/ui/popup.c): the chosen item, or -1 */
+#include "popup.h"
 
 /* font.c */
 void font_apply(void);		/* opt.font_id/pt -> cw, ch */
+void font_sys_push(void);	/* the system font, for a popup or the About box */
+void font_sys_pop(void);	/* back to the window's font */
 void font_reselect(void);	/* the text font again, after drawing in another */
 #define HM_MAP     0
 #define HM_UNICODE 1
