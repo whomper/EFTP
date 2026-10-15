@@ -72,12 +72,12 @@ binary/EFTPST.PRG: $(OBJDIR)/eftpst.elf common/tools/elf2tos.py | binary
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
 
 # the version: VERSION holds the last release (major.minor, e.g. 1.31),
-# and the build never writes it. A release build (RELEASE=1, as the
-# release workflow makes it) shows it as it is, in both editions' About
-# box; any other shows "1.31-dev". tools/bump.py starts a release.
-VERSION_STR := $(shell cat VERSION)$(if $(RELEASE),,-dev)
+# and the build never writes it. Every build shows it as it is, in both
+# editions' About box (only releases leave the build machine, so there
+# is nothing else to mark). tools/bump.py starts a release.
+VERSION_STR := $(shell cat VERSION)
 
-# written again whenever the string changes, so RELEASE=1 rebuilds it
+# written again whenever the string changes, so a new VERSION rebuilds it
 $(OBJDIR)/build.c: FORCE | $(OBJDIR)
 	@printf '/* written by the Makefile: do not edit */\nconst char ftp_version[] = "%s";\n' "$(VERSION_STR)" > $@.new
 	@if cmp -s $@.new $@; then rm $@.new; else mv $@.new $@; fi

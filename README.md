@@ -140,8 +140,8 @@ HCP compiler from the [hypview](https://github.com/th-otto/hypview) project
 (`common/tools/build-hcp.sh DIR` builds it).
 
 **Versions and releases.** `binary/` and `dist/` are what make builds; they are never committed,
-and a build changes no tracked file. `VERSION` holds the last release, major.minor (e.g. 1.31). A
-release build (`RELEASE=1`) shows it as it is in the About box; any other build shows `1.31-dev`. To
+and a build changes no tracked file. `VERSION` holds the last release, major.minor (e.g. 1.31). Every
+build shows it as it is in the About box: only releases leave the build machine. To
 release: `tools/bump.py`, commit and push, then **Actions > Release > Run workflow** on `main` with
 what is new. [`.github/workflows/release.yml`](.github/workflows/release.yml) tests, builds both
 editions and the help file, tags the commit `v1.32` and publishes the files and the zip as a GitHub
