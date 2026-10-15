@@ -43,13 +43,14 @@ def run(machine, kind, reset=False):
     env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy")
     h = subprocess.Popen(args, env=env, stdout=open(log, "w"), stderr=subprocess.STDOUT)
     want = "CRASHT previous" if reset else "CRASHT cleanup"
+    done = ("CRASHT no crash", "CRASHT protect")
     t_end = time.time() + 60
     reset_sent = False
     try:
         while time.time() < t_end and h.poll() is None:
             time.sleep(0.5)
             text = open(log, errors="replace").read()
-            if want in text or "CRASHT no crash" in text:
+            if want in text or any(x in text for x in done):
                 time.sleep(1)
                 break
             if reset and not reset_sent and os.path.exists(os.path.join(d, "STAGE1.TXT")):
@@ -86,6 +87,12 @@ for machine in ("st", "falcon"):
         rp = os.path.join(d, "REPORT.TXT")
         check(os.path.exists(rp) and open(rp, "rb").read().decode("latin-1") == rep,
               tag + " crash_report got the report")
+    # STinG's way into supervisor mode: its own privilege violation,
+    # caught by its own handler, must not be taken for a crash
+    d, con, rep = run(machine, "p")
+    tag = "%s a resident program's privilege violation:" % machine
+    check("CRASHT protect ok" in con, tag + " passed on to its handler")
+    check(not rep, tag + " no CRASH.LOG")
     d, con, rep = run(machine, "s", reset=True)
     tag = "%s supervisor bus error:" % machine
     check("CRASHT previous" in con, tag + " the program ran again after a reset")
