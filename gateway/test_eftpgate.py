@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 AERA | Erez Yaary
 """eftpgate's tests: an SFTP server (paramiko) and an FTPS server
 (pyftpdlib, with a CA made for the test) on this computer, eftpgate in
 front of them, and a plain FTP client (ftplib, and EFTP's own core in

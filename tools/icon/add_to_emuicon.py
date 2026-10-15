@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 AERA | Erez Yaary
 """Add the EFTP icon to EmuTOS's desktop icon file (from Claude ST's tool).
 
 EmuTOS's desktop loads its icons from EMUICON.RSC in the root of the boot

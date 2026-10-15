@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * queue.c - the bottom pane: the transfers, one row each with the way
  * it goes (a terracotta arrow up to the server, a green one down to the

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 AERA | Erez Yaary
 """The pictures in docs/: EFTP.PRG on a Falcon in 640x480 with 256
 colours (a folder coming down, one going up, one file on its way), the
 Site Manager on an SFTP site, Settings > Secure, and EFTPST.PRG on a

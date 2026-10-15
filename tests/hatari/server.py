@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 AERA | Erez Yaary
 """The test world for EFTP in Hatari: an FTP server (pyftpdlib) with a
 few folders of Atari things, drive C: with EFTP.PRG and FAKESTNG.PRG in
 its AUTO folder, and serial_bridge.py carrying EFTP's connections from

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * xfer.h - the transfer queue: files and whole folders, down to the
  * Atari or up to the server, one after the other on the one FTP

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * main.c - EFTP: start-up, the menu bar, the event loop, connecting,
  * and the commands behind menus, keys and the toolbar. Laid out as

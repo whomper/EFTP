@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * xfer.c - the transfer queue, the Atari's file lists and the names
  * files get on either side (see xfer.h).

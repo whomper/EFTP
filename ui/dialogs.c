@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * dialogs.c - EFTP's dialogs, built in code (no .RSC file needed), with
  * EMail's builder: settings, a one-line question, list pickers, alerts,

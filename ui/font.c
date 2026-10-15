@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * font.c - the font for the text in EFTP's windows (from EMail) (Options > Font).
  *

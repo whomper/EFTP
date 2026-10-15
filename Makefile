@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 AERA | Erez Yaary
 # EFTP - an FTP program for the Atari ST/STE/TT/Falcon, in C.
 #
 #   make            builds binary/EFTP.PRG (with Falcon mode: FTPS with TLS

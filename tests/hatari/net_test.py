@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 AERA | Erez Yaary
 """End-to-end test of EFTP.PRG on an emulated Falcon against a real FTP
 server (pyftpdlib, on this computer). Hatari has no network card, so
 FAKESTNG.PRG in C:\\AUTO tunnels EFTP's connections (the control one and

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * store.c - EFTP.INF: settings and sites (see store.h). The format and
  * the way it is read and written are EMail's (whomper/EMAIL).

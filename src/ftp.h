@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * ftp.h - an FTP client (RFC 959, with the RFC 2389/3659 extensions
  * modern servers have: FEAT, MLSD, SIZE, MDTM, REST, UTF8, EPSV), on

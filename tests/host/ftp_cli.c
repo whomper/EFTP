@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * ftp_cli.c - EFTP's FTP core and transfer queue from the Linux command
  * line, for tests/integration.sh:

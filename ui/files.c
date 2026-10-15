@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * files.c - the two file panes: this Atari's files on the left, the
  * server's on the right. The same code serves both: a folder icon and

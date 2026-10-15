@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 AERA | Erez Yaary
 """EFTP's FTP core against a real FTP server (pyftpdlib), through
 build/ftp-cli: logins, listings (MLSD and LIST), downloads and uploads
 of files and whole folders, resuming, text mode, UTF-8 names, the

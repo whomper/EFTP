@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 AERA | Erez Yaary
 """EFTP's Falcon mode: FTPS with EFTP's own TLS (BearSSL, as on the
 Atari), through build/ftp-cli, against pyftpdlib's TLS server with
 certificates from a CA made for the test:

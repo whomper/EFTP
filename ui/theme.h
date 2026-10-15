@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * theme.h - EFTP's colours, EMail's way: a few, for meaning. With 256
  * colours EFTP sets its own soft shades in palette entries the desktop

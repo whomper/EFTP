@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 AERA | Erez Yaary
 """eftpgate - the Raspberry Pi gateway for EFTP on the Atari.
 
 Servers on the internet want FTPS (FTP over TLS) or SFTP (SSH), which an

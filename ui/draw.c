@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * draw.c - text output for EFTP's windows (from EMail). Text is kept in logical
  * order; lines containing Hebrew go through bidi_visual() and, when the

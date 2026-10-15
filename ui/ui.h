@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * ui.h - EFTP's GEM interface: one window, like a modern FTP program
  * (and EMail's three panes): a toolbar, this Atari's files on the left,

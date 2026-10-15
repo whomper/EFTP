@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 AERA | Erez Yaary
 """EFTP.PRG on an emulated Falcon against secure servers, the two ways
 an Atari reaches them (as ECal's net_test.py does for its calendars):
 

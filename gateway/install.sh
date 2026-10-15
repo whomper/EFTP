@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) 2026 AERA | Erez Yaary
 # Set up a Raspberry Pi (or any Debian/Ubuntu/Raspberry Pi OS computer)
 # as EFTP's gateway: the Atari speaks plain FTP to the Pi on your home
 # network, and eftpgate.py speaks FTPS (FTP over TLS) or SFTP (SSH) to

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * unit.c - tests of EFTP's FTP core on Linux: the listing parsers of
  * the servers out there, passive replies, the names files get on the
