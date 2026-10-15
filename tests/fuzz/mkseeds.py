@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
-# Copyright (C) 2026 Erez Yaary
+# Copyright (C) 2026 AERA | Erez Yaary
 """Writes tests/fuzz/seeds/: the starting inputs for make fuzz, sessions as
 FTP servers answer them, and listings. For fuzz_ftp the first byte picks
 what is asked (see fuzz_ftp.c); then come the control connection's replies

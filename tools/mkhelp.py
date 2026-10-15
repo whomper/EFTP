@@ -156,7 +156,7 @@ def main():
     anchors = {slug(t): t for t, _ in sections[1:]}
     out = ['@database "EFTP - file transfer for the Atari"',
            '@subject "Internet"',
-           '@author "Erez Yaary"',
+           '@author "AERA | Erez Yaary"',
            '@$VER: EFTP.HYP %s (%s)' % (version, time.strftime("%d.%m.%Y")),
            "@width %d" % WIDTH,
            "@inputenc atarist",

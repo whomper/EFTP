@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
- * Copyright (C) 2026 Erez Yaary */
+ * Copyright (C) 2026 AERA | Erez Yaary */
 /*
  * Lines of a folder listing and passive-mode replies, from the fuzz input
  * (the AERA guidelines, 7.1), straight to the parsers: LIST (Unix, DOS),
