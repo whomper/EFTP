@@ -10,6 +10,12 @@
 #   make test       builds the FTP core for this computer and runs the
 #                   unit tests; `make itest` also runs it against a real
 #                   FTP server (pip install pyftpdlib).
+#   make help       binary/EFTP.HYP, the guide for ST-Guide (needs hcp:
+#                   common/tools/build-hcp.sh builds it)
+#   make dist       a release's files in dist/: each file, and EFTP-x.y.zip
+#
+# binary/ is what make builds, never committed: releases carry the
+# programs (.github/workflows/release.yml).
 #
 # The code EFTP shares with the other AERA programs (BearSSL, the DSP RSA,
 # bidi, dates, passwords, the libc headers, the build tools) is in
@@ -53,24 +59,34 @@ OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/crash_s
 STOBJS  := $(OBJS0) $(OBJDIR)/tls_none.o
 OBJS    := $(OBJS0) $(OBJDIR)/tls.o
 HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
-           common/src/*.h common/atari/*.h common/atari/include/*.h common/dsp/*.h)
+           common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h)
 
+# what goes onto the Atari: binary/ (built, never committed)
 all: binary/EFTP.PRG binary/EFTPST.PRG binary/ROOTS.DAT
 
-binary/EFTP.PRG: $(OBJDIR)/eftp.elf common/tools/elf2tos.py
+binary/EFTP.PRG: $(OBJDIR)/eftp.elf common/tools/elf2tos.py | binary
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
-binary/EFTPST.PRG: $(OBJDIR)/eftpst.elf common/tools/elf2tos.py
+binary/EFTPST.PRG: $(OBJDIR)/eftpst.elf common/tools/elf2tos.py | binary
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
 
-# Every build gets the next version: the minor number in VERSION
-# (major.minor, e.g. 1.6) goes up by one whenever the program is linked
-# again, for the About box; both editions carry the same number. Commit
-# VERSION with the program.
-$(OBJDIR)/build.o: $(OBJS) $(STOBJS) common/atari/link.ld
-	v=$$(cat VERSION); v=$${v%%.*}.$$(( $${v#*.} + 1 )); echo $$v > VERSION; \
-	printf 'const char ftp_version[] = "%s";\n' $$v > $(OBJDIR)/build.c
-	$(CC) $(CFLAGS) -c -o $@ $(OBJDIR)/build.c
-	@echo "EFTP $$(cat VERSION)"
+# the version: VERSION holds the last release (major.minor, e.g. 1.31),
+# and the build never writes it. A release build (RELEASE=1, as the
+# release workflow makes it) shows it as it is, in both editions' About
+# box; any other shows "1.31-dev". tools/bump.py starts a release.
+VERSION_STR := $(shell cat VERSION)$(if $(RELEASE),,-dev)
+
+# written again whenever the string changes, so RELEASE=1 rebuilds it
+$(OBJDIR)/build.c: FORCE | $(OBJDIR)
+	@printf '/* written by the Makefile: do not edit */\nconst char ftp_version[] = "%s";\n' "$(VERSION_STR)" > $@.new
+	@if cmp -s $@.new $@; then rm $@.new; else mv $@.new $@; fi
+FORCE:
+$(OBJDIR)/build.o: $(OBJDIR)/build.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# EFTP's icon for the desktop: icons/, drawn by tools/icon and
+# committed; a release carries them
+icons:
+	python3 tools/icon/make_rsc.py
 
 $(OBJDIR)/eftp.elf: $(OBJS) $(OBJDIR)/build.o $(OBJDIR)/libbearssl.a common/atari/link.ld
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(OBJDIR)/build.o $(OBJDIR)/libbearssl.a -lgcc
@@ -109,7 +125,7 @@ $(OBJDIR)/crash_s.o: common/atari/crash.S | $(OBJDIR)
 $(OBJDIR)/nf.o: common/atari/nf.S | $(OBJDIR)
 	$(CC) -m68000 -c -o $@ $<
 
-$(OBJDIR):
+$(OBJDIR) binary:
 	mkdir -p $@
 
 # ---- host build: the same FTP core, for the tests and ftp-cli ----
@@ -140,17 +156,18 @@ $(OBJDIR)/mkroots: common/tools/mkroots.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJD
 
 # the root certificates (Mozilla's list, kept in common/) next to the
 # program, and decoded on this computer so the Atari needn't
-binary/CACERT.PEM: common/certs/CACERT.PEM
+binary/CACERT.PEM: common/certs/CACERT.PEM | binary
 	cp $< $@
 binary/ROOTS.DAT: binary/CACERT.PEM
 	$(MAKE) $(OBJDIR)/mkroots
 	$(OBJDIR)/mkroots binary/CACERT.PEM $@
 
 # the help file for ST-Guide and HypView, from docs/GUIDE.md; needs hcp
-# (github.com/th-otto/hypview): make help HCP=/path/to/hcp
+# (github.com/th-otto/hypview; common/tools/build-hcp.sh builds it):
+# make help HCP=/path/to/hcp
 HCP     ?= hcp
 help: binary/EFTP.HYP
-binary/EFTP.HYP: docs/GUIDE.md tools/mkhelp.py VERSION | $(OBJDIR)
+binary/EFTP.HYP: docs/GUIDE.md tools/mkhelp.py VERSION | $(OBJDIR) binary
 	python3 tools/mkhelp.py docs/GUIDE.md VERSION $(OBJDIR)/EFTP.STG
 	$(HCP) -o $@ $(OBJDIR)/EFTP.STG
 
@@ -199,8 +216,20 @@ itest: $(OBJDIR)/ftp-cli
 	python3 tests/ftps_test.py
 	python3 -m unittest discover -s gateway -p 'test_*.py'
 
+# a release's files: each one in dist/, and all of them in
+# dist/EFTP-x.y.zip (the icons in icons/), for the release workflow
+DIST    := binary/EFTP.PRG binary/EFTPST.PRG binary/CACERT.PEM binary/ROOTS.DAT binary/EFTP.HYP
+ICONS   := icons/EFTP.RSC icons/EFTP.ICN icons/EFTPMK.ICN
+dist: all help
+	rm -rf dist
+	mkdir -p dist/zip/icons
+	cp $(DIST) $(ICONS) dist/
+	cp $(DIST) dist/zip/
+	cp $(ICONS) dist/zip/icons/
+	cd dist/zip && zip -q -9 -r ../EFTP-$(VERSION_STR).zip .
+	rm -rf dist/zip
 
 clean:
-	rm -rf $(OBJDIR) binary/EFTP.PRG binary/EFTPST.PRG
+	rm -rf $(OBJDIR) binary dist
 
-.PHONY: all help test itest clean fuzz
+.PHONY: all help icons dist test itest clean fuzz FORCE

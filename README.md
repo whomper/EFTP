@@ -102,7 +102,9 @@ dialogs, colours and Settings, and the same monitor on the icon.
 
 ## Getting started
 
-Everything to copy to the Atari is in [`binary/`](binary):
+Everything to copy to the Atari is in each
+[release](https://github.com/whomper/EFTP/releases/latest), each file on
+its own and all together in `EFTP-x.y.zip`:
 
 | File | |
 |---|---|
@@ -110,7 +112,7 @@ Everything to copy to the Atari is in [`binary/`](binary):
 | `EFTPST.PRG` | ST and STE: the same program without TLS (110 KB smaller), through the Pi |
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode |
 | `EFTP.HYP`   | the user guide for ST-Guide, opened by the Help key |
-| `icons/`     | the desktop icon |
+| `EFTP.RSC`, `EFTP.ICN`, `EFTPMK.ICN` | the desktop icon (in the zip's `icons/` folder) |
 
 1. Copy `EFTP.PRG` or `EFTPST.PRG` (and `EFTP.HYP`; for Falcon mode
    `CACERT.PEM` and `ROOTS.DAT`) into a folder of its own, e.g.
@@ -128,16 +130,26 @@ The [user guide](docs/GUIDE.md) describes everything else.
 ```
 sudo apt install gcc-m68k-linux-gnu      # Debian/Ubuntu
 make                                     # binary/EFTP.PRG, EFTPST.PRG, ROOTS.DAT
+make help HCP=/path/to/hcp               # binary/EFTP.HYP
+make dist                                # a release's files in dist/
 ```
-
-Every build of EFTP.PRG gets the next version: the Makefile counts up the
-minor number in `VERSION` (major.minor) each time it links the program;
-it shows in the About box. Commit `VERSION` together with the program.
 
 The ST-Guide help file `binary/EFTP.HYP` is made from `docs/GUIDE.md` by
 `tools/mkhelp.py` and the HCP compiler from the
-[hypview](https://github.com/th-otto/hypview) project:
-`make help HCP=/path/to/hcp`.
+[hypview](https://github.com/th-otto/hypview) project
+(`common/tools/build-hcp.sh DIR` builds it). `binary/` and `dist/` are
+what make builds; they are never committed.
+
+**Versions and releases.** `VERSION` holds the last release, major.minor
+(e.g. 1.31), and the build never changes it. A release build
+(`RELEASE=1`) shows it as it is in the About box; any other build shows
+`1.31-dev`. To release: `tools/bump.py`, commit and push, then run the
+Release workflow (Actions > Release > Run workflow, on main) with what
+is new: [`.github/workflows/release.yml`](.github/workflows/release.yml)
+tags the commit `v1.32`, tests, builds both editions and the help file,
+and publishes them as a GitHub Release with those notes. Pushing a tag
+`v1.32` made with `git tag -a` does the same, with the tag's message as
+the notes.
 
 No MiNTLib is needed: the program is freestanding (`atari/`) and
 `common/tools/elf2tos.py` writes the TOS executable. It is built for the 68000,
@@ -162,9 +174,10 @@ gateway/ eftpgate.py for the Raspberry Pi, install.sh, its tests
 ui/      the GEM program: the window and its panes, the file lists, the
          transfers, dialogs, menus, the toolbar
 tests/   unit and integration tests, the Hatari test rig
-tools/   the icon generator, the help builder, sync-common.sh,
+tools/   the icon generator, the help builder, sync-common.sh, bump.py,
          FAKESTNG.PRG (for testing in Hatari only)
-binary/  what goes on the Atari: EFTP.PRG, EFTP.HYP and the desktop icon
+icons/   the desktop icon (RSC and ICN files), from tools/icon
+binary/  what make builds for the Atari (not committed: the releases have it)
 ```
 
 ## Tests

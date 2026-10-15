@@ -8,7 +8,7 @@ make_icon.py. Writes:
   ui/icon16.h      the 16-colour version and its palette
   docs/icon16.png  an enlarged preview of that
   docs/icon.png    an enlarged preview
-(tools/icon/make_rsc.py builds the desktop icon files in binary/icons/ from it)
+(tools/icon/make_rsc.py builds the desktop icon files in icons/ from it)
 """
 import os
 

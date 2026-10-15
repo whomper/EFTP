@@ -6,10 +6,15 @@
   EMail (whomper/EMail) and ECal; keep the look and the conventions the
   same: one window with panes, EMail's Settings sidebar, `EFTP.INF` with
   a note above every setting, Claude ST's About box and the SM124 icon.
-- **Every new build gets a new version.** `make` counts up the minor
-  number in `VERSION` each time it links `binary/EFTP.PRG`; commit
-  `VERSION` with the program, and never reuse a number for a different
-  program.
+- **Releases carry the programs.** `binary/` and `dist/` are build output,
+  never committed. `VERSION` holds the last release and `make` never
+  writes it (a build shows `x.y-dev`; `RELEASE=1` shows `x.y`). A
+  release: `tools/bump.py`, commit, push, then run the Release workflow
+  on main with the notes (or push a tag `vX.Y` made with `git tag -a`);
+  `.github/workflows/release.yml` tags vX.Y, tests, builds both editions
+  and `EFTP.HYP` (hcp from `common/tools/build-hcp.sh`) and publishes
+  each file and the zip as a GitHub Release. Never reuse a number for a
+  different program. The icons are committed in `icons/` (`make icons`).
 - Two editions, as ECal: `EFTP.PRG` (BearSSL, Falcon mode, for Falcon
   and TT) and `EFTPST.PRG` (`src/tls_none.c`, through the Pi gateway
   only, for a 1 MB ST). The TLS code (`src/tls.c`) is EMail's and ECal's;

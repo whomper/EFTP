@@ -27,8 +27,9 @@ FTPS by the Falcon itself.
 
 ## Installing
 
-The files are in the `binary` folder of EFTP's GitHub page. There are
-two editions, as with ECal:
+The files are in the latest release on EFTP's GitHub page
+(github.com/whomper/EFTP/releases), each on its own and all together in
+`EFTP-x.y.zip`. There are two editions, as with ECal:
 
 | Your Atari        | Copy                         | Secure servers                       |
 |-------------------|------------------------------|--------------------------------------|
@@ -58,7 +59,7 @@ from the viewer's own help folder. Without a viewer, Help says how to
 get one and offers the list of keys instead.
 
 The desktop icon, the same monitor as EMail's and ECal's showing a
-folder and the two ways files go, is in `binary/icons/`: `EFTP.RSC` for
+folder and the two ways files go, is in the release (in the zip, in `icons/`): `EFTP.RSC` for
 the resource editors, `EFTP.ICN` and its mask `EFTPMK.ICN`.
 
 ## The window
