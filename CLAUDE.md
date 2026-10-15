@@ -45,12 +45,13 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 
 ## EFTP
 
-- EFTP shares its runtime (`atari/`), its connection layer, charsets,
-  time zones and secrets (`src/`) and its GEM building blocks (`ui/win.c`,
-  `draw.c`, `dialogs.c`, `popup.c`, `font.c`, `about.c`, `theme.c`) with
-  EMail (whomper/EMail) and ECal; keep the look and the conventions the
-  same: one window with panes, EMail's Settings sidebar, `EFTP.INF` with
-  a note above every setting, Claude ST's About box and the SM124 icon.
+- EFTP shares a lot with EMail (whomper/EMail) and ECal: its runtime,
+  connection layer, charsets, time zones and secrets come from `common/`
+  (only `atari/plat_tos.c` is its own), and its GEM building blocks
+  (`ui/win.c`, `draw.c`, `dialogs.c`, `font.c`, `about.c`, `theme.c`)
+  follow EMail's. Keep the look and the conventions the same: one window
+  with panes, EMail's Settings sidebar, `EFTP.INF` with a note above
+  every setting, the family's About box and the SM124 icon.
 - **A release** carries `EFTP.PRG`, `EFTPST.PRG`, `EFTP.HYP` (hcp from `common/tools/build-hcp.sh`),
   `CACERT.PEM`, `ROOTS.DAT` and the icon. The icons are committed in `icons/` (`make icons`).
 - Two editions, as ECal: `EFTP.PRG` (BearSSL, Falcon mode, for Falcon

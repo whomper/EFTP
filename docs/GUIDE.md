@@ -36,7 +36,7 @@ The files are in the latest release on EFTP's GitHub page
 | Falcon, TT        | `EFTP.PRG`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (Falcon mode), SFTP through the Pi |
 | ST, STE, Mega ST  | `EFTPST.PRG`                 | FTPS and SFTP through the Pi         |
 
-`EFTPST.PRG` is the same program without TLS, 110 KB smaller: rename it
+`EFTPST.PRG` is the same program without TLS, about 105 KB smaller: rename it
 to `EFTP.PRG` if you like. Copy it into a folder of its own, for example
 `C:\EFTP\`. EFTP keeps everything next to itself:
 

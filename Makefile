@@ -4,7 +4,7 @@
 #
 #   make            builds binary/EFTP.PRG (with Falcon mode: FTPS with TLS
 #                   on the Atari) and EFTPST.PRG (the ST edition: secure
-#                   servers through the Pi gateway, 150 KB smaller), as
+#                   servers through the Pi gateway, about 105 KB smaller), as
 #                   ECal does, with a stock m68k ELF cross compiler
 #                   (Debian/Ubuntu: apt install gcc-m68k-linux-gnu).
 #                   No MiNTLib needed: the program is freestanding and
