@@ -33,3 +33,8 @@
   and keep `double` out (it pulls in libgcc code that needs a GOT).
 - Memory is short on a 1 MB ST with STinG: keep big buffers out of BSS and
   the heap (the control connection reads 2 KB at a time, data 8 KB).
+- **The name** reads "AERA | Erez Yaary" wherever it is given: copyright
+  lines (`Copyright (C) 2026 AERA | Erez Yaary`), the About box, the help
+  file's `@author`, the docs, and as the author of every commit:
+  `git commit --author="AERA | Erez Yaary <yaary@me.com>"`, with Claude as
+  the signing committer (AERA-Atari, `standards/GITHUB-IDENTITY.md`).
