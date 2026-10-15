@@ -146,7 +146,7 @@ Falcon, TT:  Falcon (EFTP.PRG, TLS 1.2, RSA on the DSP) ------------------------
 
 - **Through the Pi gateway.** `gateway/eftpgate.py` on a Raspberry Pi
   (or any Linux computer at home) takes EFTP's plain FTP and speaks FTPS
-  or SFTP to the server. Set it up with `gateway/install.sh` (see
+  or SFTP to the server. Set it up with `gateway/aera-gateway install ftp` (see
   `gateway/README.md`), then type the Pi's address in Options >
   Settings > Secure. Any Atari can use it, a Falcon too, and SFTP always
   goes this way. The Pi checks the servers' certificates, and remembers

@@ -61,8 +61,14 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 - FTPS data connections: the TLS handshake comes after the 125/150
   reply (before it, servers deadlock), and resumes the control
   connection's session (vsftpd's require_ssl_reuse).
-- `gateway/eftpgate.py` is standard Python plus paramiko (Raspberry Pi
-  OS: python3-paramiko); keep it that way, like ECal's gateway.
+- `gateway/` is a read-only copy of
+  [AERA-Gateway](https://github.com/whomper/AERA-Gateway)'s (eftpgate,
+  the other gateways, `aera-gateway`): change it there, with that
+  repository's owner session, and bring it here with
+  `tools/sync-gateway.sh`. EFTP decides eftpgate's protocol (the login
+  form, FTPS session reuse, SFTP and known_hosts, ports 2121 and
+  30000-30099): review changes to it there. eftpgate is standard Python
+  plus paramiko (Raspberry Pi OS: python3-paramiko).
 - Before pushing: `make test`, `make itest` (pip install pyftpdlib
   pyopenssl paramiko) and, when the Atari side changes,
   `tests/hatari/net_test.py` (4 MB, and `EFTP_PRG=EFTPST.PRG` on 1 MB)

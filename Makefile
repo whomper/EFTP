@@ -216,7 +216,8 @@ test: $(OBJDIR)/unit $(addprefix $(OBJDIR)/replay_,$(FUZZERS))
 itest: $(OBJDIR)/ftp-cli
 	python3 tests/integration.py
 	python3 tests/ftps_test.py
-	python3 -m unittest discover -s gateway -p 'test_*.py'
+	python3 -m unittest discover -s gateway -p 'test_aeragate.py'
+	python3 -m unittest discover -s gateway -p 'test_eftpgate.py'
 
 # a release's files: each one in dist/, and all of them in
 # dist/EFTP-x.y.zip (the icons in icons/), for the release workflow

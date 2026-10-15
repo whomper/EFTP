@@ -86,7 +86,7 @@ picks the way from the site's **Protocol** (**File > Sites**) and **Options > Se
   ftplib, resuming the TLS session on every data connection) or SFTP (paramiko) to the server named
   in the login, `sftp:user@host:port`; EFTP writes that for you from the site's Protocol. It checks
   certificates, remembers SSH host keys, and turns text files' line ends for SFTP.
-  `gateway/install.sh` sets it up as a service.
+  `gateway/aera-gateway install ftp` sets it up as a service.
 - **Falcon mode.** `EFTP.PRG` does FTPS itself with [BearSSL](https://bearssl.org/), the same TLS
   code as EMail and ECal (ChaCha20 first, RSA certificates checked on the DSP56001, sessions
   resumed); explicit (AUTH TLS) and implicit (port 990). Every data connection resumes the control
@@ -169,9 +169,10 @@ common/   code shared with the other AERA programs (from AERA-Atari): the TOS ru
           EFTPST.PRG), charsets, time zones, the menu bar, help, drag and drop,
           BearSSL, the DSP RSA, bidi, dates, passwords, the root certificates,
           build tools
-gateway/  eftpgate.py for the Raspberry Pi, install.sh, its tests
+gateway/  the Raspberry Pi gateways (eftpgate.py is EFTP's) and aera-gateway, their installer:
+          a copy of AERA-Gateway's; change it there, then run tools/sync-gateway.sh
 tests/    unit, fuzz and integration tests, the Hatari test rig
-tools/    the icon generator, the help builder, sync-common.sh, bump.py,
+tools/    the icon generator, the help builder, sync-common.sh, sync-gateway.sh, bump.py,
           FAKESTNG.PRG (for testing in Hatari only)
 icons/    the desktop icon (RSC and ICN files), from tools/icon
 docs/     the user guide (GUIDE.md, the source of EFTP.HYP) and pictures
