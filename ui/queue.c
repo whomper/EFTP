@@ -55,6 +55,63 @@ static const char *log_line(long i)
 	return logl[(log_head - log_n + i + LOGN) % LOGN];
 }
 
+/* ---------------- this run, in all ---------------- */
+
+static unsigned long run_t0;		/* when queue_run started */
+
+typedef struct {
+	long k, all;		/* files started (or done) and files in all */
+	long bdone, btotal;	/* bytes */
+	char left[24];		/* "12:34 left" for the whole run, or "" */
+} RUNSUM;
+
+/* the files of this run: the ones waiting and the ones it started.
+   The time left is what is still to come at the speed so far, counted
+   from the first file (listing the folders takes no bytes) */
+static void run_sum(RUNSUM *r)
+{
+	long i, rest = 0, bps, secs;
+	unsigned long first = 0, ms;
+	r->k = r->all = r->bdone = r->btotal = 0;
+	r->left[0] = 0;
+	for (i = 0; i < xn; i++) {
+		XITEM *x = &xq[i];
+		long size = x->size > 0 ? x->size : 0;
+		if (x->isdir)
+			continue;
+		if (x->state == XS_WAIT) {
+			r->all++;
+			r->btotal += size;
+			rest += size;
+			continue;
+		}
+		if (x->t0 < run_t0)
+			continue;		/* from an earlier run */
+		r->all++;
+		r->k++;
+		if (!first || x->t0 < first)
+			first = x->t0;
+		if (x->state == XS_SKIP)
+			continue;		/* already there: nothing to move */
+		r->bdone += x->done;
+		r->btotal += size > x->done ? size : x->done;
+		if (x->state == XS_RUN && size > x->done)
+			rest += size - x->done;
+	}
+	ms = first ? pf_ms() - first : 0;
+	if (ms < 3000 || r->bdone <= 0 || rest <= 0)
+		return;
+	/* bytes * 1000 would overflow past 2 MB: then by whole seconds */
+	bps = r->bdone < 2000000L ? (long)(r->bdone * 1000L / (long)ms) : (long)(r->bdone / (long)(ms / 1000UL));
+	if (bps <= 0)
+		return;
+	secs = rest / bps + 1;
+	if (secs >= 3600)
+		snprintf(r->left, sizeof(r->left), "%ld:%02ld:%02ld left", secs / 3600, secs / 60 % 60, secs % 60);
+	else
+		snprintf(r->left, sizeof(r->left), "%ld:%02ld left", secs / 60, secs % 60);
+}
+
 /* ---------------- titles ---------------- */
 
 void queue_titles(void)
@@ -74,14 +131,13 @@ void queue_titles(void)
 	}
 	win_title(&w_queue, "Transfers");
 	if (running) {
-		long i, k = 0, all = 0;
-		for (i = 0; i < xn; i++)
-			if (!xq[i].isdir) {
-				all++;
-				if (xq[i].state != XS_WAIT)
-					k++;
-			}
-		snprintf(t, sizeof(t), "%s of %s", num(k), num(all));
+		RUNSUM r;
+		char a[16], b[16];
+		run_sum(&r);
+		size_str(r.bdone, a, sizeof(a));
+		size_str(r.btotal, b, sizeof(b));
+		snprintf(t, sizeof(t), "%s of %s file%s  %s of %s%s%s", num(r.k), num(r.all), r.all == 1 ? "" : "s",
+			 a, b, r.left[0] ? "  " : "", r.left);
 	} else if (xn) {
 		int o = 0;
 		if (done)
@@ -157,7 +213,7 @@ static void draw_log(WIN *w)
 		if (l[0] == '>')
 			p = pen[P_DIM];
 		else if (l[0] == '!')
-			p = colour ? pen[P_ERR] : 1, fl |= TX_BOLD;
+			p = colour ? pen[P_ERR] : 1;
 		else if (l[0] == '-')
 			p = pen[P_DIM], fl |= colour ? 0 : TX_LIGHT;
 		/* commands sent in grey, the server's answers in black */
@@ -184,7 +240,7 @@ static void draw(WIN *w, GRECT *clip)
 		short k;
 		for (k = 0; k < 3; k++)
 			text_at(x0 + cw, w->work.y + w->head_h + ch / 2 + k * ch, help[k], strlen(help[k]), cols - 1,
-				k ? TX_LIGHT : TX_BOLD);
+				k ? TX_LIGHT : 0);
 		return;
 	}
 	nw = cols * 2 / 5;		/* the name */
@@ -210,7 +266,7 @@ static void draw(WIN *w, GRECT *clip)
 		if (x->isdir)
 			draw_folder(x0 + cw + cw / 2, y, lit);
 		text_at(x0 + (x->isdir ? 4 : 3) * cw, y, x->disp, strlen(x->disp), nw - (x->isdir ? 1 : 0),
-			fl | TX_RIGHT | (x->isdir || x->state == XS_RUN ? TX_BOLD : 0));
+			fl | TX_RIGHT);
 		size_str(x->done, a, sizeof(a));
 		size_str(x->size, b, sizeof(b));
 		switch (x->state) {
@@ -224,7 +280,8 @@ static void draw(WIN *w, GRECT *clip)
 			short bw = rest > 40 ? 16 : rest / 3, pct = 0, n;
 			GRECT bar, done;
 			if (x->isdir) {
-				text_at(x0 + sx * cw, y, "Opening the folder...", 21, rest, fl | TX_LTR);
+				const char *s = x->listed ? "Making the folder..." : "Listing the folder...";
+				text_at(x0 + sx * cw, y, s, strlen(s), rest, fl | TX_LTR);
 				break;
 			}
 			pct = percent(x->done, x->size);
@@ -253,19 +310,19 @@ static void draw(WIN *w, GRECT *clip)
 		case XS_DONE: {
 			short n;
 			if (x->isdir) {
-				text_pen_at(lit ? 1 : colour ? pen[P_DOWN] : 1, x0 + sx * cw, y, "Opened", 6, rest,
+				text_pen_at(lit ? 1 : colour ? pen[P_DOWN] : 1, x0 + sx * cw, y, "Done", 4, rest,
 					    fl | TX_LTR);
 				break;
 			}
 			speed_str(x->done, x->t1 - x->t0, sp, sizeof(sp));
-			text_pen_at(lit ? 1 : colour ? pen[P_DOWN] : 1, x0 + sx * cw, y, "Done", 4, rest, fl | TX_LTR | TX_BOLD);
+			text_pen_at(lit ? 1 : colour ? pen[P_DOWN] : 1, x0 + sx * cw, y, "Done", 4, rest, fl | TX_LTR);
 			n = (short)snprintf(t, sizeof(t), "%s  %s", b, sp);
 			text_pen_at(lit ? 1 : pen[P_DIM], x0 + (sx + 6) * cw, y, t, n, rest - 6, fl | TX_LTR);
 			break;
 		}
 		case XS_FAIL: {
 			short n = (short)snprintf(t, sizeof(t), "Failed: %s", x->note);
-			text_pen_at(lit ? 1 : colour ? pen[P_ERR] : 1, x0 + sx * cw, y, t, n, rest, fl | TX_LTR | (colour ? 0 : TX_BOLD));
+			text_pen_at(lit ? 1 : colour ? pen[P_ERR] : 1, x0 + sx * cw, y, t, n, rest, fl | TX_LTR);
 			break;
 		}
 		case XS_SKIP: {
@@ -275,7 +332,7 @@ static void draw(WIN *w, GRECT *clip)
 		}
 		case XS_STOP: {
 			short n = (short)snprintf(t, sizeof(t), "Stopped at %s", a);
-			text_pen_at(lit ? 1 : pen[P_DIM], x0 + sx * cw, y, t, n, rest, fl | TX_LTR | TX_BOLD);
+			text_pen_at(lit ? 1 : pen[P_DIM], x0 + sx * cw, y, t, n, rest, fl | TX_LTR);
 			break;
 		}
 		}
@@ -289,16 +346,16 @@ static unsigned long last_status;
 static void progress_status(long i)
 {
 	XITEM *x = &xq[i];
-	char t[120], a[16], b[16], sp[16], lt[24];
-	size_str(x->done, a, sizeof(a));
-	size_str(x->size, b, sizeof(b));
-	speed_str(x->done, pf_ms() - x->t0, sp, sizeof(sp));
-	left_str(x, lt, sizeof(lt));
-	if (x->isdir)
-		snprintf(t, sizeof(t), "%s %s...", x->dir == XD_UP ? "Making" : "Reading", x->disp);
-	else
-		snprintf(t, sizeof(t), "%s %s: %s of %s  %s  %s  (Esc stops)", x->dir == XD_UP ? "Uploading" : "Downloading",
-			 x->disp, a, x->size >= 0 ? b : "?", sp, lt);
+	char t[120];
+	RUNSUM r;
+	if (x->isdir) {
+		snprintf(t, sizeof(t), "%s %s...   (Esc stops)", x->listed ? "Making the folder" : "Listing", x->disp);
+		status(t);
+		return;
+	}
+	run_sum(&r);
+	snprintf(t, sizeof(t), "%s %s  -  file %s of %s%s%s   (Esc stops)", x->dir == XD_UP ? "Uploading" : "Downloading",
+		 x->disp, num(r.k), num(r.all), r.left[0] ? ", " : "", r.left);
 	status(t);
 }
 
@@ -366,6 +423,7 @@ void queue_run(void)
 	char m[120];
 	if (running || !ftp || !xfer_count(XS_WAIT))
 		return;
+	run_t0 = t0;
 	if (show_log)
 		queue_show_log(0);
 	running = 1;

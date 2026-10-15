@@ -118,6 +118,7 @@ def main():
     # a whole folder down: 8+3 names, nested folders, text
     r = cli(port, "get", "/pub/demos", ".")
     check(r.returncode == 0, "get folder: " + r.stdout + r.stderr)
+    check("files at start: 3" in r.stdout, "every file listed before the first: " + r.stdout)
     check(open(os.path.join(work, "DEMOS", "SCREEN~1.PNG"), "rb").read() == b"one", "8+3 name 1")
     check(open(os.path.join(work, "DEMOS", "SCREEN~2.PNG"), "rb").read() == b"two", "8+3 name 2")
     txt = open(os.path.join(work, "DEMOS", "DEEP", "README.TXT"), "rb").read()
@@ -143,6 +144,7 @@ def main():
     check(r.returncode == 0 and data == b"atari\nunix\n", "put text: %r" % data)
     r = cli(port, "put", up, "/pub")
     check(r.returncode == 0, "put folder: " + r.stdout + r.stderr)
+    check("files at start: 2" in r.stdout, "every file listed before the first, up: " + r.stdout)
     check(open(os.path.join(home, "pub", "upme", "sub", "game.prg"), "rb").read() == bytes(range(256)) * 10,
           "put folder contents")
     # upload resume

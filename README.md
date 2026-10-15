@@ -9,10 +9,11 @@ and SFTP servers too.
 
 - **Two panes, like FileZilla:** this Atari's files on the left, the server's on the right, the
   transfers below, with dividers you can drag.
-- **Whole folders, both ways:** a folder goes with everything in it, folder by folder.
+- **Whole folders, both ways:** a folder goes with everything in it, listed all the way down
+  before the first file, so the list and the count are complete from the start.
 - **Drag and drop** from one side to the other, or double-click, or **Upload** and **Download** in
   the toolbar.
-- **A transfer queue** with a progress bar, the speed and the time left; Done, Skipped, Stopped and
+- **A transfer queue** with a progress bar, the speed and the time left for the whole transfer; Done, Skipped, Stopped and
   Failed in colour, and why.
 - **Resume:** Stop (Esc) and Retry go on where a file stopped (REST); when the line drops in the
   middle, EFTP connects again by itself.
@@ -54,8 +55,9 @@ file by file or all together in the zip:
 1. Copy `EFTP.PRG` or `EFTPST.PRG` into a folder of its own, for example `C:\EFTP\`, with
    `EFTP.HYP`; for Falcon mode, `CACERT.PEM` and `ROOTS.DAT` too.
 2. Load STinG (or run MiNT with MiNTnet).
-3. Start EFTP, choose **File > Sites** (^K, or **Connect** in the toolbar), make a site with the
-   server's name and your login, and press **Connect**.
+3. Start EFTP, choose **File > Sites** (^K), make a site with the server's name and your login,
+   and press **Connect**. Afterwards **Connect** in the toolbar lists your sites: one click
+   connects.
 4. Press **Help** in EFTP for the guide.
 
 For FTPS and SFTP servers, see [How it reaches the servers](#how-it-reaches-the-servers). The

@@ -59,16 +59,27 @@ static const MBAR_ITEM m_file[] = {
 	{ "Quit", "^Q", C_QUIT },
 	{ 0, 0, 0 }
 };
-static const MBAR_ITEM m_files[] = {
-	{ "Upload / Download", "^T", C_TRANSFER },
+/* a menu for each side, so it is clear which files a command is for;
+   the keys act on the pane that has the keyboard */
+static const MBAR_ITEM m_local[] = {
+	{ "Upload", "^T", C_UPLOAD },
 	{ "-", 0, 0 },
-	{ "New folder...", "^N", C_NEWFOLDER },
-	{ "Rename...", "^E", C_RENAME },
-	{ "Delete...", "Del", C_DELETE },
+	{ "New folder...", "^N", C_LNEWFOLDER },
+	{ "Rename...", "^E", C_LRENAME },
+	{ "Delete...", "Del", C_LDELETE },
+	{ "-", 0, 0 },
+	{ "Refresh", "^R", C_LREFRESH },
+	{ 0, 0, 0 }
+};
+static const MBAR_ITEM m_remote[] = {
+	{ "Download", "^T", C_DOWNLOAD },
+	{ "-", 0, 0 },
+	{ "New folder...", "^N", C_RNEWFOLDER },
+	{ "Rename...", "^E", C_RRENAME },
+	{ "Delete...", "Del", C_RDELETE },
 	{ "Permissions...", "^I", C_CHMOD },
 	{ "-", 0, 0 },
-	{ "Refresh", "^R", C_REFRESH },
-	{ "Show hidden files", 0, C_HIDDEN },
+	{ "Refresh", "^R", C_RREFRESH },
 	{ 0, 0, 0 }
 };
 static const MBAR_ITEM m_edit[] = {
@@ -90,6 +101,7 @@ static const MBAR_ITEM m_xfer[] = {
 static const MBAR_ITEM m_opts[] = {
 	{ "Settings...", 0, C_SETTINGS },
 	{ "Font...", 0, C_FONT },
+	{ "Show hidden files", 0, C_HIDDEN },
 	{ "-", 0, 0 },
 	{ "Falcon mode (TLS)", 0, C_FALCON },
 	{ "-", 0, 0 },
@@ -97,14 +109,21 @@ static const MBAR_ITEM m_opts[] = {
 	{ "Protocol log", 0, C_PLOG },
 	{ 0, 0, 0 }
 };
+static const MBAR_ITEM m_help[] = {
+	{ "EFTP help", "Help", C_HELP },
+	{ "Keys...", 0, C_KEYS },
+	{ 0, 0, 0 }
+};
 
 static const MBAR_TITLE bar[] = {
 	{ " EFTP ", m_desk },
 	{ " File ", m_file },
 	{ " Edit ", m_edit },
-	{ " Files ", m_files },
+	{ " Local ", m_local },
+	{ " Remote ", m_remote },
 	{ " Transfers ", m_xfer },
 	{ " Options ", m_opts },
+	{ " Help ", m_help },
 	{ 0, 0 }
 };
 
@@ -126,6 +145,7 @@ static int focus_side(void)
 void menu_update(void)
 {
 	int side = focus_side(), n = (int)files_count(side);
+	int nl = (int)files_count(SIDE_LOCAL), nr = (int)files_count(SIDE_REMOTE);
 	enable(C_CUT, 0);		/* in dialogs only: no text in the window */
 	enable(C_COPY, side_of(win_focused()) >= 0);
 	enable(C_PASTE, 0);
@@ -134,7 +154,16 @@ void menu_update(void)
 	enable(C_NEWFOLDER, side == SIDE_REMOTE ? ftp != 0 : ldir[0] != 0);
 	enable(C_RENAME, n == 1);
 	enable(C_DELETE, n > 0);
-	enable(C_CHMOD, side == SIDE_REMOTE && n == 1);
+	enable(C_UPLOAD, ftp && nl > 0);
+	enable(C_LNEWFOLDER, ldir[0] != 0);
+	enable(C_LRENAME, nl == 1);
+	enable(C_LDELETE, nl > 0);
+	enable(C_DOWNLOAD, ftp && nr > 0);
+	enable(C_RNEWFOLDER, ftp != 0);
+	enable(C_RRENAME, ftp && nr == 1);
+	enable(C_RDELETE, ftp && nr > 0);
+	enable(C_RREFRESH, ftp != 0);
+	enable(C_CHMOD, ftp && nr == 1);
 	enable(C_RETRY, xfer_count(XS_FAIL) + xfer_count(XS_STOP) > 0);
 	enable(C_CLEARDONE, xfer_count(XS_DONE) + xfer_count(XS_SKIP) > 0);
 	enable(C_CLEARALL, xn > 0);
@@ -522,6 +551,21 @@ static void command(short cmd)
 	case C_RENAME: files_rename(side); break;
 	case C_DELETE: files_delete(side); break;
 	case C_CHMOD: files_chmod(); break;
+	case C_UPLOAD: files_transfer(SIDE_LOCAL); break;
+	case C_DOWNLOAD: files_transfer(SIDE_REMOTE); break;
+	case C_LNEWFOLDER: files_new_folder(SIDE_LOCAL); break;
+	case C_RNEWFOLDER: files_new_folder(SIDE_REMOTE); break;
+	case C_LRENAME: files_rename(SIDE_LOCAL); break;
+	case C_RRENAME: files_rename(SIDE_REMOTE); break;
+	case C_LDELETE: files_delete(SIDE_LOCAL); break;
+	case C_RDELETE: files_delete(SIDE_REMOTE); break;
+	case C_LREFRESH: files_refresh(SIDE_LOCAL); break;
+	case C_RREFRESH:
+		if (ftp)
+			files_refresh(SIDE_REMOTE);
+		break;
+	case C_HELP: help_key_pressed(); break;
+	case C_KEYS: dlg_keys(); break;
 	case C_SELALL: files_select_all(side); break;
 	case C_COPY:
 		if (side_of(win_focused()) >= 0)
@@ -612,7 +656,9 @@ static int shortcut(short kstate, short key)
 		case 0x14: cmd = C_TRANSFER; break;	/* T */
 		case 0x31: cmd = C_NEWFOLDER; break;	/* N */
 		case 0x12: cmd = C_RENAME; break;	/* E */
-		case 0x17: cmd = C_CHMOD; break;	/* I */
+		case 0x17:				/* I: the server's files only */
+			cmd = focus_side() == SIDE_REMOTE ? C_CHMOD : C_NONE;
+			break;
 		case 0x1e: cmd = C_SELALL; break;	/* A */
 		case 0x2e: cmd = C_COPY; break;		/* C */
 		case 0x13: cmd = C_REFRESH; break;	/* R */
@@ -726,7 +772,7 @@ static void tip_show(void)
 	clip_on(&scr);
 	fill(&r, 0);
 	frame(&r, 1);
-	text_at(r.x + cw, r.y + 3, text, n1, n1, (l2 ? TX_BOLD : 0) | (line_rtl(text, n1) ? TX_RIGHT : 0));
+	text_at(r.x + cw, r.y + 3, text, n1, n1, (line_rtl(text, n1) ? TX_RIGHT : 0));
 	if (l2)
 		text_pen_at(pen[P_DIM], r.x + cw, r.y + 3 + ch, l2, n2, n2, TX_LTR);
 	graf_mouse(M_ON, 0);
@@ -847,7 +893,7 @@ int main(void)
 	if (!strcmp(net_stack(), "none"))
 		status("No network: load STinG (or run MiNT) to connect to servers.");
 	else
-		status("Connect (^K) to a server: your sites, or File > Quick connect.");
+		status("Connect lists your sites; File > Quick connect takes any server.");
 
 	crash_offer("EFTP", "in EFTP's folder");
 	if (store_lost_passwords)

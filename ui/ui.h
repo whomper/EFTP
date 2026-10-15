@@ -174,7 +174,12 @@ enum {
 	C_CUT, C_COPY, C_PASTE,
 	C_TRANSFER, C_NEWFOLDER, C_RENAME, C_DELETE, C_CHMOD, C_SELALL, C_REFRESH, C_HIDDEN,
 	C_RETRY, C_CLEARDONE, C_CLEARALL, C_LOG,
-	C_SETTINGS, C_FONT, C_HEBREW, C_PLOG, C_FALCON
+	C_SETTINGS, C_FONT, C_HEBREW, C_PLOG, C_FALCON,
+	/* the Local and Remote menus: the same, for one side whatever
+	   pane has the keyboard */
+	C_UPLOAD, C_LNEWFOLDER, C_LRENAME, C_LDELETE, C_LREFRESH,
+	C_DOWNLOAD, C_RNEWFOLDER, C_RRENAME, C_RDELETE, C_RREFRESH,
+	C_HELP, C_KEYS
 };
 void ui_command(short cmd);
 void menu_update(void);

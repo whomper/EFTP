@@ -3,9 +3,11 @@
 /*
  * xfer.h - the transfer queue: files and whole folders, down to the
  * Atari or up to the server, one after the other on the one FTP
- * connection. A folder in the queue becomes its contents when its turn
- * comes (the folder is made on the other side, what is in it is put in
- * the queue right after it), so nothing is listed before it is needed.
+ * connection. Before the first file goes, every folder in the queue is
+ * listed, all the way down, and what is in it is put in the queue right
+ * after it: the list shows every file, and the count and the time left
+ * are right from the start. The folder's own row then makes the folder
+ * on the other side when its turn comes.
  *
  * Also the Atari's side of the file lists, and the names a file gets
  * on the other side.
@@ -34,6 +36,7 @@ typedef struct {
 	short wall;		/* mtime is a clock time (else UTC) */
 	char note[64];		/* why it failed or was skipped */
 	short resume;		/* tried before: go on from where it got to */
+	short listed;		/* a folder whose contents are in the queue */
 	unsigned long t0, t1;	/* pf_ms() at its start and end */
 } XITEM;
 

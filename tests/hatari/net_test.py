@@ -75,8 +75,9 @@ def wait_for(cond, secs):
 # where things are in the 640x480 window (ST font 8x16)
 ROW0 = 131            # the first row of a file list
 ROWH = 16
-DOWNLOAD = (240, 73)  # toolbar buttons
+CONNECT, DOWNLOAD = (50, 73), (240, 73)  # toolbar buttons
 REMOTE_X, LOCAL_X = 400, 60
+SITE1 = (60, 92)      # the first site in Connect's menu
 
 
 def row(n):
@@ -86,9 +87,10 @@ def row(n):
 try:
     time.sleep(30)                                  # boot, FAKESTNG, EFTP
     r.shot("t1-start")
-    r.ctrl("k")                                     # Site Manager
+    r.click(*CONNECT)                               # the sites in a menu
     time.sleep(2)
-    r.key(K["RETURN"])                              # Connect: "Test server", /pub
+    r.shot("t1b-connect-menu")
+    r.click(*SITE1)                                 # "Test server", /pub: one click
     time.sleep(15)
     r.shot("t2-connected")
     check("USER 'atari' logged in" in open(os.path.join(work, "ftpd.log")).read(), "logged in")
@@ -138,9 +140,9 @@ try:
     size = os.path.getsize(part) if os.path.exists(part) else -1
     check(0 < size < 250000, "stopped half way (%d bytes)" % size)
     r.shot("t6-stopped")
-    r.click(210, 9)                                 # Transfers > Retry the failed ones
+    r.click(300, 9)                                 # Transfers > Retry the failed ones
     time.sleep(1)
-    r.click(240, 27)
+    r.click(320, 27)
     check(wait_for(lambda: same(part, os.path.join(home, "pub", "atari", "STinG 1.26.zip")), 90),
           "resumed and complete")
     check("REST %d" % size in open(os.path.join(hd, "EFTP.LOG"), errors="replace").read(), "resumed with REST")

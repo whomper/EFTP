@@ -385,17 +385,13 @@ static void note(XITEM *x, const char *s)
 	str_copy(x->note, s, sizeof(x->note));
 }
 
-/* a folder's contents after it in the queue */
-static int expand_down(FTP *f, const SITE *site, long i)
+/* a server folder's contents after it in the queue */
+static int list_down(FTP *f, const SITE *site, long i)
 {
 	FLIST l;
 	char *names, rp[400], lp[300];
 	long k, at = i + 1;
 	XITEM x = xq[i];
-	if (pf_mkdir(x.local) != 0 && !pf_isdir(x.local)) {
-		note(&xq[i], "can't make the folder here");
-		return 0;
-	}
 	if (!ftp_cd(f, x.remote) || !ftp_list(f, &l, opt.hidden)) {
 		note(&xq[i], f->err);
 		return 0;
@@ -420,15 +416,13 @@ static int expand_down(FTP *f, const SITE *site, long i)
 	return 1;
 }
 
-static int expand_up(FTP *f, const SITE *site, long i)
+/* an Atari folder's contents after it in the queue */
+static int list_up(FTP *f, const SITE *site, long i)
 {
 	FLIST l;
 	char rp[400], lp[300], rn[LNAME * 2];
 	long k, at = i + 1;
 	XITEM x = xq[i];
-	if (!ftp_mkdir(f, x.remote) && !ftp_alive(f))
-		return 0;
-	/* "already there" is fine: the files go into it */
 	if (!local_list(x.local, &l, opt.hidden)) {
 		note(&xq[i], "can't read the folder");
 		return 0;
@@ -447,6 +441,25 @@ static int expand_up(FTP *f, const SITE *site, long i)
 		     is_text(e->name, site));
 	}
 	flist_free(&l);
+	return 1;
+}
+
+/* the folder on the other side, before the files that go in it; one
+   that is there already is fine */
+static int make_folder(FTP *f, long i)
+{
+	XITEM *x = &xq[i];
+	if (x->dir == XD_DOWN) {
+		if (pf_mkdir(x->local) != 0 && !pf_isdir(x->local)) {
+			note(x, "can't make the folder here");
+			return 0;
+		}
+		return 1;
+	}
+	if (!ftp_mkdir(f, x->remote) && !ftp_alive(f)) {
+		note(&xq[i], f->err);
+		return 0;
+	}
 	return 1;
 }
 
@@ -552,7 +565,40 @@ int xfer_run(FTP *f, const SITE *site, long *failed)
 	*failed = 0;
 	all_choice = -1;
 	ftp_progress = progress;
+	/* first every folder's contents, all the way down (a folder's
+	   folders come after it, so the loop gets to them too) */
 	for (i = 0; i < xn; i++) {
+		int r;
+		if (xq[i].state != XS_WAIT || !xq[i].isdir || xq[i].listed)
+			continue;
+		if (!ftp_alive(f) || conn_stop) {
+			ok = 0;
+			break;
+		}
+		cur = i;
+		xq[i].state = XS_RUN;
+		xq[i].note[0] = 0;
+		xq[i].t0 = pf_ms();
+		changed(i);
+		moved |= xq[i].dir == XD_DOWN;
+		r = xq[i].dir == XD_DOWN ? list_down(f, site, i) : list_up(f, site, i);
+		xq[i].t1 = pf_ms();
+		if (r) {
+			xq[i].state = XS_WAIT;
+			xq[i].listed = 1;
+		} else {
+			xq[i].state = conn_stop ? XS_STOP : XS_FAIL;
+			if (xq[i].state == XS_FAIL)
+				(*failed)++;
+		}
+		changed(-1);
+		if (xq[i].state == XS_STOP) {
+			ok = 0;
+			break;
+		}
+	}
+	/* then the folders and files, in order */
+	for (i = 0; i < xn && ok; i++) {
 		int st;
 		if (xq[i].state != XS_WAIT)
 			continue;
@@ -568,12 +614,9 @@ int xfer_run(FTP *f, const SITE *site, long *failed)
 		last_tick = 0;
 		changed(i);
 		if (xq[i].isdir) {
-			moved |= xq[i].dir == XD_DOWN;
-			st = (xq[i].dir == XD_DOWN ? expand_down(f, site, i) : expand_up(f, site, i))
-			     ? XS_DONE : XS_FAIL;
+			st = make_folder(f, i) ? XS_DONE : XS_FAIL;
 			if (st == XS_FAIL && conn_stop)
 				st = XS_STOP;
-			changed(-1);
 		} else {
 			st = run_file(f, i);
 		}

@@ -54,9 +54,10 @@ C:\EFTP\SEED.DAT      Falcon mode: randomness kept for the next start
 
 Start it. This guide is also in `EFTP.HYP`, a hypertext: with EHypView,
 ST-Guide or HypView running (as an accessory, or as a program under
-MultiTOS or MagiC), the Help key opens it, from next to `EFTP.PRG` or
-from the viewer's own help folder. Without a viewer, Help says how to
-get one and offers the list of keys instead.
+MultiTOS or MagiC), the Help key or **Help > EFTP help** opens it, from
+next to `EFTP.PRG` or from the viewer's own help folder. Without a
+viewer, Help says how to get one and offers the list of keys instead;
+**Help > Keys** shows that list at any time.
 
 The desktop icon, the same monitor as EMail's and ECal's showing a
 folder and the two ways files go, is in the release (in the zip, in `icons/`): `EFTP.RSC` for
@@ -68,10 +69,9 @@ One window, like a modern FTP program:
 
 - **The toolbar** along the top: Connect (Disconnect while connected),
   Upload and Download with arrows in the colours files go in (terracotta
-  up to the server, green down to the Atari), New folder, Refresh, the
-  server's name with a light that is green while connected, and Stop,
-  red while a transfer runs. Rest the mouse on a button to see what it
-  does.
+  up to the server, green down to the Atari), the server's name with a
+  light that is green while connected, and Stop, red while a transfer
+  runs. Rest the mouse on a button to see what it does.
 - **This Atari** on the left: the folder you're in, folders first with
   amber folder icons, then the files with their size and date; the
   header says how many there are and how much room the drive has left.
@@ -80,7 +80,9 @@ One window, like a modern FTP program:
   with the permissions in the tooltip of each file.
 - **Transfers** across the bottom: every file and folder you send, with
   a progress bar and the speed while it goes, then Done (in green),
-  Skipped, Stopped or Failed (in red) and why.
+  Skipped, Stopped or Failed (in red) and why. While a transfer runs,
+  its header says how many files and bytes have gone of all of them,
+  and the time left for the whole transfer.
 - **The info line** under the title: what EFTP is doing, and at the
   end of a transfer how much went in what time.
 
@@ -98,9 +100,12 @@ again for the other way round.
 
 ## Connecting
 
-**File > Sites** (^K, or Connect in the toolbar) opens the Site
-Manager: your sites on the left, the chosen one's settings on the right.
-Double-click a site, or choose it and press Connect.
+**Connect** in the toolbar lists your sites: click one and EFTP
+connects to it. Under them are **Sites...** and **Quick connect...**.
+
+**File > Sites** (^K) opens the Site Manager: your sites on the left,
+the chosen one's settings on the right. Double-click a site, or choose
+it and press Connect.
 
 | Field          | What to type                                                     |
 |----------------|------------------------------------------------------------------|
@@ -189,8 +194,11 @@ selects everything from the last one clicked; Space selects the file
 under the cursor and moves on; ^A selects everything. A letter jumps to
 the next name starting with it.
 
-A folder is copied with everything in it: the folder is made on the
-other side, and what is in it follows, folder by folder.
+A folder is copied with everything in it. Before the first file goes,
+EFTP lists the folder and every folder in it, all the way down, so the
+transfers show every file from the start, and the count and the time
+left are right. Then each folder is made on the other side, and its
+files follow.
 
 Double-click a folder (or Return) to open it, `..` or Backspace goes up.
 
@@ -264,17 +272,22 @@ all its files as text, or all as binary, instead.
 
 ## Managing files
 
-On either side, from the Files menu, the right-click menu or the keys:
+The **Local** menu works on this Atari's files (the left pane), the
+**Remote** menu on the server's (the right pane), whichever pane has
+the keyboard. The right-click menu and the keys work on the pane they
+are used in:
 
-- **New folder** (^N, or the toolbar)
+- **Upload** (Local) and **Download** (Remote), ^T
+- **New folder** (^N)
 - **Rename** (^E)
 - **Delete** (Del): files, and folders with everything in them, after
   asking
 - **Permissions** (^I), on the server: read, write and run for the
   owner, the group and the others, with the number (`644`) as you tick
-- **Refresh** (^R, Esc): read both lists again
-- **Show hidden files**: names starting with a dot on the server,
-  files with the hidden attribute on the Atari
+- **Refresh** (^R, Esc): read the list again (the keys read both)
+
+**Options > Show hidden files** shows names starting with a dot on the
+server and files with the hidden attribute on the Atari.
 
 ## Dates and the time zone
 
@@ -321,7 +334,7 @@ F10 switches to the Israeli keyboard for typing Hebrew names.
 
 | Key            | Does                                           |
 |----------------|------------------------------------------------|
-| ^K / ^D        | connect (the sites) / disconnect               |
+| ^K / ^D        | the Site Manager / disconnect                  |
 | ^T             | upload or download what is selected            |
 | Return         | open the folder, send the file                 |
 | Backspace      | the folder up                                  |

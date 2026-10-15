@@ -68,7 +68,7 @@ static short header_h(void)
 
 /* ---------------- the toolbar ---------------- */
 
-enum { B_CONNECT, B_UP, B_DOWN, B_NEWDIR, B_REFRESH, B_STOP, NBUT };
+enum { B_CONNECT, B_UP, B_DOWN, B_STOP, NBUT };
 static GRECT but[NBUT];
 static GRECT r_name;			/* where the server's name goes */
 static short narrow;			/* short labels */
@@ -79,8 +79,6 @@ static const char *label(int i)
 	case B_CONNECT: return ftp ? (narrow ? "Close" : "Disconnect") : (narrow ? "Open" : "Connect");
 	case B_UP: return narrow ? "Up" : "Upload";
 	case B_DOWN: return narrow ? "Down" : "Download";
-	case B_NEWDIR: return narrow ? "New" : "New folder";
-	case B_REFRESH: return narrow ? "\x07" : "Refresh";
 	case B_STOP: return "Stop";
 	}
 	return "";
@@ -92,8 +90,6 @@ static int enabled(int i)
 	case B_CONNECT: return !running;
 	case B_UP: return !running && ftp && files_count(SIDE_LOCAL) > 0;
 	case B_DOWN: return !running && ftp && files_count(SIDE_REMOTE) > 0;
-	case B_NEWDIR: return !running && (side_of(focus) == SIDE_LOCAL ? ldir[0] != 0 : ftp != 0);
-	case B_REFRESH: return !running;
 	case B_STOP: return running;
 	}
 	return 0;
@@ -106,7 +102,7 @@ static void tool_layout(void)
 	r_tool.h = th;
 	narrow = mwork.w < 72 * cw;
 	x = mwork.x + 4;
-	for (i = B_CONNECT; i <= B_REFRESH; i++) {
+	for (i = B_CONNECT; i <= B_DOWN; i++) {
 		short arrow = (i == B_UP || i == B_DOWN) ? 2 : 0;
 		bw = ((short)strlen(label(i)) + 2 + arrow) * cw;
 		if (i == B_CONNECT)
@@ -145,9 +141,9 @@ static void draw_button(int i)
 		tx = r.x + (r.w - n * cw) / 2;
 	}
 	if (i == B_STOP && on && colour)
-		text_pen_at(pen[P_ERR], tx, r.y + 1, l, n, n, TX_LTR | TX_BOLD);
+		text_pen_at(pen[P_ERR], tx, r.y + 1, l, n, n, TX_LTR);
 	else
-		text_at(tx, r.y + 1, l, n, n, TX_LTR | (on ? (i == B_STOP ? TX_BOLD : 0) : TX_LIGHT));
+		text_at(tx, r.y + 1, l, n, n, TX_LTR | (on ? 0 : TX_LIGHT));
 }
 
 static void draw_toolbar(GRECT *clip)
@@ -180,7 +176,7 @@ static void draw_toolbar(GRECT *clip)
 			snprintf(t, sizeof(t), (r_name.w - d) / cw > 14 ? "Not connected" : "Offline");
 		n = (short)strlen(t);
 		if (ftp)
-			text_at(r_name.x + d + cw / 2, r_name.y, t, n, (r_name.w - d) / cw - 1, TX_BOLD | TX_LTR);
+			text_at(r_name.x + d + cw / 2, r_name.y, t, n, (r_name.w - d) / cw - 1, TX_LTR);
 		else
 			text_pen_at(colour ? pen[P_DIM] : 1, r_name.x + d + cw / 2, r_name.y, t, n,
 				    (r_name.w - d) / cw - 1, TX_LTR | (colour ? 0 : TX_LIGHT));
@@ -199,6 +195,33 @@ void toolbar_redraw(void)
 int toolbar_stop_hit(short mx, short my)
 {
 	return running && !main_iconified && inside(&but[B_STOP], mx, my);
+}
+
+/* Connect: the sites in a menu under the button, one click to connect,
+   and the Site Manager and Quick connect after them */
+static void connect_menu(GRECT *b)
+{
+	static char names[MAXSITE][36];
+	const char *lab[MAXSITE + 3];
+	short n = 0, i, r;
+	for (i = 0; i < nsites; i++) {
+		const char *nm = sites[i]->name[0] ? sites[i]->name : sites[i]->host;
+		/* a space before a name that would read as a separator, a
+		   disabled item or a check mark */
+		snprintf(names[i], sizeof(names[i]), "%s%s", nm[0] == '-' || nm[0] == '~' || nm[0] == '\x08' ? " " : "", nm);
+		lab[n++] = names[i];
+	}
+	if (n)
+		lab[n++] = "-";
+	lab[n++] = "Sites...         ^K";
+	lab[n++] = "Quick connect...";
+	r = popup(b->x, b->y + b->h, lab, n);
+	if (r < 0)
+		return;
+	if (r < nsites)
+		connect_site(sites[r]);
+	else
+		ui_command(r == n - 1 ? C_QUICK : C_SITES);
 }
 
 /* a toolbar button: acts on the first click */
@@ -232,11 +255,14 @@ static int toolbar_click(short mx, short my)
 			main_redraw(&r);
 		}
 		switch (i) {
-		case B_CONNECT: ui_command(ftp ? C_DISCONNECT : C_SITES); break;
+		case B_CONNECT:
+			if (ftp)
+				ui_command(C_DISCONNECT);
+			else
+				connect_menu(&but[B_CONNECT]);
+			break;
 		case B_UP: files_transfer(SIDE_LOCAL); break;
 		case B_DOWN: files_transfer(SIDE_REMOTE); break;
-		case B_NEWDIR: files_new_folder(side_of(focus) == SIDE_REMOTE ? SIDE_REMOTE : SIDE_LOCAL); break;
-		case B_REFRESH: ui_command(C_REFRESH); break;
 		}
 		toolbar_redraw();
 		return 1;
@@ -1020,11 +1046,9 @@ int win_mouse(short mx, short my, short button, short clicks, short kstate)
 /* ---------------- tooltips ---------------- */
 
 static const char *const btip[NBUT] = {
-	"Connect to a server, or close the connection (^K, ^D)",
+	"Connect to one of your sites, or close the connection (^D)",
 	"Copy what is selected on the Atari to the server (^T)",
 	"Copy what is selected on the server to the Atari (^T)",
-	"A new folder where the keyboard is (^N)",
-	"Read both sides again (^R)",
 	"Stop the transfer (Esc)",
 };
 

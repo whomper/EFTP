@@ -44,9 +44,19 @@ static void tick(void)
 	}
 }
 
+/* when the first file starts, how many files the queue holds: every
+   one, folders listed all the way down before ("files at start: 3") */
+static int first_seen;
+
 static void progress_changed(long i)
 {
-	(void)i;
+	if (!first_seen && i >= 0 && i < xn && !xq[i].isdir && xq[i].state == XS_RUN) {
+		long k, n = 0;
+		for (k = 0; k < xn; k++)
+			n += !xq[k].isdir;
+		first_seen = 1;
+		printf("files at start: %ld\n", n);
+	}
 	tick();
 }
 

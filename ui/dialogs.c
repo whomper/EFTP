@@ -1186,7 +1186,7 @@ short dlg_pick_list(const char *title, const char **items, short n)
 void dlg_keys(void)
 {
 	static const char *lines[] = {
-		"^K  connect: your sites    ^D  disconnect",
+		"^K  the Site Manager       ^D  disconnect",
 		"^T  upload or download     Drag to the other side",
 		"Return, double-click: open a folder, send a file",
 		"Backspace  the folder up   Tab  the next pane",
@@ -1198,7 +1198,8 @@ void dlg_keys(void)
 		"Space  select and move on  a letter: to that name",
 		"^L  server messages        F10 Hebrew keyboard",
 		"During a transfer: Esc or Stop ends it",
-		"^W, ^Q  quit"
+		"^W, ^Q  quit               Help  the user guide",
+		"The file keys act on the pane with the keyboard"
 	};
 	short i, n = (short)(sizeof(lines) / sizeof(lines[0]));
 	d_begin(54, n + 6);

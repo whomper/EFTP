@@ -357,13 +357,13 @@ static void draw(WIN *w, GRECT *clip)
 	if (side_of(w) == SIDE_REMOTE && !ftp) {
 		static const char *const help[] = {
 			"Not connected.", "",
-			"Connect (^K) opens your sites;", "File > Quick connect takes a",
+			"Connect, above, lists your sites;", "File > Quick connect takes a",
 			"server's name and a login."
 		};
 		short k;
 		for (k = 0; k < 5; k++)
 			text_at(x0 + cw, w->work.y + w->head_h + (k + 1) * ch, help[k], strlen(help[k]),
-				w->work.w / cw - 2, k ? TX_LIGHT : TX_BOLD);
+				w->work.w / cw - 2, k ? TX_LIGHT : 0);
 		return;
 	}
 	for (i = w->top; i < s->l.n + s->up && i < w->top + rows; i++) {
@@ -389,7 +389,7 @@ static void draw(WIN *w, GRECT *clip)
 		if (!e) {
 			/* the way up */
 			draw_arrow(x0 + cw / 2, y + 2, cw, ch - 4, 0, lit ? 0 : colour ? pen[P_DIM] : 1);
-			text_at(x0 + c.name * cw, y, "..", 2, c.nw, fl | TX_BOLD);
+			text_at(x0 + c.name * cw, y, "..", 2, c.nw, fl);
 			continue;
 		}
 		if (e->type == FE_DIR && side_of(w) == SIDE_LOCAL && !ldir[0])
@@ -402,8 +402,6 @@ static void draw(WIN *w, GRECT *clip)
 			short nf = fl | TX_RIGHT;
 			char nm[300];
 			short n;
-			if (e->type == FE_DIR)
-				nf |= TX_BOLD;
 			if (e->hidden && !lit)
 				nf |= TX_LIGHT;
 			n = (short)snprintf(nm, sizeof(nm), "%s%s", e->disp, e->type == FE_LINK ? " \x03" : "");
