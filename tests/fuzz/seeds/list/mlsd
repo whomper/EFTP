@@ -1,0 +1,6 @@
+type=cdir;modify=20261013185600;perm=flcdmpe; .
+type=pdir;modify=20261013185600; ..
+type=dir;modify=20261013185600;unix.mode=0755; pub
+type=file;size=123456;modify=20240301090500;UNIX.mode=0644; README.TXT
+type=OS.unix=slink:/pub;modify=20260102090500; latest
+Type=file;Size=7;Modify=19991231000000.123; café.txt

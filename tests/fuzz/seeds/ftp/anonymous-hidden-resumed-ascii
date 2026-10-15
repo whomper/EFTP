@@ -1,0 +1,49 @@
+220 (vsFTPd 3.0.5)
+331 Please specify the password.
+230 Login successful.
+211-Features:
+ EPSV
+ MDTM
+ PASV
+ REST STREAM
+ SIZE
+ TVFS
+ UTF8
+211 End
+200 Always in UTF8 mode.
+215 UNIX Type: L8
+200 Switching to Binary mode.
+257 "/home/ftp" is the current directory
+229 Entering Extended Passive Mode (|||50000|)
+150 Here comes the directory listing.
+226 Directory send OK.
+213 123456
+213 20240301090500
+250 Directory successfully changed.
+257 "/home/ftp/pub" is the current directory
+200 Switching to ASCII mode.
+350 Restart position accepted (100).
+229 Extended Passive Mode OK (|||50001|)
+150 Opening BINARY mode data connection for file.txt (300 bytes).
+226 Transfer complete.
+200 Switching to Binary mode.
+229 Entering Extended Passive Mode (|||50002|)
+150 Here comes the directory listing.
+226 Directory send OK.
+221 Goodbye.
+
+==next==
+drwxr-xr-x    2 ftp      ftp          4096 Oct 13 18:56 pub
+-rw-r--r--    1 ftp      ftp        123456 Mar  1  2024 README.TXT
+lrwxrwxrwx    1 0        0              11 Jan  2 09:05 latest -> pub/v1.2
+-rw-r--r--    1 1000     1000         4711 2026-10-13 18:56 iso.txt
+-rw-r--r--   1 owner    1234 Oct  1 12:00 no-group.zip
+-rw-r--r--    1 ftp      ftp          2048 Oct 13 18:56 שלום.txt
+total 12
+
+==next==
+Hello from the server.
+A second line.
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+==next==

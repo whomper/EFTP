@@ -173,7 +173,10 @@ The FTP core (`src/`) also builds on Linux, where it is tested against a
 real FTP server before it runs on the Atari:
 
 ```
-make test           # listing parsers (Unix, DOS, MLSD), PASV/EPSV, 8+3 names, sorting
+make test           # listing parsers (Unix, DOS, MLSD), PASV/EPSV, 8+3 names, sorting;
+                    # the fuzz inputs again (tests/fuzz/seeds)
+make fuzz           # whole FTP sessions and listings from libFuzzer (clang),
+                    # the control and data connections each with their own part
 make itest          # against pyftpdlib: logins, MLSD and LIST, files and folders
                     # both ways, resume, text mode, UTF-8 names; FTPS with EFTP's
                     # own TLS (explicit, implicit, RSA and ECDSA, sessions resumed,

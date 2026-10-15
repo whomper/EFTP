@@ -9,6 +9,7 @@
 #include "ui.h"
 #include "theme.h"
 #include "conn.h"
+#include "secret.h"
 #include "../src/plat.h"
 #include "util.h"
 #include "tls.h"
@@ -284,6 +285,14 @@ static void idle(void)
 	which = evnt_multi_(MU_MESAG | MU_KEYBD | MU_BUTTON | MU_TIMER, 1, 1, 1, 5, msg, &ev);
 	if (which & ~MU_TIMER)
 		handle_poll_event(which, msg, &ev);
+}
+
+/* a password that can't be encrypted goes into EFTP.INF as it is, and the
+   user is told, once (the AERA guidelines, 7.2) */
+static void warn_plain(const char *keyfile)
+{
+	alert(1, "[1][EFTP can't write its key file, %s, so the passwords in EFTP.INF are kept unencrypted. "
+		 "Is the disk locked or full?][ OK ]", keyfile);
 }
 
 /* ---------------- connecting ---------------- */
@@ -807,6 +816,7 @@ int main(void)
 	av_init("EFTP|EFTPST");		/* the desktop's AV server, if there is one */
 	crash_cleanup = crash_quit;
 	crash_report = conn_log_append;	/* the report in EFTP.LOG too */
+	secret_warn = warn_plain;	/* before anything is saved */
 	store_init(dir);
 	theme_init();
 	font_apply();

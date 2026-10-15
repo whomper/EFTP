@@ -348,6 +348,9 @@ int ftp_parse_epsv(const char *reply, unsigned short *port)
 /* ---------------- the control connection ---------------- */
 
 static SBUF lines;		/* every line of the last reply, \n between */
+/* as much of them as is kept (FEAT, the greeting, kept while connected):
+   a server that goes on is heard out, but not kept */
+#define LINES_MAX 8192
 
 static void watch(const char *dir, const char *s)
 {
@@ -382,9 +385,11 @@ static int reply(FTP *f)
 			return 0;
 		}
 		watch("<", b.s);
-		if (lines.len)
-			sb_addc(&lines, '\n');
-		sb_add(&lines, b.s, b.len);
+		if (lines.len < LINES_MAX) {
+			if (lines.len)
+				sb_addc(&lines, '\n');
+			sb_add(&lines, b.s, b.len < LINES_MAX ? b.len : LINES_MAX);
+		}
 		if (first) {
 			if (b.len < 3 || !all_digits(b.s, 3))
 				continue;	/* noise before the reply */

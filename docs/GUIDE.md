@@ -338,7 +338,8 @@ F10 switches to the Israeli keyboard for typing Hebrew names.
 | Help           | this guide, or the keys                        |
 | ^Q, ^W         | quit (^W closes the window, EFTP's only one)  |
 
-During a transfer, Esc or Undo stops it.
+While EFTP waits for the server (connecting, a list, a transfer), Esc,
+Undo or the Stop button stops it.
 
 ## When something goes wrong
 
@@ -382,3 +383,7 @@ numbers mean. EFTP writes it again whenever settings change, with the
 notes. Passwords are encrypted with `EFTP.KEY`; type one in plain text
 in `PASS=` and EFTP encrypts it the next time it saves. Without
 `EFTP.KEY` the passwords can't be read: type them again in File > Sites.
+When EFTP.KEY can't be written (a locked disk, a full one, a folder in its
+place), the passwords go into EFTP.INF as they are, and EFTP says so once
+each time it starts; once EFTP.KEY can be written, they are encrypted the
+next time EFTP saves its settings.

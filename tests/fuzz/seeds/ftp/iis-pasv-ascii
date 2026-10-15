@@ -1,0 +1,43 @@
+120 ready in a minute
+220 Microsoft FTP Service
+331 Please specify the password.
+230 Login successful.
+211-Features:
+ SIZE
+ MDTM
+211 END
+215 UNIX Type: L8
+200 Switching to Binary mode.
+257 "/home/ftp" is the current directory
+500 EPSV not understood
+227 Entering Passive Mode (192,168,1,20,195,80).
+150 Here comes the directory listing.
+226 Directory send OK.
+213 123456
+213 20240301090500
+250 Directory successfully changed.
+257 "/home/ftp/pub" is the current directory
+200 Switching to ASCII mode.
+227 Entering Passive Mode (10,0,0,5,195,81)
+150 Opening BINARY mode data connection for file.txt (300 bytes).
+226 Transfer complete.
+200 Switching to Binary mode.
+227 Entering Passive Mode (93,184,216,34,195,82)
+150 Here comes the directory listing.
+226 Directory send OK.
+221 Goodbye.
+
+==next==
+10-13-26  06:56PM       <DIR>          Atari
+03-01-2024  09:05AM              1024 GAMES.ZIP
+12-31-99  12:00AM                 7 old.txt
+
+==next==
+Hello from the server.
+A second line.
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+==next==
+10-13-26  06:56PM       <DIR>          Atari
+03-01-2024  09:05AM              1024 GAMES.ZIP
+12-31-99  12:00AM                 7 old.txt
