@@ -70,6 +70,9 @@ const char *pf_getenv(const char *name);
    RAM", "Program in ST RAM, data in TT RAM") and what is free */
 void pf_memory(char *where, int wsize, char *avail, int asize);
 unsigned long pf_ms(void);	/* monotonic milliseconds (5 ms steps on TOS) */
+/* "" when the clock pf_ms() counts runs true, else what was measured
+   and done about it, for the log */
+const char *pf_clock(void);
 void pf_debug(const char *s);	/* emulator console / stderr */
 /* raw unpredictable bytes (timer jitter on the Atari, /dev/urandom on
    Linux); tls.c hashes them with a seed kept on disk */

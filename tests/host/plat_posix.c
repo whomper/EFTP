@@ -205,6 +205,11 @@ unsigned long pf_ms(void)
 	return (unsigned long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
+const char *pf_clock(void)
+{
+	return "";
+}
+
 void pf_debug(const char *s)
 {
 	if (getenv("MAIL_DEBUG"))

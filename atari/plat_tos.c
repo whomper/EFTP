@@ -232,9 +232,89 @@ const char *pf_getenv(const char *name)
 	return 0;
 }
 
+/* ---------------- the clock ----------------
+ * Everything EFTP times (speeds, time left, the log's times) counts
+ * TOS's 200 Hz counter, _hz_200, which goes up once per interrupt of the
+ * MFP's timer C. A driver that sets timer C faster and still calls TOS's
+ * handler each time makes it run fast: on Erez's Falcon a transfer of 16
+ * real seconds showed as 25. So the first time it is asked, the counter
+ * is measured against timer C's own count-down, which runs off the MFP's
+ * 2.4576 MHz crystal however the timer is set, for 20 of its steps
+ * (100 ms when all is well); more than 3% off, pf_ms() is scaled. */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"	/* fixed hardware addresses */
+static long clock_hz10;			/* the counter's rate in tenths of Hz; 0 not measured, -1 can't */
+static unsigned long ms256 = 5 * 256;	/* milliseconds per step, times 256 */
+
+static void sup_clock(void)
+{
+	static const unsigned short pre[8] = { 0, 4, 10, 16, 50, 64, 100, 200 };
+	volatile unsigned char *tcdcr = (volatile unsigned char *)0xfffffa1dL;
+	volatile unsigned char *tcdr = (volatile unsigned char *)0xfffffa23L;
+	volatile unsigned long *hz = (volatile unsigned long *)0x4baL;
+	unsigned long p = pre[(*tcdcr >> 4) & 7], acc = 0, h, n = 0, top = 0, r, limit;
+	unsigned char prev, cur;
+	clock_hz10 = -1;
+	if (!p)
+		return;				/* timer C stopped */
+	limit = 2457600UL / p;			/* a second of count-down: give up after it */
+	/* the value the timer starts each round from: the largest seen in
+	   two steps of the counter (a round is one step when all is well) */
+	h = *hz;
+	prev = *tcdr;
+	while (*hz < h + 2 && acc < limit) {
+		cur = *tcdr;
+		if (cur > top)
+			top = cur;
+		acc += cur <= prev ? prev - cur : 1;	/* only to give up in time */
+		prev = cur;
+	}
+	if (acc >= limit)
+		return;				/* the counter doesn't move */
+	r = top ? top : 256;
+	/* 20 steps of the counter, in count-down ticks */
+	h = *hz;
+	while (*hz == h && n < 1000000UL)
+		n++;
+	h = *hz;
+	acc = 0;
+	prev = *tcdr;
+	while (*hz < h + 20 && acc < limit) {
+		cur = *tcdr;
+		acc += cur <= prev ? prev - cur : prev + r - cur;
+		prev = cur;
+	}
+	if (acc >= limit || !acc)
+		return;
+	clock_hz10 = (long)(200UL * 2457600UL / (acc * p));
+}
+#pragma GCC diagnostic pop
+
 unsigned long pf_ms(void)
 {
-	return tos_hz200() * 5;
+	unsigned long t;
+	if (!clock_hz10) {
+		Supexec(sup_clock);
+		if (clock_hz10 > 0 && (clock_hz10 < 1940 || clock_hz10 > 2060))
+			ms256 = 2560000UL / (unsigned long)clock_hz10;
+	}
+	t = tos_hz200();
+	if (ms256 == 5 * 256)
+		return t * 5;
+	return (t >> 8) * ms256 + ((t & 255) * ms256 >> 8);
+}
+
+/* for the log: how fast the counter ran, when it isn't 200 Hz */
+const char *pf_clock(void)
+{
+	static char s[96];
+	pf_ms();
+	if (clock_hz10 < 0)
+		return "the 200 Hz clock couldn't be measured";
+	if (ms256 == 5 * 256)
+		return "";
+	snprintf(s, sizeof(s), "the 200 Hz clock runs at %ld.%ld Hz: times corrected", clock_hz10 / 10, clock_hz10 % 10);
+	return s;
 }
 
 /* Timer jitter: the MFP's timer C counts every 26 us and the video

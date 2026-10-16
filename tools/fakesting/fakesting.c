@@ -232,8 +232,24 @@ static void sup_install(void)
 	__asm__ volatile("move.w %0,%%sr" :: "d"(sr) : "memory");
 }
 
+/* tests only: with a file C:\FASTCLK, MFP timer C interrupts at 312 Hz
+   instead of 200 (2457600 / 64 / 123), TOS's handler still counting
+   each one in _hz_200: a 200 Hz clock that runs 1.56 times too fast, as
+   on Erez's Falcon, for tests/hatari/clock_test.py */
+#pragma GCC diagnostic ignored "-Warray-bounds"	/* a fixed hardware address */
+static void sup_fastclk(void)
+{
+	*(volatile unsigned char *)0xfffffa23L = 123;	/* timer C's data register */
+}
+
 long fake_install(long *basepage)
 {
+	long h = Fopen("C:\\FASTCLK", 0);
+	if (h >= 0) {
+		Fclose((short)h);
+		Supexec(sup_fastclk);
+		Cconws("FASTCLK: timer C at 312 Hz\r\n");
+	}
 	/* a Falcon's AUX port is its SCC; Hatari wires the MFP port (6) */
 	if ((get_cookie(0x5f4d4348L) >> 16) == 3)	/* '_MCH' */
 		trap14_ww(44, 6);			/* Bconmap(6) */

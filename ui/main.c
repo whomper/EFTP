@@ -390,6 +390,8 @@ int connect_site(SITE *s)
 	else
 		snprintf(m, sizeof(m), "Connecting to %s...   (Esc stops)", s->host);
 	status(m);
+	if (pf_clock()[0])		/* a 200 Hz clock that isn't (atari/plat_tos.c) */
+		conn_log("EFTP", " -- ", pf_clock(), (long)strlen(pf_clock()));
 	busy(1);
 	conn_stop = 0;
 	ftp_timeout = opt.timeout;
