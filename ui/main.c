@@ -260,6 +260,8 @@ void set_hebrew_kbd(short on)
  * A transfer runs in one go, but the screen stays alive: pf_idle (while
  * waiting for the network) and every progress update come here, where
  * windows are redrawn, and Esc, Undo or the Stop button stop it. */
+static unsigned long esc_quiet_until;	/* keys_flush(); 0: none */
+
 static void handle_poll_event(short which, short *msg, AEVENT *ev)
 {
 	if (which & MU_MESAG) {
@@ -292,11 +294,25 @@ static void handle_poll_event(short which, short *msg, AEVENT *ev)
 	}
 	if (which & MU_KEYBD) {
 		short scan = KEY_SCAN(ev->kreturn);
-		if (scan == 0x01 || scan == 0x61)	/* Esc, Undo */
+		if ((scan == 0x01 || scan == 0x61) &&	/* Esc, Undo */
+		    (!esc_quiet_until || (long)(pf_ms() - esc_quiet_until) >= 0))
 			conn_stop = 1;
 	}
 	if ((which & MU_BUTTON) && toolbar_stop_hit(ev->mx, ev->my))
 		conn_stop = 1;
+}
+
+/* after a stop: the keys still waiting go, and for a second Esc and
+   Undo stop nothing. An Esc pressed twice, or repeating while it was
+   held, would otherwise stop what comes next too (reading the folders
+   again) */
+void keys_flush(void)
+{
+	short msg[8], n = 0;
+	AEVENT ev;
+	while (n++ < 32 && (evnt_multi_(MU_KEYBD | MU_TIMER, 1, 1, 1, 0, msg, &ev) & MU_KEYBD))
+		;
+	esc_quiet_until = pf_ms() + 1000;
 }
 
 void ui_poll(void)

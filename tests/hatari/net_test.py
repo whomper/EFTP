@@ -134,7 +134,9 @@ try:
     time.sleep(1.5)
     r.click(*DOWNLOAD)
     time.sleep(9)
-    r.key(K["ESC"])                                 # Stop
+    r.key(K["ESC"])                                 # Stop, and Esc again as a hurried
+    time.sleep(0.3)                                 # hand (or a repeating key) does: the
+    r.key(K["ESC"])                                 # second mustn't stop what follows
     time.sleep(5)
     part = os.path.join(hd, "STING_~1.ZIP")
     size = os.path.getsize(part) if os.path.exists(part) else -1

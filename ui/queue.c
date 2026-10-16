@@ -459,6 +459,7 @@ void queue_run(void)
 	queue_changed(-1);
 	toolbar_redraw();
 	if (conn_stop) {
+		keys_flush();
 		conn_stop = 0;
 		str_copy(m, "Stopped. Transfers > Retry goes on where it stopped.", sizeof(m));
 	} else {

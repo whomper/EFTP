@@ -184,7 +184,11 @@ static void remote_load_keep(const char *keep)
 		status("Reading the folder...");
 		s->ok = (char)ftp_list(ftp, &s->l, opt.hidden);
 		busy(0);
-		if (!s->ok) {
+		if (!s->ok && conn_stop) {
+			/* Esc while reading: not an error */
+			conn_stop = 0;
+			status("Stopped reading the folder: ^R reads it again.");
+		} else if (!s->ok) {
 			status("");
 			if (check_line())
 				alert(1, "[1][%s][ OK ]", ftp->err);
