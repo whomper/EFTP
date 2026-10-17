@@ -203,13 +203,14 @@ make itest    # against pyftpdlib: logins, MLSD and LIST, files and folders both
 
 ```sh
 make -C common/tools/fakesting
-tests/hatari/net_test.py /tmp/eftp-net etos512us.img       # Falcon, a real FTP server
-EFTP_PRG=EFTPST.PRG tests/hatari/net_test.py ...           # the ST edition on 1 MB
-tests/hatari/secure_test.py /tmp/eftp-sec etos512us.img    # Falcon mode FTPS; SFTP via eftpgate
+tests/hatari/net_test.py /tmp/eftp-net Falcon              # a real FTP server; or ST-1, ST, TT
+tests/hatari/secure_test.py /tmp/eftp-sec Falcon           # Falcon mode FTPS; SFTP via eftpgate
 tests/hatari/screenshots.py /tmp/eftp-shots etos512us.img  # the pictures in docs/
 ```
 
-`net_test.py` boots an emulated Falcon (4 MB; 1 MB for the ST edition), where EFTP connects from the
+The machines are the family's (`common/tools/machines.py list`): `ST-1` (1 MB) and `ST` run the ST
+edition, `TT` and `Falcon` `EFTP.PRG`, with EmuTOS 1.4, which `machines.py` fetches.
+`net_test.py` boots one, where EFTP connects from the
 Site Manager, downloads a folder, uploads one by dragging it, answers "already there" with Skip, and
 stops and resumes a download; the test checks every byte on both sides. After
 `make -C common/tests/av` it also hands EFTP a file the way a desktop does (VA_START). Hatari has no

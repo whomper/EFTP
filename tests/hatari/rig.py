@@ -8,7 +8,23 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 import time
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "common", "tools"))
+import machines  # noqa: E402
+
+# the family's test machines (common/tools/machines.py); the ST edition
+# for the STs, EFTP.PRG (Falcon mode) for the 68030s
+PRG = {"ST": "EFTPST.PRG", "ST-1": "EFTPST.PRG", "TT": "EFTP.PRG", "Falcon": "EFTP.PRG"}
+
+
+def machine(spec, work):
+    """the machine named spec (ST-1, ST:med, TT, Falcon:256...), its C: in
+    work/hd; with .prg, the edition that runs on it"""
+    m = machines.Machine(spec, os.path.join(work, "hd"))
+    m.prg = PRG[m.name]
+    return m
 
 # ST scancodes (US layout)
 SCAN = {c: i for i, c in enumerate("1234567890-=", 2)}
@@ -28,8 +44,10 @@ K = dict(RETURN=0x1c, ESC=0x01, TAB=0x0f, BACKSPACE=0x0e, DELETE=0x53, UP=0x48, 
 class Rig:
     def __init__(self, work, tos, machine="falcon", display=":99", serial=None, extra=(),
                  auto="C:\\EFTP.PRG"):
+        """tos: an EmuTOS image, or a machine() from machines.py, which
+        then gives the machine, its TOS, screen and C: (machine is unused)"""
         self.work, self.tos, self.display = work, tos, display
-        self.env = dict(os.environ, DISPLAY=display, SDL_AUDIODRIVER="dummy")
+        self.env = dict(os.environ, DISPLAY=display, SDL_AUDIODRIVER="dummy", SDL_VIDEODRIVER="x11")
         self.fifo = os.path.join(work, "cmd.fifo")
         self.shots = os.path.join(work, "shots")
         os.makedirs(self.shots, exist_ok=True)
@@ -39,15 +57,19 @@ class Rig:
             self.xvfb = subprocess.Popen(["Xvfb", display, "-screen", "0", "1024x768x24"],
                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             time.sleep(1)
-        args = ["hatari", "-w", "--statusbar", "no", "--borders", "no", "--zoom", "1",
-                "--confirm-quit", "no", "--tos", tos, "--machine", machine,
-                "--harddrive", os.path.join(work, "hd"), "--fast-boot", "yes", "--sound", "off",
-                "--natfeats", "yes", "--cmd-fifo", self.fifo, "--screenshot-dir", self.shots,
-                "--log-level", "warn"]
+        args = ["hatari", "-w", "--statusbar", "no", "--borders", "no", "--zoom", "1"]
+        if isinstance(tos, machines.Machine):
+            args += tos.args()
+            self.env = tos.env(self.env)
+        else:
+            args += ["--confirm-quit", "no", "--tos", tos, "--machine", machine,
+                     "--harddrive", os.path.join(work, "hd"), "--sound", "off"]
+            if machine == "falcon":
+                args += ["--monitor", "vga", "--dsp", "none"]
+        args += ["--fast-boot", "yes", "--natfeats", "yes", "--cmd-fifo", self.fifo,
+                 "--screenshot-dir", self.shots, "--log-level", "warn"]
         if auto:
             args += ["--auto", auto]
-        if machine == "falcon":
-            args += ["--monitor", "vga", "--dsp", "none"]
         if serial:
             args += ["--rs232-out", serial[0], "--rs232-in", serial[1]]
         args += list(extra)

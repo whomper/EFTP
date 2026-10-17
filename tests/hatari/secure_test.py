@@ -15,8 +15,13 @@ EFTP connects to the site from the Site Manager and downloads a binary
 file and a text file with double clicks; the test checks the bytes (and
 the text's line ends) and EFTP.LOG.
 
-    secure_test.py WORKDIR EMUTOS.IMG [ftps|sftp]   (Xvfb, xdotool,
+    secure_test.py WORKDIR [MACHINE] [ftps|sftp]   (Xvfb, xdotool,
     pip install pyftpdlib pyopenssl paramiko, openssl; make first)
+
+MACHINE is one of the family's test machines (common/tools/machines.py
+list), the Falcon when none is given. ftps needs Falcon mode, so a TT or
+the Falcon (RSA on the DSP only on the Falcon); sftp runs on the STs too,
+with EFTPST.PRG.
 """
 import logging
 import os
@@ -36,8 +41,9 @@ import server  # noqa: E402
 # the two must agree for certificates to be in date (as ECal's net_test.py)
 os.environ["TZ"] = "Asia/Jerusalem"
 time.tzset()
-work, tos = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
-modes = sys.argv[3:] or ["ftps", "sftp"]
+work = os.path.abspath(sys.argv[1])
+modes = [a for a in sys.argv[2:] if a in ("ftps", "sftp")] or ["ftps", "sftp"]
+spec = ([a for a in sys.argv[2:] if a not in ("ftps", "sftp")] or ["Falcon"])[0]
 BIN = os.urandom(60000)
 TEXT = b"Line one\nLine two\n" * 400
 fails = []
@@ -115,10 +121,15 @@ def run(mode):
     w = os.path.join(work, mode)
     shutil.rmtree(w, ignore_errors=True)
     os.makedirs(w)
+    m = rig.machine(spec, w)
+    if mode == "ftps" and m.prg != "EFTP.PRG":
+        print("skip ftps: Falcon mode needs a TT or the Falcon, not %s" % m.describe(), flush=True)
+        return
+    print("%s on %s, %s" % (mode, m.describe(), m.prg), flush=True)
+    dsp = m.name == "Falcon"
     h = home(w)
-    hd = server.drive_c(w)
+    hd = server.drive_c(w, prg=m.prg)
     procs = []
-    extra = []
     if mode == "ftps":
         srv, cert = ftps_server(w, h)
         # the Mozilla roots EFTP ships, plus the test certificate, decoded here
@@ -126,10 +137,9 @@ def run(mode):
             f.write(open(os.path.join(ROOT, "binary", "CACERT.PEM"), "rb").read() + open(cert, "rb").read())
         subprocess.run([os.path.join(ROOT, "build", "mkroots"), os.path.join(hd, "CACERT.PEM"),
                         os.path.join(hd, "ROOTS.DAT")], check=True, capture_output=True)
-        write_inf(hd, "FALCON=1\r\nDSP=1\r\n",
+        write_inf(hd, "FALCON=1\r\nDSP=%d\r\n" % dsp,
                   "[SITE]\r\nNAME=Secure server\r\nHOST=127.0.0.1\r\nPORT=%d\r\nPROTOCOL=ftps\r\n"
                   "ANONYMOUS=0\r\nUSER=atari\r\nPASS=falcon\r\nREMOTEDIR=/pub\r\n" % server.PORT)
-        extra = ["--dsp", "emu"]            # RSA on the DSP
     else:
         import paramiko
         import test_eftpgate
@@ -144,7 +154,7 @@ def run(mode):
                   "ANONYMOUS=0\r\nUSER=atari\r\nPASS=falcon\r\nREMOTEDIR=/pub\r\n" % sport)
     bridge, serial = server.bridge(w)
     procs.append(bridge)
-    r = rig.Rig(w, tos, serial=serial, extra=extra + ["--memsize", "4"])    # a 4 MB Falcon
+    r = rig.Rig(w, m, serial=serial)
     try:
         time.sleep(30)                              # boot, FAKESTNG, EFTP
         r.ctrl("k")                                 # Site Manager
@@ -173,7 +183,8 @@ def run(mode):
         if mode == "ftps":
             check("secure: TLS 1.2" in log, "ftps: the log says TLS 1.2")
             check("resumed" in log, "ftps: the data connections resumed the TLS session")
-            check("on the DSP" in log, "ftps: RSA on the DSP")
+            if dsp:
+                check("on the DSP" in log, "ftps: RSA on the DSP")
         else:
             check("USER sftp:atari@127.0.0.1:" in log, "sftp: logged in to the gateway with the server's name")
             glog = open(os.path.join(w, "gate.log"), errors="replace").read()

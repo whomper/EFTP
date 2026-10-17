@@ -14,10 +14,12 @@ every byte on both sides. At the end a stand-in desktop (THING.ACC from
 common/tests/av: make -C common/tests/av) hands EFTP a file with the AV
 protocol's VA_START, which goes to the server folder shown.
 
-    net_test.py WORKDIR EMUTOS.IMG     (Xvfb, xdotool, pip install pyftpdlib)
-    EFTP_PRG=EFTPST.PRG net_test.py ...  the ST edition, on a 1 MB machine
-    TTRAM=16 net_test.py ...             with 16 MB of TT RAM, which the
-                                         downloads gather in
+    net_test.py WORKDIR [MACHINE]     (Xvfb, xdotool, pip install pyftpdlib)
+
+MACHINE is one of the family's test machines (common/tools/machines.py
+list): ST-1 and ST run EFTPST.PRG, the ST edition; TT and Falcon (the
+default) EFTP.PRG. On the TT and the Falcon the downloads gather in TT
+RAM, on the STs in ST RAM.
 """
 import os
 import sys
@@ -27,10 +29,12 @@ import rig
 import server
 from rig import K
 
-work, tos = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
+work = os.path.abspath(sys.argv[1])
 os.makedirs(work, exist_ok=True)
+m = rig.machine(sys.argv[2] if len(sys.argv) > 2 else "Falcon", work)
+print("on %s, %s" % (m.describe(), m.prg), flush=True)
 srv, home = server.ftp_server(work)
-hd = server.drive_c(work)
+hd = server.drive_c(work, prg=m.prg)
 # the stand-in desktop: it waits for EFTP to tell it it takes VA_START,
 # then for C:\GO.TXT, then sends itself, C:\THING.ACC (binary: a .TXT
 # would go as text, its line ends changed)
@@ -45,12 +49,7 @@ if av:
 else:
     print("skip VA_START: make -C common/tests/av first")
 bridge, serial = server.bridge(work)
-# EFTP.PRG (with TLS) on a 4 MB Falcon; EFTP_PRG=EFTPST.PRG, the ST
-# edition, on 1 MB, the smallest machine it is for
-ttram = os.environ.get("TTRAM")
-r = rig.Rig(work, tos, serial=serial,
-            extra=["--memsize", "1" if os.environ.get("EFTP_PRG") == "EFTPST.PRG" else "4"] +
-            (["--ttram", ttram, "--addr24", "off"] if ttram else []))
+r = rig.Rig(work, m, serial=serial)
 fails = []
 
 
@@ -69,14 +68,23 @@ def same(a, b):
 
 def wait_for(cond, secs):
     t = time.time()
-    while time.time() - t < secs:
+    while time.time() - t < secs * SLOW:
         if cond():
             return True
         time.sleep(1)
     return False
 
 
-# where things are in the 640x480 window (ST font 8x16)
+# where things are in the window (ST font 8x16), the same on a 640x480
+# screen and an ST's 640x400 mono one; dialogs are centred, so higher
+if m.screen not in ("mono", "ttmed", "16", "256"):
+    sys.exit("net_test.py: %s's %s screen isn't one this test knows (mono, ttmed, 16, 256)"
+             % (m.name, m.screen))
+HIGH = 480 - (400 if m.screen == "mono" else 480)   # dialogs this much higher
+# an ST's serial port, which FAKESTNG carries the network over, runs at
+# 19200 baud, about 2 KB/s: the network's waits are that much longer
+SLOW = 8 if m.name in ("ST", "ST-1") else 1     # for the longest waits
+PAUSE = 3 if m.name in ("ST", "ST-1") else 1    # for the short ones
 ROW0 = 131            # the first row of a file list
 ROWH = 16
 CONNECT, DOWNLOAD = (50, 73), (240, 73)  # toolbar buttons
@@ -95,12 +103,14 @@ try:
     time.sleep(2)
     r.shot("t1b-connect-menu")
     r.click(*SITE1)                                 # "Test server", /pub: one click
-    time.sleep(15)
+    elog = os.path.join(hd, "EFTP.LOG")
+    wait_for(lambda: os.path.exists(elog) and "CWD /pub" in open(elog, errors="replace").read(), 30)
+    time.sleep(6)
     r.shot("t2-connected")
     check("USER 'atari' logged in" in open(os.path.join(work, "ftpd.log")).read(), "logged in")
 
     r.click(REMOTE_X, row(1), double=True)          # /pub/atari
-    time.sleep(6)
+    time.sleep(6 * PAUSE)
     r.click(REMOTE_X, row(1))                       # demos
     time.sleep(1.5)
     r.click(*DOWNLOAD)
@@ -125,19 +135,20 @@ try:
     r.click(REMOTE_X, row(2))                       # games, again: xenon2.prg is there now
     time.sleep(1.5)
     r.click(*DOWNLOAD)
-    time.sleep(12)
-    r.shot("t5-exists")
-    r.click(200, 297)                               # Skip
-    oids = os.path.join(hd, "GAMES", "OIDS.ZIP")
+    oids = os.path.join(hd, "GAMES", "OIDS.ZIP")    # oids.zip comes first (it sorts first),
     check(wait_for(lambda: same(oids, os.path.join(home, "pub", "atari", "games", "oids.zip")), 60),
-          "the rest came after Skip")
-    time.sleep(4)                                   # oids.zip came first (it sorts first): let the
-                                                    # batch end and the panes be read again
+          "the folder's new file came")             # then xenon2.prg asks
+    time.sleep(6)
+    r.shot("t5-exists")
+    r.click(200, 297 - HIGH // 2)                   # Skip
+    time.sleep(4 * PAUSE)                            # the batch ends, the panes are read again
+    check("RETR /pub/atari/games/xenon2.prg" not in open(elog, errors="replace").read(),
+          "Skip: the file that was there didn't come again")
 
     r.click(REMOTE_X, row(4))                       # STinG 1.26.zip, 244 KB
     time.sleep(1.5)
     r.click(*DOWNLOAD)
-    time.sleep(9)
+    time.sleep(9 * PAUSE)
     r.key(K["ESC"])                                 # Stop, and Esc again as a hurried
     time.sleep(0.3)                                 # hand (or a repeating key) does: the
     r.key(K["ESC"])                                 # second mustn't stop what follows
@@ -153,9 +164,11 @@ try:
           "resumed and complete")
     log = open(os.path.join(hd, "EFTP.LOG"), errors="replace").read()
     check("REST %d" % size in log, "resumed with REST")
-    # the downloads gathered in memory and went to disk in one go
-    ram = "TT RAM" if ttram else "ST RAM"
-    check("the file gathers in " + ram in log, "downloads gathered in " + ram)
+    # the downloads gathered in memory and went to disk in one go (a 1 MB
+    # ST may have too little to spare: then straight to disk, as before)
+    ram = "TT RAM" if m.name in ("TT", "Falcon") else "ST RAM"
+    if m.name != "ST-1" or "the file gathers in" in log:
+        check("the file gathers in " + ram in log, "downloads gathered in " + ram)
     time.sleep(3)
     r.shot("t7-done")
 

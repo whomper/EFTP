@@ -76,8 +76,9 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   plus paramiko (Raspberry Pi OS: python3-paramiko).
 - Before pushing: `make test`, `make itest` (pip install pyftpdlib
   pyopenssl paramiko) and, when the Atari side changes,
-  `tests/hatari/net_test.py` (4 MB, and `EFTP_PRG=EFTPST.PRG` on 1 MB)
-  and `tests/hatari/secure_test.py` in Hatari with EmuTOS. `make help
+  `tests/hatari/net_test.py` and `tests/hatari/secure_test.py` in
+  Hatari on the family's machines (`common/tools/machines.py`): `ST-1`
+  and `ST` run EFTPST.PRG, `TT` and `Falcon` EFTP.PRG. `make help
   HCP=...` rebuilds `binary/EFTP.HYP` when `docs/GUIDE.md` changes.
 - The small C library has no `%o` or floating point: format octal by hand
   and keep `double` out (it pulls in libgcc code that needs a GOT).

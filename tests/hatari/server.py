@@ -61,7 +61,7 @@ def ftp_server(work):
     return srv, home
 
 
-def drive_c(work, inf_extra="", desk=None):
+def drive_c(work, inf_extra="", desk=None, prg=None):
     hd = os.path.join(work, "hd")
     shutil.rmtree(hd, ignore_errors=True)
     os.makedirs(os.path.join(hd, "AUTO"))
@@ -71,9 +71,10 @@ def drive_c(work, inf_extra="", desk=None):
         if not p.endswith("/"):
             with open(path, "wb") as f:
                 f.write(os.urandom(size))
-    # EFTP.PRG (Falcon mode, TLS) or, with EFTP_PRG=EFTPST.PRG, the ST
-    # edition; either runs as C:\EFTP.PRG
-    shutil.copy(os.path.join(ROOT, "binary", os.environ.get("EFTP_PRG", "EFTP.PRG")), os.path.join(hd, "EFTP.PRG"))
+    # EFTP.PRG (Falcon mode, TLS) or EFTPST.PRG, the ST edition (prg, the
+    # machine's, or EFTP_PRG=EFTPST.PRG); either runs as C:\EFTP.PRG
+    prg = prg or os.environ.get("EFTP_PRG", "EFTP.PRG")
+    shutil.copy(os.path.join(ROOT, "binary", prg), os.path.join(hd, "EFTP.PRG"))
     # FAKESTNG.PRG, the family's (common/tools/fakesting), built if need be
     subprocess.run(["make", "-s", "-C", FAKESTING], check=True)
     shutil.copy(os.path.join(FAKESTING, "FAKESTNG.PRG"), os.path.join(hd, "AUTO"))
