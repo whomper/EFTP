@@ -174,8 +174,7 @@ common/   code shared with the other AERA programs (from AERA-Atari): the TOS ru
 gateway/  the Raspberry Pi gateways (eftpgate.py is EFTP's) and aera-gateway, their installer:
           a copy of AERA-Gateway's; change it there, then run tools/sync-gateway.sh
 tests/    unit, fuzz and integration tests, the Hatari test rig
-tools/    the icon generator, the help builder, sync-common.sh, sync-gateway.sh, bump.py,
-          FAKESTNG.PRG (for testing in Hatari only)
+tools/    the icon generator, the help builder, sync-common.sh, sync-gateway.sh, bump.py
 icons/    the desktop icon (RSC and ICN files), from tools/icon
 docs/     the user guide (GUIDE.md, the source of EFTP.HYP) and pictures
 binary/   what make builds for the Atari (not committed: the releases have it)
@@ -203,7 +202,7 @@ make itest    # against pyftpdlib: logins, MLSD and LIST, files and folders both
 [EmuTOS](https://emutos.sourceforge.io/), with Xvfb and xdotool:
 
 ```sh
-make -C tools/fakesting
+make -C common/tools/fakesting
 tests/hatari/net_test.py /tmp/eftp-net etos512us.img       # Falcon, a real FTP server
 EFTP_PRG=EFTPST.PRG tests/hatari/net_test.py ...           # the ST edition on 1 MB
 tests/hatari/secure_test.py /tmp/eftp-sec etos512us.img    # Falcon mode FTPS; SFTP via eftpgate
@@ -214,8 +213,9 @@ tests/hatari/screenshots.py /tmp/eftp-shots etos512us.img  # the pictures in doc
 Site Manager, downloads a folder, uploads one by dragging it, answers "already there" with Skip, and
 stops and resumes a download; the test checks every byte on both sides. After
 `make -C common/tests/av` it also hands EFTP a file the way a desktop does (VA_START). Hatari has no
-network card, so `FAKESTNG.PRG` stands in for STinG and carries EFTP's connections over the emulated
-serial port to `serial_bridge.py`; it's for the emulator only, so never install it on a real Atari.
+network card, so `FAKESTNG.PRG` (the family's, in `common/tools/fakesting/`) stands in for STinG and
+carries EFTP's connections over the emulated serial port to `serial_bridge.py`; it's for the
+emulator only, so never install it on a real Atari.
 `secure_test.py` does the same against secure servers: FTPS in Falcon mode (RSA on the emulated DSP,
 every data connection resuming the TLS session) and SFTP through `eftpgate.py`, and checks the
 files' bytes and line ends.

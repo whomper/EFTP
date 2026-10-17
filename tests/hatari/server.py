@@ -18,6 +18,7 @@ from pyftpdlib.servers import FTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
+FAKESTING = os.path.join(ROOT, "common", "tools", "fakesting")
 PORT = 2121
 
 # what the server has; random bytes stand in for the programs
@@ -73,7 +74,9 @@ def drive_c(work, inf_extra="", desk=None):
     # EFTP.PRG (Falcon mode, TLS) or, with EFTP_PRG=EFTPST.PRG, the ST
     # edition; either runs as C:\EFTP.PRG
     shutil.copy(os.path.join(ROOT, "binary", os.environ.get("EFTP_PRG", "EFTP.PRG")), os.path.join(hd, "EFTP.PRG"))
-    shutil.copy(os.path.join(ROOT, "tools", "fakesting", "FAKESTNG.PRG"), os.path.join(hd, "AUTO"))
+    # FAKESTNG.PRG, the family's (common/tools/fakesting), built if need be
+    subprocess.run(["make", "-s", "-C", FAKESTING], check=True)
+    shutil.copy(os.path.join(FAKESTING, "FAKESTNG.PRG"), os.path.join(hd, "AUTO"))
     with open(os.path.join(hd, "EFTP.INF"), "w", newline="") as f:
         f.write("[OPTIONS]\r\nTIMEZONE=Asia/Jerusalem\r\nLOG=1\r\nLOCALDIR=C:\\\r\n" + inf_extra +
                 "[SITE]\r\nNAME=Test server\r\nHOST=127.0.0.1\r\nPORT=%d\r\nANONYMOUS=0\r\n"
@@ -92,6 +95,6 @@ def bridge(work):
         if os.path.exists(p):
             os.remove(p)
         os.mkfifo(p)
-    proc = subprocess.Popen([sys.executable, os.path.join(HERE, "serial_bridge.py"), fo, fi],
+    proc = subprocess.Popen([sys.executable, os.path.join(FAKESTING, "serial_bridge.py"), fo, fi],
                             stderr=open(os.path.join(work, "bridge.log"), "w"))
     return proc, (fo, fi)
