@@ -24,11 +24,19 @@ Each machine starts with its own settings: its own HOME for Hatari (so no
 NVRAM is shared between rigs), the Falcon's screen mode in its NVRAM and,
 for a real TOS 4, in C:\\NEWDESK.INF (TOS 4's desktop takes the mode from
 there), unless the rig brought its own. Standard Python only.
+
+The network: m.network() puts FAKESTNG.PRG (made with make in
+tools/fakesting when it isn't there) in C:\\AUTO, starts serial_bridge.py
+on the other end of the serial port and gives Hatari's serial arguments;
+the Atari's TCP connections become this computer's. m.stop() ends the
+bridge. It works on Erez's TOS too: FAKESTNG makes the cookie jar TOS
+1.04 lacks and turns off its XON/XOFF.
 """
 import hashlib
 import os
 import shutil
 import struct
+import subprocess
 import sys
 import urllib.request
 import zipfile
@@ -139,6 +147,30 @@ class Machine:
         return (["--tos", self.tos] + self.base + SCREENS[self.screen] +
                 ["--harddrive", self.hd, "--gemdos-drive", "C", "--sound", "off",
                  "--confirm-quit", "no"])
+
+    def network(self, rate=None):
+        """FAKESTNG and its bridge; Hatari's serial arguments"""
+        fs = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fakesting")
+        prg = os.path.join(fs, "FAKESTNG.PRG")
+        if not os.path.exists(prg):
+            subprocess.run(["make", "-s", "-C", fs], check=True)
+        os.makedirs(os.path.join(self.hd, "AUTO"), exist_ok=True)
+        shutil.copy(prg, os.path.join(self.hd, "AUTO", "FAKESTNG.PRG"))
+        out, inp = self.hd.rstrip("/") + ".st_out", self.hd.rstrip("/") + ".st_in"
+        for p in (out, inp):
+            if os.path.exists(p):
+                os.remove(p)
+            os.mkfifo(p)
+        self.bridge = subprocess.Popen([sys.executable, os.path.join(fs, "serial_bridge.py"), out, inp] +
+                                       (["--rate", str(rate)] if rate else []),
+                                       stderr=open(self.hd.rstrip("/") + ".bridge.log", "w"))
+        return ["--rs232-out", out, "--rs232-in", inp]
+
+    def stop(self):
+        if getattr(self, "bridge", None):
+            self.bridge.kill()
+            self.bridge.wait()
+            self.bridge = None
 
     def env(self, env=None):
         e = dict(os.environ if env is None else env)
