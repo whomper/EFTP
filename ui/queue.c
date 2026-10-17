@@ -331,7 +331,8 @@ static void draw(WIN *w, GRECT *clip)
 			break;
 		}
 		case XS_STOP: {
-			short n = (short)snprintf(t, sizeof(t), "Stopped at %s", a);
+			short n = x->done > 0 ? (short)snprintf(t, sizeof(t), "Stopped at %s", a)
+					      : (short)snprintf(t, sizeof(t), "Stopped");
 			text_pen_at(lit ? 1 : pen[P_DIM], x0 + sx * cw, y, t, n, rest, fl | TX_LTR);
 			break;
 		}

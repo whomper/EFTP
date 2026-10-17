@@ -60,12 +60,14 @@ static void progress_changed(long i)
 	tick();
 }
 
+/* EXISTS=0 asks: the answer is resume, or ANSWER=n (store.h EX_*), as
+   Esc in the question gives EX_STOP */
 static int ask(XITEM *x, long have, int *all)
 {
 	(void)x;
 	(void)have;
 	*all = 0;
-	return EX_RESUME;
+	return getenv("ANSWER") ? atoi(getenv("ANSWER")) : EX_RESUME;
 }
 
 static void print_list(FLIST *l)

@@ -36,6 +36,7 @@ def check(cond, what):
 
 
 UNDO, Z = 0x61, 0x2c    # scancodes
+ROW0, ROWH, REMOTE_X = 131, 16, 400     # as net_test.py
 
 
 def pixels(path):
@@ -99,6 +100,59 @@ try:
     r.key(K["ESC"])
     time.sleep(2)
     check(open(inf, "rb").read() == before, "a third time: EFTP.INF still unchanged")
+
+    # an alert (the shared alert(), its own box now): Delete on a file on
+    # the left asks [Delete|Cancel]; Esc and Undo are Cancel
+    notes = os.path.join(hd, "NOTES.TXT")
+    for key, name in ((K["ESC"], "Esc"), (UNDO, "Undo")):
+        r.click(60, ROW0 + 7 * ROWH)                # NOTES.TXT
+        time.sleep(1.5)
+        r.key(K["DELETE"])
+        r.move(600, 450)
+        time.sleep(2)
+        opened = pixels(r.shot("delete-alert-%s" % name))
+        r.key(key)
+        time.sleep(2)
+        after = pixels(r.shot("delete-after-%s" % name))
+        check(changed(opened, after) > 2000 and os.path.exists(notes),
+              "%s in the Delete alert: closed, NOTES.TXT still there" % name)
+
+    # "already there" while a transfer runs: Esc stops it (3.5, 7.1); the
+    # file stays as it was and nothing more comes down
+    r.ctrl("k")
+    time.sleep(2)
+    r.key(K["RETURN"])                              # Connect: "Test server", /pub
+    time.sleep(15)
+    r.click(REMOTE_X, ROW0 + ROWH)                  # /pub/atari
+    time.sleep(1.5)
+    r.key(K["RETURN"])
+    time.sleep(6)
+    got = os.path.join(hd, "STING_~1.ZIP")
+    src = os.path.join(home, "pub", "atari", "STinG 1.26.zip")
+    r.click(REMOTE_X, ROW0 + 4 * ROWH)              # STinG 1.26.zip
+    time.sleep(1.5)
+    r.key(K["RETURN"])                              # down, the first time
+    t = time.time()
+    while time.time() - t < 90 and not (os.path.exists(got) and os.path.getsize(got) == os.path.getsize(src)):
+        time.sleep(1)
+    time.sleep(4)
+    first = open(got, "rb").read() if os.path.exists(got) else b""
+    stamp = os.path.getmtime(got) if os.path.exists(got) else 0
+    r.click(REMOTE_X, ROW0 + 4 * ROWH)
+    time.sleep(1.5)
+    r.key(K["RETURN"])                              # again: already there
+    r.move(600, 450)
+    time.sleep(6)
+    r.shot("exists-asked")
+    r.key(K["ESC"])
+    time.sleep(5)
+    r.shot("exists-stopped")
+    r.ctrl("d")                                     # the log written out
+    time.sleep(5)
+    log = open(os.path.join(hd, "EFTP.LOG"), errors="replace").read()
+    check(first and open(got, "rb").read() == first and os.path.getmtime(got) == stamp,
+          "Esc in 'already there': the file as it was")
+    check(log.count("RETR /pub/atari/STinG") == 1, "and it didn't come down again")
 finally:
     r.stop()
     bridge.terminate()

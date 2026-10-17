@@ -35,6 +35,7 @@ typedef struct {
 #define EX_RESUME    2	/* go on where it stopped, if it is smaller */
 #define EX_NEWER     3	/* only if this one is newer */
 #define EX_SKIP      4
+#define EX_STOP      5	/* asked, and the user stopped the transfer (Esc) */
 
 /* where a screen font keeps the Hebrew letters (as EMail) */
 #define HEB_ATARI 0

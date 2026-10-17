@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include "ui.h"
+#include "dialog.h"
 #include "bidi.h"
 #include "util.h"
 #include "charset.h"
@@ -922,7 +923,12 @@ int dlg_exists(XITEM *x, long have, int *all)
 		form_dial(FMD_START, xx, y, w, h);
 		objc_draw(tree, 0, 8, xx, y, w, h);
 		for (;;) {
-			r = form_do(tree, 0) & 0x7fff;
+			/* no button here does nothing: Esc and Undo give -1, and
+			   stop the transfer (the guidelines, 3.5 and 7.1) */
+			r = dlg_do(tree, 0, -1);
+			if (r < 0)
+				break;
+			r &= 0x7fff;
 			if (r == tick_box[f_all] || r == tick_lbl[f_all]) {
 				s_on[0] = !s_on[0];
 				tick_draw(f_all);
@@ -934,7 +940,14 @@ int dlg_exists(XITEM *x, long have, int *all)
 		form_dial(FMD_FINISH, xx, y, w, h);
 		wind_update(2);
 		wind_update(END_UPDATE);
-		tree[r].ob_state &= ~SELECTED;
+		if (r >= 0)
+			tree[r].ob_state &= ~SELECTED;
+	}
+	if (r < 0) {
+		conn_stop = 1;		/* as Esc during the transfer itself */
+		*all = 0;
+		win_redraw_area(0);
+		return EX_STOP;
 	}
 	c = r == b_skip ? EX_SKIP : r == b_res ? EX_RESUME : EX_OVERWRITE;
 	*all = s_on[0];
@@ -960,7 +973,7 @@ int dlg_chmod(const char *name, int mode)
 	static char title[48], oct[8];
 	static const char *const who[3] = { "Owner", "Group", "Others" };
 	static const char *const what[3] = { "Read", "Write", "Run" };
-	short ok, r, i, j, k, f_oct, x, y, w, h;
+	short ok, cancel, r, i, j, k, f_oct, x, y, w, h;
 	snprintf(title, sizeof(title), "Permissions of %.30s", name);
 	nticks = 0;
 	d_begin(44, 12);
@@ -978,7 +991,7 @@ int dlg_chmod(const char *name, int mode)
 	octal(mode & 0777, oct);
 	d_text(2, 9, "As a number:");
 	f_oct = d_text(15, 9, oct);
-	d_button(20, 10, 10, "Cancel", EXIT);
+	cancel = d_button(20, 10, 10, "Cancel", EXIT);
 	ok = d_button(32, 10, 10, "OK", EXIT | DEFAULT);
 	d_end();
 	form_center(tree, &x, &y, &w, &h);
@@ -987,7 +1000,7 @@ int dlg_chmod(const char *name, int mode)
 	form_dial(FMD_START, x, y, w, h);
 	objc_draw(tree, 0, 8, x, y, w, h);
 	for (;;) {
-		r = form_do(tree, 0) & 0x7fff;
+		r = dlg_do(tree, 0, cancel) & 0x7fff;
 		for (k = 0; k < nticks; k++)
 			if (r == tick_box[k] || r == tick_lbl[k]) {
 				short ox, oy;
@@ -1127,7 +1140,7 @@ static short pick_w(const char *title, const char **items, short n, short lw)
 			objc_draw(tree, 0, 8, bx, by, tree[f_count].ob_width, tree[f_count].ob_height);
 			objc_draw(tree, b_ok, 0, x, y, w, h);
 		}
-		r = form_do(tree, 0);
+		r = dlg_do(tree, 0, b_cancel);
 		{
 			int dbl = (r & 0x8000) != 0;
 			r &= 0x7fff;

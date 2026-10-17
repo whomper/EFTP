@@ -57,7 +57,8 @@ int  xfer_run(FTP *f, const SITE *site, long *failed);
 
 /* what the UI is told and asked */
 extern void (*xfer_changed)(long i);	/* item i changed; -1 the whole list */
-/* a file is already there: return EX_OVERWRITE, EX_RESUME or EX_SKIP;
+/* a file is already there: return EX_OVERWRITE, EX_RESUME, EX_SKIP or
+   EX_STOP (the transfer stops here, the file left as it is);
    *all set means the same for the rest of this run */
 extern int (*xfer_ask)(XITEM *x, long have, int *all);
 

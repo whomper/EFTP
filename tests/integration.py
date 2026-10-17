@@ -114,6 +114,11 @@ def main():
     # skip when there
     r = cli(port, "get", "/pub/BIG.DAT", ".", env={"EXISTS": "4"})
     check("skip" in r.stdout, "skipped when there")
+    # asked, and stopped (Esc in the question): the run ends, the file as it was
+    stamp = os.path.getmtime(got)
+    r = cli(port, "get", "/pub/BIG.DAT", ".", env={"EXISTS": "0", "ANSWER": "5"}, ok=False)
+    check(r.returncode != 0 and open(got, "rb").read() == big and os.path.getmtime(got) == stamp,
+          "stopped at the question, the file untouched: " + r.stdout)
 
     # a whole folder down: 8+3 names, nested folders, text
     r = cli(port, "get", "/pub/demos", ".")

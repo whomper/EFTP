@@ -508,6 +508,10 @@ static int run_file(FTP *f, long i)
 			CTIME there = ct_make(lt.year, lt.mon, lt.day, lt.hour, lt.min);
 			CTIME src = x->mtime == CT_NONE ? CT_NONE : x->wall ? x->mtime : zone_to_local(x->mtime);
 			c = decide(x, have, src == CT_NONE || src > there);
+			if (c == EX_STOP) {
+				note(x, "stopped");
+				return XS_STOP;
+			}
 			if (c == EX_SKIP) {
 				note(x, "already there");
 				return XS_SKIP;
@@ -530,6 +534,10 @@ static int run_file(FTP *f, long i)
 			CTIME there = ftp_filetime(f, x->remote);
 			CTIME src = x->mtime == CT_NONE ? CT_NONE : zone_to_utc(x->mtime);
 			c = decide(x, have, there == CT_NONE || src == CT_NONE || src > there);
+			if (c == EX_STOP) {
+				note(x, "stopped");
+				return XS_STOP;
+			}
 			if (c == EX_SKIP) {
 				note(x, "already there");
 				return XS_SKIP;

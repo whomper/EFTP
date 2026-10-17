@@ -246,7 +246,8 @@ other side:
 - **Ask** (the first time): EFTP shows the file, the size of both, and
   asks: **Replace**, **Resume** (go on where the copy there stopped,
   when it is smaller) or **Skip**; tick "The same for the others" to
-  answer for the rest of the transfer
+  answer for the rest of the transfer; Esc stops the transfer there,
+  the file left as it is
 - **Replace it**, **Resume where it stopped**, **Skip it**: always
 - **Replace it if older**: only when the one coming is newer
 
@@ -346,6 +347,7 @@ F10 switches to the Israeli keyboard for typing Hebrew names.
 | ^C             | copy the names of the files chosen             |
 | ^C ^X ^V       | in a dialog: copy, cut, paste a field          |
 | ^R, Esc        | read the lists again                           |
+| Esc, Undo      | in a dialog or an alert: Cancel                |
 | Space, Insert  | select the file under the cursor and move on   |
 | ^L             | server messages / transfers                    |
 | F10            | Hebrew keyboard                                |
