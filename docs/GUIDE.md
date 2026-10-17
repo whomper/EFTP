@@ -205,6 +205,14 @@ Double-click a folder (or Return) to open it, `..` or Backspace goes up.
 While files go, the window stays alive: other windows can be moved and
 the progress shows. Esc, Undo or the red Stop button stops the transfer.
 
+A download gathers in memory and goes to the disk in one go when it
+has all come, so the disk doesn't hold up the line while it works. EFTP
+uses TT RAM when the computer has it; otherwise as much ST RAM as is
+free, leaving a little for GEM and your accessories. A file bigger than
+that memory goes to the disk each time the memory is full. The log
+shows which memory was used ("the file gathers in TT RAM"), and there
+is a short pause at 100% while the file is written.
+
 ## From other programs
 
 Files and folders handed to EFTP while it runs, by a desktop such as
@@ -253,8 +261,8 @@ other side:
 
 ## Stopping and resuming
 
-Stop (Esc) ends a transfer at once; the file shows "Stopped at ..." in
-the list. **Transfers > Retry the failed ones** goes on where each one
+Stop (Esc) ends a transfer at once; what has come so far is written to
+the disk, and the file shows "Stopped at ..." in the list. **Transfers > Retry the failed ones** goes on where each one
 stopped (FTP's REST: only what is missing comes over the line). If the
 connection goes in the middle of a transfer, EFTP connects again by
 itself and goes on the same way.

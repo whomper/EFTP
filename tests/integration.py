@@ -108,9 +108,23 @@ def main():
     r = cli(port, "get", "/pub/BIG.DAT", ".", env={"STOPAT": "100000"}, ok=False)
     check(r.returncode != 0 and "stop" in r.stdout, "stopped: " + r.stdout)
     have = os.path.getsize(got)
-    check(0 < have < 300000, "part there: %d" % have)
+    check(100000 <= have < 300000 and open(got, "rb").read() == big[:have], "part there: %d" % have)
     r = cli(port, "get", "/pub/BIG.DAT", ".", env={"EXISTS": "2"})
     check(r.returncode == 0 and open(got, "rb").read() == big, "resumed: " + r.stdout)
+    # the memory a download gathers in (pf_bigbuf): smaller than the file,
+    # so full several times over, and none at all; each stopped half way,
+    # what came is on the disk, and resumed
+    for buf in ("10000", "0"):
+        os.remove(got)
+        r = cli(port, "get", "/pub/BIG.DAT", ".", env={"EFTP_BIGBUF": buf})
+        check(r.returncode == 0 and open(got, "rb").read() == big, "get BIG.DAT, buffer %s" % buf)
+        os.remove(got)
+        r = cli(port, "get", "/pub/BIG.DAT", ".", env={"STOPAT": "100000", "EFTP_BIGBUF": buf}, ok=False)
+        have = os.path.getsize(got)
+        check(r.returncode != 0 and have >= 100000 and open(got, "rb").read() == big[:have],
+              "buffer %s: stopped, the %d bytes that came are there" % (buf, have))
+        r = cli(port, "get", "/pub/BIG.DAT", ".", env={"EXISTS": "2", "EFTP_BIGBUF": buf})
+        check(r.returncode == 0 and open(got, "rb").read() == big, "buffer %s: resumed" % buf)
     # skip when there
     r = cli(port, "get", "/pub/BIG.DAT", ".", env={"EXISTS": "4"})
     check("skip" in r.stdout, "skipped when there")

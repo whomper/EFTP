@@ -187,6 +187,23 @@ void pf_entropy(unsigned char *buf, int n)
 		abort();
 }
 
+/* EFTP_BIGBUF caps it (bytes; 0: none), so the tests take every path */
+void *pf_bigbuf(long want, long *got, int *tt)
+{
+	const char *e = getenv("EFTP_BIGBUF");
+	long cap = e && *e ? atol(e) : 4L * 1024 * 1024;
+	long take = want >= 0 && want < cap ? want : cap;
+	void *p = take > 0 ? malloc(take) : 0;
+	*got = p ? take : 0;
+	*tt = 0;
+	return p;
+}
+
+void pf_bigfree(void *p)
+{
+	free(p);
+}
+
 const char *pf_getenv(const char *name)
 {
 	return getenv(name);

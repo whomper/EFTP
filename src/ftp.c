@@ -911,7 +911,23 @@ again:
 	return 1;
 }
 
-int ftp_get(FTP *f, const char *name, const char *local, long offset, int ascii)
+/* n bytes to the file, in pieces with the screen kept alive between
+   them (a few MB to a floppy take a while) */
+static int put_all(int h, const char *p, long n)
+{
+	while (n > 0) {
+		long k = n > 65536L ? 65536L : n;
+		if (pf_write(h, p, k) != k)
+			return 0;
+		p += k;
+		n -= k;
+		if (n && pf_idle)
+			pf_idle();
+	}
+	return 1;
+}
+
+int ftp_get(FTP *f, const char *name, const char *local, long offset, long size, int ascii)
 {
 	CONN *d;
 	int h, r, code;
@@ -943,9 +959,41 @@ int ftp_get(FTP *f, const char *name, const char *local, long offset, int ascii)
 	}
 	done = offset;
 	if (r == 1) {
-		while ((n = conn_read(d, iobuf, sizeof(iobuf))) > 0) {
-			if (pf_write(h, iobuf, n) != n) {
-				fail(f, "The disk is full: %s", local);
+		/* The file gathers in memory, as much of it as fits: TT RAM
+		   when the machine has it, else ST RAM. It goes to disk at the
+		   end, or each time the memory is full: a few long writes, not
+		   one every 4 KB, each holding up the network while the disk
+		   seeks. Without such memory, straight through iobuf. */
+		char *big = 0;
+		long cap = 0, fill = 0;
+		int tt;
+		if (size < 0 || size - offset > (long)sizeof(iobuf))
+			big = pf_bigbuf(size < 0 ? -1 : size - offset, &cap, &tt);
+		if (big) {
+			char note[64];
+			snprintf(note, sizeof(note), "the file gathers in %s RAM (%ld KB), then to disk",
+				 tt ? "TT" : "ST", (cap + 1023) / 1024);
+			conn_log("EFTP", " -- ", note, (long)strlen(note));
+		}
+		for (;;) {
+			if (big) {
+				long room = cap - fill;
+				n = conn_read(d, big + fill, room > 32768L ? 32768L : room);
+			} else {
+				n = conn_read(d, iobuf, sizeof(iobuf));
+			}
+			if (n <= 0)
+				break;
+			if (big) {
+				fill += n;
+				if (fill == cap) {		/* full: to disk */
+					fill = 0;
+					if (!put_all(h, big, cap)) {
+						n = -2;
+						break;
+					}
+				}
+			} else if (pf_write(h, iobuf, n) != n) {
 				n = -2;
 				break;
 			}
@@ -953,6 +1001,17 @@ int ftp_get(FTP *f, const char *name, const char *local, long offset, int ascii)
 			if (ftp_progress)
 				ftp_progress(done);
 		}
+		/* what came is kept, stopped or not: a resume goes on from it.
+		   All of it came, so Esc while it is written stops nothing. */
+		if (fill && n != -2) {
+			int keep = conn_stop;
+			if (!put_all(h, big, fill))
+				n = -2;
+			conn_stop = keep;
+		}
+		pf_bigfree(big);
+		if (n == -2)
+			fail(f, "The disk is full: %s", local);
 		if (n == -1 && !f->err[0])
 			fail(f, "%s", d->err);
 		conn_close(d);

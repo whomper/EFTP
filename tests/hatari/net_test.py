@@ -16,6 +16,8 @@ protocol's VA_START, which goes to the server folder shown.
 
     net_test.py WORKDIR EMUTOS.IMG     (Xvfb, xdotool, pip install pyftpdlib)
     EFTP_PRG=EFTPST.PRG net_test.py ...  the ST edition, on a 1 MB machine
+    TTRAM=16 net_test.py ...             with 16 MB of TT RAM, which the
+                                         downloads gather in
 """
 import os
 import sys
@@ -45,8 +47,10 @@ else:
 bridge, serial = server.bridge(work)
 # EFTP.PRG (with TLS) on a 4 MB Falcon; EFTP_PRG=EFTPST.PRG, the ST
 # edition, on 1 MB, the smallest machine it is for
+ttram = os.environ.get("TTRAM")
 r = rig.Rig(work, tos, serial=serial,
-            extra=["--memsize", "1" if os.environ.get("EFTP_PRG") == "EFTPST.PRG" else "4"])
+            extra=["--memsize", "1" if os.environ.get("EFTP_PRG") == "EFTPST.PRG" else "4"] +
+            (["--ttram", ttram, "--addr24", "off"] if ttram else []))
 fails = []
 
 
@@ -147,7 +151,11 @@ try:
     r.click(320, 27)
     check(wait_for(lambda: same(part, os.path.join(home, "pub", "atari", "STinG 1.26.zip")), 90),
           "resumed and complete")
-    check("REST %d" % size in open(os.path.join(hd, "EFTP.LOG"), errors="replace").read(), "resumed with REST")
+    log = open(os.path.join(hd, "EFTP.LOG"), errors="replace").read()
+    check("REST %d" % size in log, "resumed with REST")
+    # the downloads gathered in memory and went to disk in one go
+    ram = "TT RAM" if ttram else "ST RAM"
+    check("the file gathers in " + ram in log, "downloads gathered in " + ram)
     time.sleep(3)
     r.shot("t7-done")
 

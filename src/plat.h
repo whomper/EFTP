@@ -34,6 +34,12 @@ int  pf_rename(const char *from, const char *to);
 int  pf_list(const char *dir, int (*cb)(const char *name, long size, void *ud), void *ud);
 
 long pf_seek(int h, long off);			/* from the start; the new place */
+/* memory for a download to gather in before it goes to disk: up to want
+   bytes (-1 when the size isn't known), from TT RAM if there is some,
+   else ST RAM; *got what was given, *tt 1 if it is TT RAM; 0 when too
+   little is spare */
+void *pf_bigbuf(long want, long *got, int *tt);
+void pf_bigfree(void *p);
 int  pf_rmdir(const char *path);
 
 /* ---- folders, for the file lists ---- */

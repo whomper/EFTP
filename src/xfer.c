@@ -520,7 +520,7 @@ static int run_file(FTP *f, long i)
 				offset = have;
 		}
 		x = &xq[i];
-		r = ftp_get(f, x->remote, x->local, offset, x->text);
+		r = ftp_get(f, x->remote, x->local, offset, x->size, x->text);
 		if (r == 1 && opt.times && x->mtime != CT_NONE) {
 			PFTIME p;
 			to_pftime(x->wall ? x->mtime : zone_to_local(x->mtime), &p);
