@@ -322,9 +322,9 @@ static void pw_paste(PWFIELD *p, short *idx)
 		pw_key(p, (unsigned char)*c, idx);
 }
 
-/* what Esc presses (the guidelines, 3.2): Cancel, else the only button
-   that ends the dialog (OK in a box that only says something); 0 when
-   neither is there */
+/* what Esc and Undo press (the guidelines, 3.5): Cancel, else the only
+   button that ends the dialog (OK in a box that only says something); 0
+   when neither is there, and then they do nothing */
 static short esc_button(void)
 {
 	short i, exits = 0, last = 0;
@@ -339,8 +339,9 @@ static short esc_button(void)
 	return exits == 1 ? last : 0;
 }
 
-/* form_do, with password fields, the clipboard (^C ^X ^V) and Esc for
-   Cancel */
+/* form_do, with password fields, the clipboard (^C ^X ^V), and Esc and
+   Undo for Cancel (the AERA guidelines, 3.5): never anything that acts,
+   and never clearing the field the cursor is in, as form_do's Esc does */
 static short form_loop(short start)
 {
 	short next = start ? start : first_editable(), edit = 0, idx = 0, cont = 1;
@@ -357,9 +358,11 @@ static short form_loop(short start)
 			PWFIELD *p = pw_of(edit);
 			short scan = KEY_SCAN(e.kreturn);
 			short nav = scan == 0x1c || scan == 0x72 || scan == 0x0f || scan == 0x48 || scan == 0x50;
-			if (scan == 0x01 && esc_button()) {
-				next = esc_button();	/* as if it were clicked */
-				cont = 0;
+			if (scan == 0x01 || scan == 0x61) {	/* Esc, Undo */
+				if (esc_button()) {
+					next = esc_button();	/* as if it were clicked */
+					cont = 0;
+				}
 			} else if (edit && clip_key(e.kreturn)) {
 				if (!p)
 					clip_edit(tree, edit, &idx, e.kreturn);
