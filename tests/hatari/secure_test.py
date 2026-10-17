@@ -152,9 +152,7 @@ def run(mode):
         write_inf(hd, "FALCON=0\r\nGATE=127.0.0.1\r\nGATEPORT=%d\r\n" % server.PORT,
                   "[SITE]\r\nNAME=SFTP server\r\nHOST=127.0.0.1\r\nPORT=%d\r\nPROTOCOL=sftp\r\n"
                   "ANONYMOUS=0\r\nUSER=atari\r\nPASS=falcon\r\nREMOTEDIR=/pub\r\n" % sport)
-    bridge, serial = server.bridge(w)
-    procs.append(bridge)
-    r = rig.Rig(w, m, serial=serial)
+    r = rig.Rig(w, m, extra=m.network())          # FAKESTNG and its bridge
     try:
         time.sleep(30)                              # boot, FAKESTNG, EFTP
         r.ctrl("k")                                 # Site Manager
@@ -192,6 +190,7 @@ def run(mode):
         check("falcon" not in log, "%s: no password in EFTP.LOG" % mode)
     finally:
         r.stop()
+        m.stop()
         for p in procs:
             p.terminate()
         if mode == "ftps":

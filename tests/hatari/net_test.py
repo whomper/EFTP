@@ -48,8 +48,7 @@ if av:
         f.write("until EFTP\r\nawait GO.TXT\r\nsend EFTP|C:\\THING.ACC\r\nwait 60\r\ndone\r\n")
 else:
     print("skip VA_START: make -C common/tests/av first")
-bridge, serial = server.bridge(work)
-r = rig.Rig(work, m, serial=serial)
+r = rig.Rig(work, m, extra=m.network())      # FAKESTNG and its bridge
 fails = []
 
 
@@ -66,9 +65,9 @@ def same(a, b):
         return False
 
 
-def wait_for(cond, secs):
+def wait_for(cond, secs, slow=True):
     t = time.time()
-    while time.time() - t < secs * SLOW:
+    while time.time() - t < secs * (SLOW if slow else 1):
         if cond():
             return True
         time.sleep(1)
@@ -94,6 +93,19 @@ SITE1 = (60, 92)      # the first site in Connect's menu
 
 def row(n):
     return ROW0 + n * ROWH
+
+
+def stamp(line):
+    h, mi, sec = line[:11].split(":")
+    return int(h) * 3600 + int(mi) * 60 + float(sec)
+
+
+def speed(log, name, size):
+    """bytes a second this Atari took name down at, by EFTP.LOG (RETR to 226)"""
+    lines = log.splitlines()
+    i = max(k for k, l in enumerate(lines) if "RETR " + name in l)
+    j = next(k for k in range(i, len(lines)) if " 226 " in lines[k])
+    return size / max(stamp(lines[j]) - stamp(lines[i]), 0.5)
 
 
 try:
@@ -145,22 +157,31 @@ try:
     check("RETR /pub/atari/games/xenon2.prg" not in open(elog, errors="replace").read(),
           "Skip: the file that was there didn't come again")
 
+    # stopped part way: EFTP makes the file as the download starts, and
+    # the stop comes when about 40% has come at the speed this machine
+    # took Cuddly Demos.st down at (a fixed wait would be too short on an
+    # ST, or come after the end on a fast one)
+    bps = speed(open(elog, errors="replace").read(), "/pub/atari/demos/Cuddly Demos.st",
+                os.path.getsize(os.path.join(demos, "Cuddly Demos.st")))
+    sting = os.path.join(home, "pub", "atari", "STinG 1.26.zip")
+    print("downloads at %.1f KB/s" % (bps / 1024), flush=True)
+    part = os.path.join(hd, "STING_~1.ZIP")
     r.click(REMOTE_X, row(4))                       # STinG 1.26.zip, 244 KB
     time.sleep(1.5)
     r.click(*DOWNLOAD)
-    time.sleep(9 * PAUSE)
+    wait_for(lambda: os.path.exists(part), 60)
+    time.sleep(0.4 * os.path.getsize(sting) / bps)
     r.key(K["ESC"])                                 # Stop, and Esc again as a hurried
     time.sleep(0.3)                                 # hand (or a repeating key) does: the
     r.key(K["ESC"])                                 # second mustn't stop what follows
     time.sleep(5)
-    part = os.path.join(hd, "STING_~1.ZIP")
     size = os.path.getsize(part) if os.path.exists(part) else -1
     check(0 < size < 250000, "stopped half way (%d bytes)" % size)
     r.shot("t6-stopped")
     r.click(300, 9)                                 # Transfers > Retry the failed ones
     time.sleep(1)
     r.click(320, 27)
-    check(wait_for(lambda: same(part, os.path.join(home, "pub", "atari", "STinG 1.26.zip")), 90),
+    check(wait_for(lambda: same(part, sting), 60 + 2 * os.path.getsize(sting) / bps, slow=False),
           "resumed and complete")
     log = open(os.path.join(hd, "EFTP.LOG"), errors="replace").read()
     check("REST %d" % size in log, "resumed with REST")
@@ -190,7 +211,7 @@ try:
         check("AV_STARTED" in avlog, "and answered it")
 finally:
     r.stop()
-    bridge.terminate()
+    m.stop()
     srv.close_all()
 
 print("%d failed" % len(fails))
