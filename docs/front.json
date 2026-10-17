@@ -1,0 +1,9 @@
+{
+ "name": "EFTP",
+ "banner": "EFTP",
+ "address": "github.com/whomper/EFTP",
+ "welcome": ["Welcome to **EFTP**, an FTP program for the Atari ST, STE, TT and Falcon. It copies files and whole folders between your Atari and a server, both ways, resumes a transfer that stopped, keeps the files' dates, and reaches secure servers too: FTPS and SFTP."],
+ "window": {"title": "The window", "picture": "docs/help/WINDOW.IMG", "intro": "One window, two sides:", "items": ["Your Atari: its drives and folders.", "The server: drag files either way, or use Upload and Download.", "Transfers: what is going and what went, and how fast."], "more": "More in [[The window]], [[Moving files]] and [[Keys]]."},
+ "diagram": {"title": "How EFTP reaches your servers", "boxes": [["Your Atari", "EFTP, STinG"], ["Raspberry Pi", "eftpgate"], ["FTP server", "FTP/FTPS/SFTP"]], "arrows": ["home net", "FTPS, SFTP"], "round": "[[Falcon mode|Secure servers: FTPS and SFTP]]: a Falcon or TT does FTPS itself", "after": ["Plain FTP needs neither. For FTPS a Raspberry Pi on your network can do the encryption for any Atari, or a Falcon or TT can do it itself (EFTP.PRG); SFTP always goes through the Pi. See [[Secure servers: FTPS and SFTP]]."]},
+ "contents": [["Getting started", ["What you need", "Installing", "Connecting", "Secure servers: FTPS and SFTP", "Settings"]], ["Every day", ["The window", "Moving files", "When a file is already there", "Stopping and resuming", "Managing files", "Keys"]], ["The details", ["From other programs", "Names", "Text and binary", "Dates and the time zone"]], ["When things go wrong", ["When something goes wrong", "Server messages", "EFTP.INF"]]]
+}

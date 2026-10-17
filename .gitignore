@@ -11,3 +11,4 @@ dist/
 CRASH.LOG
 tests/**/work/
 *.log
+docs/help/*.png

@@ -169,8 +169,12 @@ binary/ROOTS.DAT: binary/CACERT.PEM
 # make help HCP=/path/to/hcp
 HCP     ?= hcp
 help: binary/EFTP.HYP
-binary/EFTP.HYP: docs/GUIDE.md tools/mkhelp.py VERSION | $(OBJDIR) binary
+# The front page (the AERA guidelines, 4.3) is common/tools/helpfront.py's,
+# from docs/front.json.
+binary/EFTP.HYP: docs/GUIDE.md tools/mkhelp.py VERSION docs/front.json docs/help/WINDOW.IMG \
+		common/help/EFTP.IMG common/tools/helpfront.py | $(OBJDIR) binary
 	python3 tools/mkhelp.py docs/GUIDE.md VERSION $(OBJDIR)/EFTP.STG
+	python3 common/tools/helpfront.py page docs/front.json $(OBJDIR)/EFTP.STG $(OBJDIR)/EFTP.STG
 	$(HCP) -o $@ $(OBJDIR)/EFTP.STG
 
 # ---- fuzzing (the AERA guidelines, 7.1): what servers send, from
