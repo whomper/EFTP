@@ -48,6 +48,13 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 - **README:** keep the section order from the template (Highlights, Getting started, How it reaches the
   servers, Building, Source, Tests, Licence, family footer). Use British English.
 
+## Talking with Erez
+
+Erez's rule for the whole family (18 Oct 2026): no progress or in-between messages. Write to him
+only when he has to decide something, with a short context and the decision. Findings: the
+information, your assessment and what he should do, nothing more. Messages to the hub stay complete,
+with the evidence.
+
 ## EFTP
 
 - EFTP shares a lot with EMail (whomper/EMail) and ECal: its runtime,
