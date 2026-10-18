@@ -243,7 +243,7 @@ unsigned char key_char(short kstate, short key)
 {
 	short scan = KEY_SCAN(key);
 	unsigned char ascii = KEY_ASCII(key);
-	if (hebrew_kbd && !(kstate & (K_LSHIFT | K_RSHIFT | K_CTRL | K_ALT)) &&
+	if (hebrew_kbd && !(kstate & (K_LSHIFT | K_RSHIFT | K_ALT)) && !key_ctrl(kstate, key) &&
 	    scan >= 0x10 && scan < 0x36 && hebrew_keys[scan - 0x10])
 		ascii = hebrew_keys[scan - 0x10];
 	return ascii;
@@ -664,7 +664,8 @@ static int shortcut(short kstate, short key)
 		command(C_REFRESH);
 		return 1;
 	}
-	if (kstate & K_CTRL) {
+	/* key_ctrl: a ^key typed while EFTP was busy comes with kstate 0 */
+	if (key_ctrl(kstate, key)) {
 		short cmd = C_NONE;
 		switch (scan) {
 		case 0x25: cmd = C_SITES; break;	/* K */
