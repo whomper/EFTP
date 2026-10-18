@@ -507,15 +507,18 @@ static int make_folder(FTP *f, long i)
 {
 	XITEM *x = &xq[i];
 	if (x->dir == XD_DOWN) {
-		if (pf_mkdir(x->local) == 0) {
-			seen_forget();		/* new: nothing in it to look up */
-			flist_init(&seen);
-			str_copy(seen_dir, x->local, sizeof(seen_dir));
-			seen_ok = 1;
-		} else if (!pf_isdir(x->local)) {
+		/* pf_mkdir is content with a folder that is there already:
+		   one look tells which, and one made now has nothing in it */
+		if (pf_isdir(x->local))
+			return 1;
+		if (pf_mkdir(x->local) != 0) {
 			note(x, "can't make the folder here");
 			return 0;
 		}
+		seen_forget();
+		flist_init(&seen);
+		str_copy(seen_dir, x->local, sizeof(seen_dir));
+		seen_ok = 1;
 		return 1;
 	}
 	if (!ftp_mkdir(f, x->remote) && !ftp_alive(f)) {
