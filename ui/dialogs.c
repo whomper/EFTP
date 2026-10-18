@@ -791,9 +791,9 @@ static void part_connection(short x, short y)
 static void part_secure(short x, short y)
 {
 	int can = tls_available && get_cookie(0x5F435055L) >= 20;	/* _CPU */
-	const char *note = can ? "Needs CACERT.PEM, ROOTS.DAT in EFTP" :
+	const char *note = can ? "Needs CACERT.PEM next to EFTP.PRG" :
 			   !tls_available ? "Not in the ST edition: EFTP.PRG has it" :
-			   "Needs a 68030 (Falcon or TT)";
+			   "Needs a 68020 or better (TT, Falcon)";
 	rows_at(y);
 	d_tick(x, ROW(0), "Falcon mode: FTPS on this Atari", T_FALCON);
 	d_tick(x + 3, ROW(1), "Check certificates on the DSP", T_DSP);
@@ -804,7 +804,7 @@ static void part_secure(short x, short y)
 	d_field(x + 36, ROW(3), s_gport, 5, '9');
 	d_add(G_STRING, 0, 0, (long)"SFTP goes through the Pi gateway,", x + 3, ROW(4), 33, 1);
 	d_add(G_STRING, 0, 0, (long)"FTPS too when Falcon mode is off.", x + 3, ROW(5), 33, 1);
-	d_add(G_STRING, 0, 0, (long)"On the Pi: gateway/install.sh", x + 3, ROW(6), 29, 1);
+	d_add(G_STRING, 0, 0, (long)"On the Pi: aera-gateway install ftp", x + 3, ROW(6), 35, 1);
 }
 
 #define SW 13			/* the list's width */

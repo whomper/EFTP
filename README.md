@@ -33,7 +33,7 @@ and SFTP servers too.
   sort, colour on 16- and 256-colour screens, a Settings dialog with a sidebar, the server's
   messages in a log pane, iconify, help in EHypView or ST-Guide.
 - **Hebrew** names, shown in the Atari character set; F10 switches to the Hebrew keyboard.
-- **Small and quick:** the ST edition is about 170 KB of plain 68000 code and runs on a 1 MB ST with
+- **Small and quick:** the ST edition is about 180 KB of plain 68000 code and runs on a 1 MB ST with
   STinG; both editions run in TT RAM when there is some.
 
 ![EFTP on a Falcon: the Atari's files on the left, the server's on the right, the transfers below](docs/screenshot.png)
@@ -52,8 +52,10 @@ file by file or all together in the zip:
 | `EFTP.RSC`, `EFTP.ICN`, `EFTPMK.ICN` | the desktop icon (in the zip's `icons/` folder) |
 | `EFTP-x.y.zip` | all of these together |
 
-1. Copy `EFTP.PRG` or `EFTPST.PRG` into a folder of its own, for example `C:\EFTP\`, with
-   `EFTP.HYP`; for Falcon mode, `CACERT.PEM` and `ROOTS.DAT` too.
+1. Copy `EFTP.PRG` or `EFTPST.PRG` into any folder, with `EFTP.HYP`; for Falcon mode,
+   `CACERT.PEM` and `ROOTS.DAT` too. EFTP has no folder it must be in: it keeps its settings
+   (`EFTP.INF`, `EFTP.KEY`) in the folder it is started from, so one of its own keeps them
+   together. To update, copy a new release's files over these; the settings stay.
 2. Load STinG (or run MiNT with MiNTnet).
 3. Start EFTP, choose **File > Sites** (^K), make a site with the server's name and your login,
    and press **Connect**. Afterwards **Connect** in the toolbar lists your sites: one click
@@ -142,12 +144,12 @@ HCP compiler from the [hypview](https://github.com/th-otto/hypview) project
 (`common/tools/build-hcp.sh DIR` builds it).
 
 **Versions and releases.** `binary/` and `dist/` are what make builds; they are never committed,
-and a build changes no tracked file. `VERSION` holds the last release, major.minor (e.g. 1.31). Every
+and a build changes no tracked file. `VERSION` holds the last release, major.minor (e.g. 1.40). Every
 build shows it as it is in the About box: only releases leave the build machine. To
 release: `tools/bump.py`, commit and push, then **Actions > Release > Run workflow** on `main` with
 what is new. [`.github/workflows/release.yml`](.github/workflows/release.yml) tests, builds both
-editions and the help file, tags the commit `v1.32` and publishes the files and the zip as a GitHub
-Release with those notes. Pushing a tag `v1.32` made with `git tag -a` does the same, with the tag's
+editions and the help file, tags the commit `vX.Y` and publishes the files and the zip as a GitHub
+Release with those notes. Pushing a tag `vX.Y` made with `git tag -a` does the same, with the tag's
 message as the notes.
 
 No MiNTLib is needed: the program is freestanding (its runtime is in `common/atari/`) and
@@ -202,11 +204,14 @@ make itest    # against pyftpdlib: logins, MLSD and LIST, files and folders both
 [EmuTOS](https://emutos.sourceforge.io/), with Xvfb and xdotool:
 
 ```sh
-make -C common/tools/fakesting
-tests/hatari/net_test.py /tmp/eftp-net Falcon              # a real FTP server; or ST-1, ST, TT
-tests/hatari/secure_test.py /tmp/eftp-sec Falcon           # Falcon mode FTPS; SFTP via eftpgate
-tests/hatari/screenshots.py /tmp/eftp-shots etos512us.img  # the pictures in docs/
+python3 tests/hatari/net_test.py /tmp/eftp-net Falcon              # a real FTP server; or ST-1, ST, TT
+python3 tests/hatari/secure_test.py /tmp/eftp-sec Falcon           # Falcon mode FTPS; SFTP via eftpgate
+python3 tests/hatari/esc_test.py /tmp/eftp-esc etos512us.img       # Esc and Undo cancel every dialog
+python3 tests/hatari/clock_test.py /tmp/eftp-clock etos512us.img   # times right on a fast 200 Hz clock
+python3 tests/hatari/screenshots.py /tmp/eftp-shots etos512us.img  # the pictures in docs/
 ```
+
+`etos512us.img` is EmuTOS's 512 KB image; `machines.py` keeps one in `~/.cache/aera/emutos-1.4/`.
 
 The machines are the family's (`common/tools/machines.py list`): `ST-1` (1 MB) and `ST` run the ST
 edition, `TT` and `Falcon` `EFTP.PRG`, with EmuTOS 1.4, which `machines.py` fetches.

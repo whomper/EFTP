@@ -37,20 +37,35 @@ The files are in the latest release on EFTP's GitHub page
 | ST, STE, Mega ST  | `EFTPST.PRG`                 | FTPS and SFTP through the Pi         |
 
 `EFTPST.PRG` is the same program without TLS, about 105 KB smaller: rename it
-to `EFTP.PRG` if you like. Copy it into a folder of its own, for example
-`C:\EFTP\`. EFTP keeps everything next to itself:
+to `EFTP.PRG` if you like.
+
+EFTP can live in any folder, on any drive: there is no folder it must
+be in, and none to make first. A folder of its own keeps its files
+together, because EFTP keeps everything in the folder it is started
+from (from the desktop, the folder `EFTP.PRG` is in):
 
 ```
-C:\EFTP\EFTP.PRG      the program
-C:\EFTP\EFTP.INF      settings and sites (each setting has a note above it)
-C:\EFTP\EFTP.KEY      the key the passwords in EFTP.INF are encrypted with
-C:\EFTP\EFTP.LOG      protocol log, when switched on
-C:\EFTP\CRASH.LOG     what happened, if EFTP ever crashes
-C:\EFTP\EFTP.HYP      this guide, for EHypView or ST-Guide (the Help key opens it)
-C:\EFTP\CACERT.PEM    Falcon mode: the root certificates (copy them here)
-C:\EFTP\ROOTS.DAT     Falcon mode: the same, decoded ahead of time
-C:\EFTP\SEED.DAT      Falcon mode: randomness kept for the next start
+EFTP.PRG      the program (or EFTPST.PRG)
+EFTP.HYP      this guide, for EHypView or ST-Guide (the Help key opens it)
+CACERT.PEM    Falcon mode: the root certificates (copy them here)
+ROOTS.DAT     Falcon mode: the same, decoded ahead of time
+EFTP.INF      settings and sites (each setting has a note above it)
+EFTP.KEY      the key the passwords in EFTP.INF are encrypted with
+EFTP.LOG      protocol log, when switched on
+CRASH.LOG     what happened, if EFTP ever crashes
+SEED.DAT      Falcon mode: randomness kept for the next start
 ```
+
+You copy the program and the guide, and for Falcon mode the two
+certificate files; EFTP makes the others when it needs them.
+`ROOTS.DAT` only saves time: without it, or when `CACERT.PEM` has
+changed, EFTP reads `CACERT.PEM` itself the first time (slower) and
+writes a new `ROOTS.DAT`.
+
+To update EFTP, copy the new release's `EFTP.PRG` (or `EFTPST.PRG`),
+`EFTP.HYP`, `CACERT.PEM` and `ROOTS.DAT` over the old ones. `EFTP.INF`
+and `EFTP.KEY` stay as they are, and with them your settings, sites
+and passwords.
 
 Start it. This guide is also in `EFTP.HYP`, a hypertext: with EHypView,
 ST-Guide or HypView running (as an accessory, or as a program under
@@ -154,15 +169,18 @@ Falcon, TT:  Falcon (EFTP.PRG, TLS 1.2, RSA on the DSP) ------------------------
   or SFTP to the server. Set it up with `gateway/aera-gateway install ftp` (see
   `gateway/README.md`), then type the Pi's address in Options >
   Settings > Secure. Any Atari can use it, a Falcon too, and SFTP always
-  goes this way. The Pi checks the servers' certificates, and remembers
+  goes this way. The Pi goes only to servers on the internet: for one
+  on your home network (a NAS, say), install it with `--allow-local`.
+  The Pi checks the servers' certificates, and remembers
   an SSH server's key the first time and refuses the server if it
   changes. Everything else is as with FTP: resuming, dates, text files
   (the Pi turns their line ends for SFTP servers, which have no text
   mode), permissions.
 - **Falcon mode.** `EFTP.PRG` on a Falcon or TT speaks FTPS itself, TLS
   1.2 with BearSSL, as EMail and ECal do. Switch it on with **Options >
-  Falcon mode (TLS)** or in Settings > Secure. It needs a 68030 and
-  `CACERT.PEM` and `ROOTS.DAT` next to `EFTP.PRG`. **Check certificates
+  Falcon mode (TLS)** or in Settings > Secure. It needs a 68020 or
+  better (a TT or Falcon) and `CACERT.PEM` next to `EFTP.PRG`, with
+  `ROOTS.DAT` to start faster. **Check certificates
   on the DSP** lets the Falcon's DSP56001 do the RSA arithmetic, much
   faster than the 68030. Every list and file goes over its own
   encrypted connection; EFTP resumes the first connection's TLS session
@@ -176,7 +194,7 @@ ECDHE-RSA, ChaCha20-Poly1305", or "... through the Pi - SFTP", and the
 server's name in the toolbar shows it in its tooltip.
 
 In Falcon mode the 68030 decrypts every byte itself, so transfers are
-slower than through the Pi (EMail measured 13 KB/s against 37 KB/s); a
+slower than through the Pi; a
 bigger TCP receive window in STinG's configuration helps. The clock must
 be right for certificates to check out.
 
@@ -305,7 +323,8 @@ down get the date the server has, files going up get theirs on the
 server too, when the server can (MFMT). Servers give times in UTC, so
 EFTP needs your time zone, by its name, in Settings > Connection:
 `Europe/London`, `Asia/Jerusalem`, ... summer time follows by itself.
-Under MiNT or MagiC EFTP finds it from TZ when it is set.
+Under MiNT or MagiC EFTP finds it from TZ when it is set; otherwise it
+uses UTC until you choose one.
 
 ## Server messages
 
@@ -335,7 +354,8 @@ Options > Font picks the font for the lists, as in EMail: the system
 font in two sizes, or any monospaced GDOS font.
 
 **Options > Falcon mode (TLS)** switches Falcon mode on and off, the
-same as the tick in Settings > Secure.
+same as the tick in Settings > Secure, and **Options > Protocol log**
+the log, the same as the tick in Settings > Connection.
 
 F10 switches to the Israeli keyboard for typing Hebrew names.
 
@@ -345,6 +365,8 @@ F10 switches to the Israeli keyboard for typing Hebrew names.
 |----------------|------------------------------------------------|
 | ^K / ^D        | the Site Manager / disconnect                  |
 | ^T             | upload or download what is selected            |
+| Up, Down       | the file above or below (Shift: a page)        |
+| Clr/Home       | the first file (Shift: the last)               |
 | Return         | open the folder, send the file                 |
 | Backspace      | the folder up                                  |
 | Tab            | the next pane                                  |
@@ -388,6 +410,9 @@ Undo or the Stop button stops it.
 - **A certificate that "didn't check out"** (Falcon mode, or the Pi's
   log): the Atari's clock, or a server whose certificate is made by its
   own authority (a NAS): through the Pi, `--cafile` (gateway/README.md).
+- **"... is on the home network"** (through the Pi): the Pi doesn't go
+  back into your home network unless it is installed with
+  `--allow-local` (gateway/README.md).
 - **"... SSH key has changed"**: the server isn't the one the Pi met the
   first time. If it was really reinstalled, remove its line from
   `/var/lib/eftpgate/known_hosts` on the Pi.
@@ -396,7 +421,8 @@ Undo or the Stop button stops it.
   quits, leaving the Atari running. A crash in the system or a driver
   still gives the bombs; TOS keeps a record of them, and EFTP adds it to
   `CRASH.LOG` the next time it starts (and says so if the crash was in
-  EFTP). Send `CRASH.LOG`, with `EFTP.LOG` if the log was on, to the author. Under MiNT or MagiC, which
+  EFTP). After a crash EFTP offers, the next time it starts, to show
+  what happened. Send `CRASH.LOG`, with `EFTP.LOG` if the log was on, to the author. Under MiNT or MagiC, which
   handle crashes themselves, there is no `CRASH.LOG`.
 
 ## EFTP.INF

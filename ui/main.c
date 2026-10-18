@@ -190,7 +190,7 @@ int falcon_mode_set(int on)
 			return 0;
 		}
 		if (!pf_exists(conn_cacert)) {
-			alert(1, "[3][Falcon mode needs the root|certificates: put CACERT.PEM and|ROOTS.DAT in the EFTP folder.][ OK ]");
+			alert(1, "[3][Falcon mode needs the root|certificates: put CACERT.PEM and|ROOTS.DAT next to EFTP.PRG.][ OK ]");
 			return 0;
 		}
 	}
@@ -379,10 +379,10 @@ int connect_site(SITE *s)
 	}
 	if (site_via_gateway(s) && !opt.gate[0]) {
 		if (s->proto == PR_SFTP || !tls_available)
-			alert(1, "[1][%s needs the Raspberry Pi gateway:|install gateway/install.sh on a Pi|and type its address in|Settings > Secure.][ OK ]",
+			alert(1, "[1][%s needs the Raspberry Pi gateway:|on the Pi, aera-gateway install ftp;|then type its address in|Settings > Secure.][ OK ]",
 			      proto_name(s->proto));
 		else
-			alert(1, "[1][FTPS needs Falcon mode (Options|menu, a 68030 Atari) or the|Raspberry Pi gateway (Settings >|Secure).][ OK ]");
+			alert(1, "[1][FTPS needs Falcon mode (Options|menu, on a Falcon or TT) or the|Raspberry Pi gateway (Settings >|Secure).][ OK ]");
 		return 0;
 	}
 	if (site_via_gateway(s))

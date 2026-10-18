@@ -358,7 +358,7 @@ int store_save_settings(void)
 	int r;
 	sb_init(&b);
 	sb_adds(&b, "; EFTP settings, written by EFTP.PRG. Lines starting with ; are notes.\r\n"
-		    "; Most of these are set in Options > Settings; see docs/GUIDE.md.\r\n"
+		    "; Most of these are set in Options > Settings; see EFTP.HYP (Help).\r\n"
 		    "; 1 means on, 0 means off.\r\n\r\n[OPTIONS]\r\n\r\n");
 	put_str(&b, "your time zone, by its name (Asia/Jerusalem): server times are shown in it",
 		"TIMEZONE", opt.tzname);
@@ -398,7 +398,7 @@ int store_save_settings(void)
 		"FALCON", "%d", opt.falcon);
 	put_fmt(&b, "Falcon mode: 1 = the DSP checks the servers' signatures, 0 = the 68030 does",
 		"DSP", "%d", opt.dsp);
-	put_str(&b, "the Raspberry Pi gateway's address, for FTPS and SFTP servers (gateway/install.sh on the Pi)",
+	put_str(&b, "the Raspberry Pi gateway's address, for FTPS and SFTP servers (aera-gateway install ftp on the Pi)",
 		"GATE", opt.gate);
 	put_fmt(&b, "the gateway's port", "GATEPORT", "%u", opt.gateport);
 	for (i = 0; i < nsites; i++) {
