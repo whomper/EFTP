@@ -66,8 +66,8 @@ For FTPS and SFTP servers, see [How it reaches the servers](#how-it-reaches-the-
 [user guide](docs/GUIDE.md) describes everything else.
 
 **Needs:** TOS 1.04 or newer (TOS 4 on the Falcon), EmuTOS, MagiC or MiNT; 640×200 (ST medium) or
-larger; free memory besides the TCP/IP stack: about 250 KB for `EFTPST.PRG`, about 450 KB for
-`EFTP.PRG`; network: STinG (or STiK) on plain TOS, MiNTnet under FreeMiNT, or MagiC-Net. Falcon
+larger; free memory when it starts: about 350 KB for `EFTPST.PRG`, about 500 KB for `EFTP.PRG`
+with Falcon mode (more makes downloads faster); network: STinG (or STiK) on plain TOS, MiNTnet under FreeMiNT, or MagiC-Net. Falcon
 mode needs a Falcon or TT.
 
 ![EFTPST.PRG on a 1 MB ST in high resolution](docs/st-mono.png)

@@ -13,9 +13,11 @@ FTPS by the Falcon itself.
 - An Atari with TOS 1.04 or newer (TOS 4 on the Falcon), EmuTOS, MagiC or
   MiNT, and a screen of at least 640×200 (ST medium); 640×400 (ST high)
   or the Falcon's 640×480 show more of each list
-- Free memory besides your TCP/IP stack: about 250 KB for `EFTPST.PRG`
-  (it runs on a 1 MB ST with STinG), about 450 KB for `EFTP.PRG` with
-  Falcon mode
+- Free memory when EFTP starts (after your TCP/IP stack and
+  accessories): about 350 KB for `EFTPST.PRG` (it runs on a 1 MB ST
+  with STinG), about 500 KB for `EFTP.PRG` with Falcon mode. More
+  memory makes downloads faster: it holds the file until it is all
+  there (see [Moving files](#moving-files))
 - A TCP/IP stack:
   - **STinG** on plain TOS (or STiK), or
   - **MiNTnet** under FreeMiNT (with or without GlueSTiK), or MagiC-Net
@@ -403,9 +405,9 @@ Undo or the Stop button stops it.
 - **A transfer stays at 0%**: STinG's own settings: a bigger TCP
   receive window (and MTU) in STinG's configuration makes downloads
   faster, too.
-- **Not enough memory**: EFTPST.PRG needs about 250 KB, EFTP.PRG about
-  450 KB; on a 1 MB machine use EFTPST.PRG, and leave out accessories
-  you don't need.
+- **Not enough memory**: EFTPST.PRG needs about 350 KB free when it
+  starts, EFTP.PRG about 500 KB for Falcon mode; on a 1 MB machine use
+  EFTPST.PRG, and leave out accessories you don't need.
 - **"... needs the Raspberry Pi gateway"** or **"FTPS needs Falcon
   mode or the Raspberry Pi gateway"**: the site is FTPS or SFTP; set up
   the gateway (Settings > Secure), or switch on Falcon mode for FTPS.
