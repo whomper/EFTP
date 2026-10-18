@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include "tos.h"
 #include "../src/plat.h"
+#include "bigbuf.h"
 
 static void str_copy_(char *d, const char *s, size_t size)
 {
@@ -159,15 +160,23 @@ long pf_free(int drive)
 	return info[0] * info[2] * info[3];
 }
 
-int pf_settime(const char *path, const PFTIME *t)
+/* on a file still open, after its last write: GEMDOS keeps the date it
+   is given until the file is closed */
+int pf_settime_h(int h, const PFTIME *t)
 {
 	unsigned short dt[2];
-	long h = Fopen(path, 2);
-	if (h < 0)
-		return (int)h;
 	dt[0] = (unsigned short)((t->hour << 11) | (t->min << 5) | (t->sec / 2));
 	dt[1] = (unsigned short)(((t->year - 1980) << 9) | (t->mon << 5) | t->day);
 	Fdatime(dt, (short)h, 1);
+	return 0;
+}
+
+int pf_settime(const char *path, const PFTIME *t)
+{
+	long h = Fopen(path, 2);
+	if (h < 0)
+		return (int)h;
+	pf_settime_h((int)h, t);
 	Fclose((short)h);
 	return 0;
 }
@@ -302,50 +311,16 @@ void pf_debug(const char *s)
 
 /* ---------------- memory ---------------- */
 
-/* A download's memory: TT RAM when the machine has it, else ST RAM, as
-   much as the file needs. A little is left: for the heap, and in ST RAM
-   for GEM and the desk accessories (a 1 MB ST with STinG has only tens
-   of KB spare, which still beats 4 KB at a time). */
-#define BIG_LEAST  (8L * 1024)
-#define TT_SPARE   (64L * 1024)
-#define ST_SPARE   (32L * 1024)
-
+/* a transfer's memory: common's big_alloc (atari/bigbuf.c, from this
+   one), TT RAM when the machine has it, else ST RAM */
 void *pf_bigbuf(long want, long *got, int *tt)
 {
-	long tfree = (long)Mxalloc(-1L, 1), sfree, take;
-	int old = tfree == -32;		/* TOS 1.x: no Mxalloc, no TT RAM */
-	void *p;
-	*got = 0;
-	*tt = 0;
-	if (old || tfree < 0)
-		tfree = 0;
-	sfree = old ? (long)Malloc(-1L) : (long)Mxalloc(-1L, 0);
-	if (tfree - TT_SPARE >= BIG_LEAST || (want > 0 && tfree - TT_SPARE >= want)) {
-		take = tfree - TT_SPARE;
-		*tt = 1;
-	} else {
-		take = sfree - ST_SPARE;
-	}
-	if (want >= 0 && take > want)
-		take = want;
-	if (take <= 0 || (take < BIG_LEAST && take != want)) {
-		*tt = 0;
-		return 0;
-	}
-	take = (take + 1) & ~1L;
-	p = old ? Malloc(take) : Mxalloc(take, *tt ? 1 : 0);
-	if ((long)p <= 0) {
-		*tt = 0;
-		return 0;
-	}
-	*got = take;
-	return p;
+	return big_alloc(want, got, tt);
 }
 
 void pf_bigfree(void *p)
 {
-	if (p)
-		Mfree(p);
+	big_free(p);
 }
 
 extern long heap_tt, heap_st;

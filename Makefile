@@ -52,7 +52,7 @@ BSSLOBJ  = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/bssl/%.o,$(BSSLSRC))
 HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
 CORE    := util charset conn ftp xfer store futil bidi secret ctime tz
-ATARI   := libc tos plat_tos net_tos sting gem dsprsa crash
+ATARI   := libc tos plat_tos net_tos sting gem dsprsa crash bigbuf
 UI      := main draw win files queue dialogs popup font about theme dsp help av alert dialog mbar aboutbox iconify clip clipedit dd
 
 OBJDIR  := build

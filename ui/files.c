@@ -20,6 +20,12 @@
 FTP *ftp;
 SITE *cur_site;
 char ldir[200];
+/* the drive's free room, for the header: Dfree reads the whole FAT, so it
+   is asked at start, on another drive, and after a job or a change here
+   (the guidelines, 6.5), never as the header is drawn */
+static long free_bytes = -1;
+static char free_drive;
+static short free_stale = 1;
 
 typedef struct {
 	WIN *w;
@@ -82,8 +88,8 @@ static void side_info(SIDE *s, int side, char *out, int size)
 	else
 		snprintf(out, size, "%s folder%s, %s file%s", num(dirs), dirs == 1 ? "" : "s",
 			 num(files), files == 1 ? "" : "s");
-	if (side == SIDE_LOCAL && s->nmarks <= 1) {
-		long fr = pf_free(ldir[0] - 'A');
+	if (side == SIDE_LOCAL && s->nmarks <= 1 && free_drive == ldir[0]) {
+		long fr = free_bytes;
 		if (fr >= 0) {
 			char t[16];
 			size_str(fr, t, sizeof(t));
@@ -164,6 +170,11 @@ static void local_load_keep(const char *keep)
 	flist_free(&s->l);
 	s->up = ldir[0] != 0;
 	s->ok = (char)local_list(ldir, &s->l, opt.hidden);
+	if (ldir[0] && (free_stale || free_drive != ldir[0])) {
+		free_bytes = pf_free(ldir[0] - 'A');
+		free_drive = ldir[0];
+		free_stale = 0;
+	}
 	loaded(s, keep);
 }
 
@@ -276,10 +287,12 @@ void files_refresh(int side)
 	FENTRY *e = entry(s, s->cur);
 	char keep[256];
 	str_copy(keep, e ? e->name : "", sizeof(keep));
-	if (side == SIDE_LOCAL)
+	if (side == SIDE_LOCAL) {
+		free_stale = 1;		/* a job, a delete or ^R: the room may have changed */
 		local_load_keep(keep);
-	else
+	} else {
 		remote_load_keep(keep);
+	}
 }
 
 /* ---------------- drawing ---------------- */
@@ -978,6 +991,7 @@ void files_new_folder(int side)
 			alert(1, "[1][Can't make the folder|%s.][ OK ]", tn);
 			return;
 		}
+		free_stale = 1;
 		local_load_keep(tn);
 	} else {
 		/* as typed: only the names of Atari files go lower case */
@@ -1021,6 +1035,7 @@ void files_rename(int side)
 			alert(1, "[1][Can't rename it to|%s.][ OK ]", tn);
 			return;
 		}
+		free_stale = 1;
 		local_load_keep(tn);
 	} else {
 		char rn[200];

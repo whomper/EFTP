@@ -46,7 +46,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *d, size_t n)
 	ftp_filesize(f, "file.txt");
 	ftp_filetime(f, "file.txt");
 	ftp_cd(f, how & 4 ? ".." : "pub");
-	ftp_get(f, "file.txt", "/dev/null", how & 8 ? 100 : 0, how & 32 ? 5000 : -1, how & 16);
+	ftp_get(f, "file.txt", "/dev/null", how & 8 ? 100 : 0, how & 32 ? 5000 : -1, how & 16, 0);
 	ftp_list(f, &l, 0);
 	flist_free(&l);
 	ftp_close(f);

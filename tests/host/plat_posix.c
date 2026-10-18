@@ -127,10 +127,9 @@ int pf_dir(const char *dir, int (*cb)(const char *, long, const PFTIME *, int, v
 long pf_drives(void) { return 1L << 2; }	/* "C:" */
 long pf_free(int drive) { (void)drive; return -1; }
 
-int pf_settime(const char *path, const PFTIME *t)
+static time_t pf_mktime(const PFTIME *t)
 {
 	struct tm tmv;
-	struct utimbuf ub;
 	memset(&tmv, 0, sizeof(tmv));
 	tmv.tm_year = t->year - 1900;
 	tmv.tm_mon = t->mon - 1;
@@ -139,8 +138,22 @@ int pf_settime(const char *path, const PFTIME *t)
 	tmv.tm_min = t->min;
 	tmv.tm_sec = t->sec;
 	tmv.tm_isdst = -1;
-	ub.actime = ub.modtime = mktime(&tmv);
+	return mktime(&tmv);
+}
+
+int pf_settime(const char *path, const PFTIME *t)
+{
+	struct utimbuf ub;
+	ub.actime = ub.modtime = pf_mktime(t);
 	return utime(path, &ub);
+}
+
+int pf_settime_h(int h, const PFTIME *t)
+{
+	struct timespec ts[2];
+	ts[0].tv_sec = ts[1].tv_sec = pf_mktime(t);
+	ts[0].tv_nsec = ts[1].tv_nsec = 0;
+	return futimens(h, ts);
 }
 
 int pf_info(const char *path, long *size, PFTIME *t)

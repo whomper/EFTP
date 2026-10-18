@@ -55,6 +55,7 @@ int  pf_dir(const char *dir, int (*cb)(const char *name, long size, const PFTIME
 long pf_drives(void);			/* bit n set: drive 'A' + n exists */
 long pf_free(int drive);		/* bytes free on drive 'A' + drive, -1 unknown */
 int  pf_settime(const char *path, const PFTIME *t);	/* a file's date and time */
+int  pf_settime_h(int h, const PFTIME *t);	/* the same, on a file still open */
 int  pf_isdir(const char *path);
 /* 1 if path is there: its size and date */
 int  pf_info(const char *path, long *size, PFTIME *t);

@@ -107,8 +107,10 @@ int  ftp_quote(FTP *f, const char *cmd);
    conversion is needed beyond adding CR to bare LFs going up.
    1 done, 0 failed (f->err), -1 stopped. size: the file's size if known
    (else -1), for the memory a download gathers in */
-int  ftp_get(FTP *f, const char *name, const char *local, long offset, long size, int ascii);
-int  ftp_put(FTP *f, const char *local, const char *name, long offset, int ascii);
+/* mtime: the date to give the file (0: today's) */
+int  ftp_get(FTP *f, const char *name, const char *local, long offset, long size, int ascii,
+	      const PFTIME *mtime);
+int  ftp_put(FTP *f, const char *local, const char *name, long offset, long size, int ascii);
 
 /* progress of the current transfer: bytes done (offset included) */
 extern void (*ftp_progress)(long done);

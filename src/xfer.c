@@ -12,6 +12,11 @@
 #include "charset.h"
 #include "util.h"
 
+/* a download's date goes on the file while it is still open, so the
+   file is opened once (the guidelines, 6.5); 0 opens it again for the
+   date afterwards, as EFTP did up to 1.41 */
+#define DATE_ON_HANDLE 1
+
 XITEM *xq;
 long xn;
 static long xcap;
@@ -444,13 +449,70 @@ static int list_up(FTP *f, const SITE *site, long i)
 	return 1;
 }
 
+/* What is in an Atari folder, for "already there?": the folder is
+   listed once, when the job first puts a file in it (one Fsfirst, the
+   sizes and dates from the DTA), not looked up file by file (the
+   guidelines, 6.5). A folder this job made is empty. */
+static FLIST seen;
+static char seen_dir[220];
+static int seen_ok;
+
+static void seen_forget(void)
+{
+	if (seen_ok)
+		flist_free(&seen);
+	seen_ok = 0;
+	seen_dir[0] = 0;
+}
+
+/* path's folder and its name in it */
+static const char *split_local(const char *path, char *dir, int size)
+{
+	const char *base = strrchr(path, PF_SEP);
+	long n = base ? (long)(base - path) : 0;
+	if (n >= size)
+		n = size - 1;
+	memcpy(dir, path, (size_t)n);
+	dir[n] = 0;
+	if (n == 2 && dir[1] == ':') {	/* a drive's root: "C:" */
+		dir[2] = PF_SEP;
+		dir[3] = 0;
+	}
+	return base ? base + 1 : path;
+}
+
+static FENTRY *seen_find(const char *path, int add)
+{
+	char dir[220];
+	const char *base = split_local(path, dir, sizeof(dir));
+	long k;
+	if (!seen_ok || strcmp(dir, seen_dir)) {
+		seen_forget();
+		if (!local_list(dir, &seen, 1))
+			flist_init(&seen);	/* not there yet: nothing in it */
+		str_copy(seen_dir, dir, sizeof(seen_dir));
+		seen_ok = 1;
+	}
+	for (k = 0; k < seen.n; k++)
+		if (seen.e[k].type == FE_FILE && !strcasecmp(seen.e[k].name, base))
+			return &seen.e[k];
+	if (!add)
+		return 0;
+	return flist_add(&seen, base, base);
+}
+
 /* the folder on the other side, before the files that go in it; one
    that is there already is fine */
 static int make_folder(FTP *f, long i)
 {
 	XITEM *x = &xq[i];
 	if (x->dir == XD_DOWN) {
-		if (pf_mkdir(x->local) != 0 && !pf_isdir(x->local)) {
+		if (pf_mkdir(x->local) == 0) {
+			seen_forget();		/* new: nothing in it to look up */
+			flist_init(&seen);
+			str_copy(seen_dir, x->local, sizeof(seen_dir));
+			seen_ok = 1;
+		} else if (!pf_isdir(x->local)) {
 			note(x, "can't make the folder here");
 			return 0;
 		}
@@ -503,10 +565,13 @@ static int run_file(FTP *f, long i)
 	long offset = 0, have;
 	int r, c;
 	if (x->dir == XD_DOWN) {
-		PFTIME lt;
-		if (pf_info(x->local, &have, &lt)) {
-			CTIME there = ct_make(lt.year, lt.mon, lt.day, lt.hour, lt.min);
-			CTIME src = x->mtime == CT_NONE ? CT_NONE : x->wall ? x->mtime : zone_to_local(x->mtime);
+		FENTRY *e = seen_find(x->local, 0);
+		PFTIME p, *pt = 0;
+		if (e) {
+			CTIME there = e->mtime;
+			CTIME src;
+			have = e->size;
+			src = x->mtime == CT_NONE ? CT_NONE : x->wall ? x->mtime : zone_to_local(x->mtime);
 			c = decide(x, have, src == CT_NONE || src > there);
 			if (c == EX_STOP) {
 				note(x, "stopped");
@@ -520,11 +585,17 @@ static int run_file(FTP *f, long i)
 				offset = have;
 		}
 		x = &xq[i];
-		r = ftp_get(f, x->remote, x->local, offset, x->size, x->text);
-		if (r == 1 && opt.times && x->mtime != CT_NONE) {
-			PFTIME p;
+		if (opt.times && x->mtime != CT_NONE) {
 			to_pftime(x->wall ? x->mtime : zone_to_local(x->mtime), &p);
-			pf_settime(x->local, &p);
+			pt = &p;
+		}
+		r = ftp_get(f, x->remote, x->local, offset, x->size, x->text, DATE_ON_HANDLE ? pt : 0);
+		if (r == 1 && pt && !DATE_ON_HANDLE)
+			pf_settime(x->local, pt);
+		if ((e = seen_find(x->local, 1)) != 0) {	/* there now */
+			e->type = FE_FILE;
+			e->size = x->done;
+			e->mtime = pt ? ct_make(p.year, p.mon, p.day, p.hour, p.min) : CT_NONE;
 		}
 	} else {
 		have = ftp_filesize(f, x->remote);
@@ -546,7 +617,7 @@ static int run_file(FTP *f, long i)
 				offset = have;
 		}
 		x = &xq[i];
-		r = ftp_put(f, x->local, x->remote, offset, x->text);
+		r = ftp_put(f, x->local, x->remote, offset, x->size, x->text);
 		if (r == 1 && opt.times && x->mtime != CT_NONE)
 			ftp_settime(f, x->remote, zone_to_utc(x->mtime));
 	}
@@ -572,6 +643,7 @@ int xfer_run(FTP *f, const SITE *site, long *failed)
 	str_copy(back, f->cwd, sizeof(back));
 	*failed = 0;
 	all_choice = -1;
+	seen_forget();		/* the folders may have changed since */
 	ftp_progress = progress;
 	/* first every folder's contents, all the way down (a folder's
 	   folders come after it, so the loop gets to them too) */
@@ -643,5 +715,6 @@ int xfer_run(FTP *f, const SITE *site, long *failed)
 	/* back to the folder the server pane shows */
 	if (moved && ftp_alive(f) && !conn_stop && strcmp(back, f->cwd))
 		ftp_cd(f, back);
+	seen_forget();
 	return ok && ftp_alive(f);
 }

@@ -927,7 +927,48 @@ static int put_all(int h, const char *p, long n)
 	return 1;
 }
 
-int ftp_get(FTP *f, const char *name, const char *local, long offset, long size, int ascii)
+/* A transfer's buffer, so the disk gets big pieces, never one call per
+   network read (the guidelines, 6.5): want bytes of TT RAM, else ST RAM
+   (pf_bigbuf); else the biggest of 64 KB down to least the heap has;
+   else iobuf. *kind says which, for xbuf_free */
+enum { XB_IO, XB_ST, XB_TT, XB_HEAP };
+
+static char *xbuf(long want, long least, long *cap, int *kind)
+{
+	char *p;
+	long n;
+	int tt;
+	*kind = XB_IO;
+	*cap = sizeof(iobuf);
+	if (want >= 0 && want <= (long)sizeof(iobuf))
+		return iobuf;
+	if ((p = pf_bigbuf(want, cap, &tt)) != 0) {
+		*kind = tt ? XB_TT : XB_ST;
+		return p;
+	}
+	for (n = 65536L; n >= least; n /= 2) {
+		if (want >= 0 && n / 2 >= want && n / 2 >= least)
+			continue;		/* a smaller one will do */
+		if ((p = malloc((size_t)n)) != 0) {
+			*kind = XB_HEAP;
+			*cap = n;
+			return p;
+		}
+	}
+	*cap = sizeof(iobuf);
+	return iobuf;
+}
+
+static void xbuf_free(char *p, int kind)
+{
+	if (kind == XB_HEAP)
+		free(p);
+	else if (kind != XB_IO)
+		pf_bigfree(p);
+}
+
+int ftp_get(FTP *f, const char *name, const char *local, long offset, long size, int ascii,
+	    const PFTIME *mtime)
 {
 	CONN *d;
 	int h, r, code;
@@ -960,42 +1001,31 @@ int ftp_get(FTP *f, const char *name, const char *local, long offset, long size,
 	done = offset;
 	if (r == 1) {
 		/* The file gathers in memory, as much of it as fits: TT RAM
-		   when the machine has it, else ST RAM. It goes to disk at the
-		   end, or each time the memory is full: a few long writes, not
-		   one every 4 KB, each holding up the network while the disk
-		   seeks. Without such memory, straight through iobuf. */
-		char *big = 0;
-		long cap = 0, fill = 0;
-		int tt;
-		if (size < 0 || size - offset > (long)sizeof(iobuf))
-			big = pf_bigbuf(size < 0 ? -1 : size - offset, &cap, &tt);
-		if (big) {
+		   when the machine has it, else ST RAM, else what the heap
+		   has, at worst iobuf. It goes to disk when the buffer is full
+		   and at the end: a few long writes, each holding up the
+		   network once, never one per network read */
+		long cap, fill = 0;
+		int kind;
+		char *buf = xbuf(size < 0 ? -1 : size - offset, 8192L, &cap, &kind);
+		if (kind == XB_TT || kind == XB_ST) {
 			char note[64];
 			snprintf(note, sizeof(note), "the file gathers in %s RAM (%ld KB), then to disk",
-				 tt ? "TT" : "ST", (cap + 1023) / 1024);
+				 kind == XB_TT ? "TT" : "ST", (cap + 1023) / 1024);
 			conn_log("EFTP", " -- ", note, (long)strlen(note));
 		}
 		for (;;) {
-			if (big) {
-				long room = cap - fill;
-				n = conn_read(d, big + fill, room > 32768L ? 32768L : room);
-			} else {
-				n = conn_read(d, iobuf, sizeof(iobuf));
-			}
+			long room = cap - fill;
+			n = conn_read(d, buf + fill, room > 32768L ? 32768L : room);
 			if (n <= 0)
 				break;
-			if (big) {
-				fill += n;
-				if (fill == cap) {		/* full: to disk */
-					fill = 0;
-					if (!put_all(h, big, cap)) {
-						n = -2;
-						break;
-					}
+			fill += n;
+			if (fill == cap) {		/* full: to disk */
+				fill = 0;
+				if (!put_all(h, buf, cap)) {
+					n = -2;
+					break;
 				}
-			} else if (pf_write(h, iobuf, n) != n) {
-				n = -2;
-				break;
 			}
 			done += n;
 			if (ftp_progress)
@@ -1005,21 +1035,25 @@ int ftp_get(FTP *f, const char *name, const char *local, long offset, long size,
 		   All of it came, so Esc while it is written stops nothing. */
 		if (fill && n != -2) {
 			int keep = conn_stop;
-			if (!put_all(h, big, fill))
+			if (!put_all(h, buf, fill))
 				n = -2;
 			conn_stop = keep;
 		}
-		pf_bigfree(big);
+		xbuf_free(buf, kind);
 		if (n == -2)
 			fail(f, "The disk is full: %s", local);
 		if (n == -1 && !f->err[0])
 			fail(f, "%s", d->err);
 		conn_close(d);
 	}
+	/* the file stays open for the server's last word, so the date goes
+	   on it before it is closed: one open a file (the guidelines, 6.5) */
+	code = r == 2 ? 226 : closing_reply(f, n < 0);
+	if (n >= 0 && code / 100 == 2 && mtime)
+		pf_settime_h(h, mtime);
 	pf_close(h);
 	if (r == 2)
 		return 1;
-	code = closing_reply(f, n < 0);
 	if (n < 0)
 		return conn_stop ? -1 : 0;
 	if (code / 100 != 2) {
@@ -1042,7 +1076,7 @@ static long add_cr(const char *in, long n, char *out, int *last_cr)
 	return o;
 }
 
-int ftp_put(FTP *f, const char *local, const char *name, long offset, int ascii)
+int ftp_put(FTP *f, const char *local, const char *name, long offset, long size, int ascii)
 {
 	static char crbuf[sizeof(iobuf) * 2];
 	CONN *d;
@@ -1078,22 +1112,34 @@ int ftp_put(FTP *f, const char *local, const char *name, long offset, int ascii)
 	}
 	done = offset;
 	if (r == 1) {
-		while ((n = pf_read(h, iobuf, sizeof(iobuf))) > 0) {
-			const char *p = iobuf;
-			long k = n;
-			if (ascii) {
-				k = add_cr(iobuf, n, crbuf, &last_cr);
-				p = crbuf;
+		/* read in big pieces, up to 64 KB, at least 16 KB where the
+		   memory allows (the guidelines, 6.5), and sent 4 KB at a
+		   time so the progress moves */
+		long cap, left = size < 0 ? -1 : size - offset;
+		int kind;
+		char *buf = xbuf(left < 0 || left > 65536L ? 65536L : left, 16384L, &cap, &kind);
+		while (ok && (n = pf_read(h, buf, cap)) > 0) {
+			long at, piece;
+			for (at = 0; at < n; at += piece) {
+				const char *p = buf + at;
+				long k;
+				piece = n - at > (long)sizeof(iobuf) ? (long)sizeof(iobuf) : n - at;
+				k = piece;
+				if (ascii) {
+					k = add_cr(p, piece, crbuf, &last_cr);
+					p = crbuf;
+				}
+				if (!conn_write(d, p, k)) {
+					fail(f, "%s", conn_stop ? "stopped" : d->err);
+					ok = 0;
+					break;
+				}
+				done += piece;
+				if (ftp_progress)
+					ftp_progress(done);
 			}
-			if (!conn_write(d, p, k)) {
-				fail(f, "%s", conn_stop ? "stopped" : d->err);
-				ok = 0;
-				break;
-			}
-			done += n;
-			if (ftp_progress)
-				ftp_progress(done);
 		}
+		xbuf_free(buf, kind);
 		if (ok)
 			conn_close_flush(d);
 		else
