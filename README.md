@@ -210,6 +210,7 @@ make itest    # against pyftpdlib: logins, MLSD and LIST, files and folders both
 python3 tests/hatari/net_test.py /tmp/eftp-net Falcon              # a real FTP server; or ST-1, ST, TT
 python3 tests/hatari/secure_test.py /tmp/eftp-sec Falcon           # Falcon mode FTPS; SFTP via eftpgate
 python3 tests/hatari/esc_test.py /tmp/eftp-esc etos512us.img       # Esc and Undo cancel every dialog
+python3 tests/hatari/disk_audit.py /tmp/eftp-disk Falcon          # disk access against its budgets (6.5)
 python3 tests/hatari/clock_test.py /tmp/eftp-clock etos512us.img   # times right on a fast 200 Hz clock
 python3 tests/hatari/screenshots.py /tmp/eftp-shots etos512us.img  # the pictures in docs/
 ```
@@ -225,6 +226,10 @@ stops and resumes a download; the test checks every byte on both sides. After
 network card, so `FAKESTNG.PRG` (the family's, in `common/tools/fakesting/`) stands in for STinG and
 carries EFTP's connections over the emulated serial port to `serial_bridge.py`; it's for the
 emulator only, so never install it on a real Atari.
+`disk_audit.py` counts EFTP's own GEMDOS calls in Hatari's trace for a 1 MB download, a 1 MB
+upload, a folder of 20 files and a folder of 200 listed, and fails above the family's budget
+(guidelines 6.5): one open a file, writes of 8 KB or more, reads of 16 KB or more, no lookup a file,
+the dates right both ways, at most one Dfree a job.
 `secure_test.py` does the same against secure servers: FTPS in Falcon mode (RSA on the emulated DSP,
 every data connection resuming the TLS session) and SFTP through `eftpgate.py`, and checks the
 files' bytes and line ends.
