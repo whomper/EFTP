@@ -166,9 +166,11 @@ Falcon, TT:  Falcon (EFTP.PRG, TLS 1.2, RSA on the DSP) ------------------------
 
 - **Through the Pi gateway.** `gateway/eftpgate.py` on a Raspberry Pi
   (or any Linux computer at home) takes EFTP's plain FTP and speaks FTPS
-  or SFTP to the server. Set it up with `gateway/aera-gateway install ftp` (see
-  `gateway/README.md`), then type the Pi's address in Options >
-  Settings > Secure. Any Atari can use it, a Falcon too, and SFTP always
+  or SFTP to the server. On the Pi, fetch AERA-Gateway
+  (github.com/whomper/AERA-Gateway) and set it up with
+  `sudo gateway/aera-gateway install ftp` (its README says how, and
+  what to do when something doesn't work), then type the Pi's address
+  in Options > Settings > Secure, port 2121. Any Atari can use it, a Falcon too, and SFTP always
   goes this way. The Pi goes only to servers on the internet: for one
   on your home network (a NAS, say), install it with `--allow-local`.
   The Pi checks the servers' certificates, and remembers
@@ -409,10 +411,11 @@ Undo or the Stop button stops it.
   the gateway (Settings > Secure), or switch on Falcon mode for FTPS.
 - **A certificate that "didn't check out"** (Falcon mode, or the Pi's
   log): the Atari's clock, or a server whose certificate is made by its
-  own authority (a NAS): through the Pi, `--cafile` (gateway/README.md).
+  own authority (a NAS): through the Pi, `--cafile` (AERA-Gateway's
+  README).
 - **"... is on the home network"** (through the Pi): the Pi doesn't go
   back into your home network unless it is installed with
-  `--allow-local` (gateway/README.md).
+  `--allow-local` (AERA-Gateway's README).
 - **"... SSH key has changed"**: the server isn't the one the Pi met the
   first time. If it was really reinstalled, remove its line from
   `/var/lib/eftpgate/known_hosts` on the Pi.

@@ -90,15 +90,18 @@ picks the way from the site's **Protocol** (**File > Sites**) and **Options > Se
   ftplib, resuming the TLS session on every data connection) or SFTP (paramiko) to the server named
   in the login, `sftp:user@host:port`; EFTP writes that for you from the site's Protocol. It checks
   certificates, remembers SSH host keys, and turns text files' line ends for SFTP.
-  `gateway/aera-gateway install ftp` sets it up as a service.
+  On the Pi, a copy of [AERA-Gateway](https://github.com/whomper/AERA-Gateway) sets it up as a
+  service: `sudo gateway/aera-gateway install ftp`.
 - **Falcon mode.** `EFTP.PRG` does FTPS itself with [BearSSL](https://bearssl.org/), the same TLS
   code as EMail and ECal (ChaCha20 first, RSA certificates checked on the DSP56001, sessions
   resumed); explicit (AUTH TLS) and implicit (port 990). Every data connection resumes the control
   connection's session, which saves the slow part of the handshake and which vsftpd and others
   insist on.
 
-Setting up the Pi, its options and keeping it private: the gateway's own README,
-[gateway/README.md](gateway/README.md).
+Setting up the Pi, its options, keeping it private and what to do when something doesn't work:
+the gateway's own README, [gateway/README.md](gateway/README.md). `gateway/` here is a copy of
+AERA-Gateway's for EFTP's tests; set the Pi up from AERA-Gateway itself, whose `update-pi.sh` keeps
+it at the latest release.
 
 ![The Site Manager, on an SFTP site that goes through the Pi gateway](docs/sites.png)
 
