@@ -70,6 +70,15 @@ FALCON_MODE = {"16": 0x001A, "256": 0x001B}    # VGA | 80 columns | 4 or 8 plane
 EMUTOS = ("https://downloads.sourceforge.net/project/emutos/emutos/1.4/emutos-512k-1.4.zip",
           "1ef7bd25f61bcfc66d19debc2f0ebb0d5e5ba811ccd7f0fddfcb105bb72d1663", "etos512us.img")
 
+# C:\AUTO\BOOTC.PRG, for Erez's TOS 1.04: Hatari's C: is no hard disk to
+# TOS 1.04, which then counts A: as the boot drive (_bootdev) and programs
+# that read it look for their files on an empty floppy drive. A hard disk
+# driver sets C: on the real ST; this does the same:
+#   pea setboot(pc); move.w #38,-(sp); trap #14; addq.l #6,sp   Supexec
+#   clr.w -(sp); trap #1                                          Pterm0
+#   setboot: move.w #2,$446.w; rts
+BOOTC = bytes.fromhex("487A000E" "3F3C0026" "4E4E" "5C8F" "4267" "4E41" "31FC00020446" "4E75")
+
 # TOS 4's desktop file with the screen mode in the #E line's 5th and 6th
 # values (Hatari's own TOS 2+ NEWDESK.INF otherwise)
 NEWDESK = ("#a000000\r\n#b000000\r\n#c7770007000600070055200505552220770557075055507703111103\r\n"
@@ -140,6 +149,10 @@ class Machine:
             if self.real and not os.path.exists(inf):
                 with open(inf, "w", newline="") as f:
                     f.write(NEWDESK % (mode >> 8, mode & 0xFF))
+        if self.real and self.name.startswith("ST"):
+            os.makedirs(os.path.join(self.hd, "AUTO"), exist_ok=True)
+            with open(os.path.join(self.hd, "AUTO", "BOOTC.PRG"), "wb") as f:
+                f.write(struct.pack(">HIIIIIIH", 0x601A, len(BOOTC), 0, 0, 0, 0, 0, 0) + BOOTC + bytes(4))
         s = sum(nv[:48]) & 0xFF
         nv[48], nv[49] = ~s & 0xFF, s
         with open(os.path.join(cfg, "hatari.nvram"), "wb") as f:
