@@ -99,7 +99,7 @@ static const MBAR_ITEM m_xfer[] = {
 	{ 0, 0, 0 }
 };
 static const MBAR_ITEM m_opts[] = {
-	{ "Settings...", 0, C_SETTINGS },
+	{ "Settings...", "^,", C_SETTINGS },
 	{ "Font...", 0, C_FONT },
 	{ "Show hidden files", 0, C_HIDDEN },
 	{ "-", 0, 0 },
@@ -682,6 +682,7 @@ static int shortcut(short kstate, short key)
 		case 0x2e: cmd = C_COPY; break;		/* C */
 		case 0x13: cmd = C_REFRESH; break;	/* R */
 		case 0x26: cmd = C_LOG; break;		/* L */
+		case 0x33: cmd = C_SETTINGS; break;	/* , */
 		}
 		if (cmd != C_NONE) {
 			command(cmd);

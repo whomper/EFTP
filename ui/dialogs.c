@@ -1213,6 +1213,7 @@ void dlg_keys(void)
 		"Shift+click  one more      Control+click  a range",
 		"Space  select and move on  a letter: to that name",
 		"^L  server messages        F10 Hebrew keyboard",
+		"^,  Settings",
 		"During a transfer: Esc or Stop ends it",
 		"^W, ^Q  quit               Help  the user guide",
 		"The file keys act on the pane with the keyboard"

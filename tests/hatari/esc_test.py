@@ -77,10 +77,14 @@ try:
         time.sleep(2)
         after = pixels(r.shot("sites-after-%s" % name))
         check(closed(opened, after, plain), "%s closes the Site Manager, the typing gone" % name)
-        # Settings (Options > Settings), from the menu
-        r.click(404, 9)
-        time.sleep(1)
-        r.click(424, 27)
+        # Settings: from the menu (Options > Settings) the first time, by
+        # ^, the second (the AERA guidelines, 6.1)
+        if key == K["ESC"]:
+            r.click(404, 9)
+            time.sleep(1)
+            r.click(424, 27)
+        else:
+            r.key(0x33, ctrl=True)
         r.move(600, 450)
         time.sleep(2)
         opened = pixels(r.shot("settings-open-%s" % name))
