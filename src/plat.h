@@ -20,6 +20,7 @@
 #define PF_READ   0
 #define PF_WRITE  1	/* create or truncate */
 #define PF_APPEND 2
+#define PF_UPDATE 3	/* write over in place: not made, not cut short */
 
 int  pf_open(const char *path, int mode);	/* handle >= 0, < 0 on error */
 long pf_read(int h, void *buf, long n);
@@ -56,6 +57,10 @@ long pf_drives(void);			/* bit n set: drive 'A' + n exists */
 long pf_free(int drive);		/* bytes free on drive 'A' + drive, -1 unknown */
 int  pf_settime(const char *path, const PFTIME *t);	/* a file's date and time */
 int  pf_settime_h(int h, const PFTIME *t);	/* the same, on a file still open */
+/* the hooks common's file reading takes (pf_load, TLS's files): one look
+   at the directory a file (the guidelines, 6.5) */
+void pf_init(void);
+extern long (*pf_size_open)(int h);
 int  pf_isdir(const char *path);
 /* 1 if path is there: its size and date */
 int  pf_info(const char *path, long *size, PFTIME *t);

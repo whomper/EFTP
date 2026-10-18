@@ -9,6 +9,7 @@
 #include "tos.h"
 #include "../src/plat.h"
 #include "bigbuf.h"
+#include "tls.h"
 
 static void str_copy_(char *d, const char *s, size_t size)
 {
@@ -23,6 +24,8 @@ int pf_open(const char *path, int mode)
 	long h;
 	if (mode == PF_WRITE)
 		return (int)Fcreate(path, 0);
+	if (mode == PF_UPDATE)
+		return (int)Fopen(path, 1);
 	h = Fopen(path, mode == PF_APPEND ? 2 : 0);
 	if (h < 0 && mode == PF_APPEND)
 		h = Fcreate(path, 0);
@@ -158,6 +161,33 @@ long pf_free(int drive)
 	if (Dfree(info, (short)(drive + 1)) < 0)
 		return -1;
 	return info[0] * info[2] * info[3];
+}
+
+/* an open file's size, read from the start again (pf_load) */
+static long size_open(int h)
+{
+	long n = Fseek(0, (short)h, 2);
+	Fseek(0, (short)h, 0);
+	return n;
+}
+
+/* CACERT.PEM's date and size from one Fsfirst (TLS's ROOTS.DAT check) */
+static unsigned long file_info(const char *path, long *size)
+{
+	PFTIME t;
+	if (!pf_info(path, size, &t)) {
+		*size = -1;
+		return 0;
+	}
+	return ((unsigned long)(t.year - 1980) << 25) | ((unsigned long)t.mon << 21) |
+	       ((unsigned long)t.day << 16) | ((unsigned long)t.hour << 11) | ((unsigned long)t.min << 5) |
+	       (unsigned long)(t.sec / 2);
+}
+
+void pf_init(void)
+{
+	pf_size_open = size_open;
+	tls_file_info = file_info;
 }
 
 /* on a file still open, after its last write: GEMDOS keeps the date it

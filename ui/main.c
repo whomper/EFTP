@@ -885,6 +885,7 @@ int main(void)
 	crash_cleanup = crash_quit;
 	crash_report = conn_log_append;	/* the report in EFTP.LOG too */
 	secret_warn = warn_plain;	/* before anything is saved */
+	pf_init();			/* one look at the directory a file */
 	store_init(dir);
 	theme_init();
 	font_apply();

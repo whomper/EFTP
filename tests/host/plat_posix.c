@@ -27,8 +27,20 @@ void (*pf_idle)(void);
 int pf_open(const char *path, int mode)
 {
 	int fl = mode == PF_READ ? O_RDONLY : mode == PF_WRITE ? O_WRONLY | O_CREAT | O_TRUNC
-		: O_WRONLY | O_CREAT | O_APPEND;
+		: mode == PF_UPDATE ? O_WRONLY : O_WRONLY | O_CREAT | O_APPEND;
 	return open(path, fl, 0644);
+}
+
+static long size_open(int h)
+{
+	long n = (long)lseek(h, 0, SEEK_END);
+	lseek(h, 0, SEEK_SET);
+	return n;
+}
+
+void pf_init(void)
+{
+	pf_size_open = size_open;
 }
 
 long pf_read(int h, void *buf, long n) { return read(h, buf, n); }
