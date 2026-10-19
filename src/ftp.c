@@ -774,7 +774,12 @@ static CONN *data_open(FTP *f)
 		if (!unroutable(ip))
 			snprintf(host, sizeof(host), "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
 	}
+	/* STinG's output buffer for an upload: 16 KB on the way, not 4 (with
+	   4 KB, 34 KB/s to a Mac on Erez's Falcon); STinG gives the 4 KB
+	   when its pool hasn't the room */
+	net_sendbuf = 16384;
 	d = conn_open("DATA", host, port, 8192, SEC_PLAIN, err, sizeof(err));
+	net_sendbuf = 4096;
 	if (!d) {
 		fail(f, "Can't open the data connection: %s", err);
 		return 0;
