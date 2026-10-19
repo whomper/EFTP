@@ -434,6 +434,7 @@ void queue_run(void)
 	queue_changed(-1);
 	for (attempt = 0;; attempt++) {
 		ok = xfer_run(ftp, cur_site, &failed);
+		idle_report();
 		if (ok || conn_stop || ftp_alive(ftp) || attempt >= 2)
 			break;
 		/* the line went in the middle: connect again and go on from

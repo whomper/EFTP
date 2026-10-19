@@ -203,6 +203,7 @@ void font_menu(void);
 void status(const char *msg);
 void busy(int on);
 void ui_poll(void);		/* during a transfer: redraws, Esc and Stop */
+void idle_report(void);		/* to the log: how long GEM had while data moved */
 void keys_flush(void);		/* after a stop: drop waiting keys, Esc quiet for a second */
 void set_hebrew_kbd(short on);
 extern short hebrew_kbd;

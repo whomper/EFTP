@@ -330,23 +330,36 @@ void ui_poll(void)
    a NetUSBee the data was taken only every 120 ms, so a small STinG
    window filled and the server had to wait (19 Oct 2026). When nothing
    moves, the short pause as before, so a long wait for the server
-   leaves the CPU to the others under a multitasking AES. With the log
-   on, how long GEM had while data moved, once it stops */
+   leaves the CPU to the others under a multitasking AES */
+static long idle_seen = -1, idle_turns;
+static unsigned long moved_at, gem_at, moved_since, gem_ms;
+
+/* for the log, once data stops moving: how long GEM had meanwhile */
+void idle_report(void)
+{
+	if (moved_since && moved_at - moved_since >= 2000) {
+		char note[100];
+		snprintf(note, sizeof(note), "data moved for %lu ms; GEM had %ld turns, %lu ms of it",
+			 moved_at - moved_since, idle_turns, gem_ms);
+		conn_log("EFTP", " -- ", note, (long)strlen(note));
+	}
+	moved_since = 0;
+}
+
 static void idle(void)
 {
-	static long seen = -1, turns;
-	static unsigned long moved_at, gem_at, since, gem_ms;
 	short msg[8], which;
 	AEVENT ev;
 	unsigned long now = pf_ms();
 	long bytes = conn_bytes + conn_bytes_out;
-	if (bytes != seen) {
-		if (!since || now - moved_at >= 500) {
-			since = now;
-			turns = 0;
+	if (bytes != idle_seen) {
+		if (!moved_since || now - moved_at >= 500) {
+			idle_report();
+			moved_since = now;
+			idle_turns = 0;
 			gem_ms = 0;
 		}
-		seen = bytes;
+		idle_seen = bytes;
 		moved_at = now;
 	}
 	if (now - moved_at < 500) {
@@ -360,17 +373,11 @@ static void idle(void)
 		}
 		ui_poll();
 		gem_at = pf_ms();
-		turns++;
+		idle_turns++;
 		gem_ms += gem_at - now;
 		return;
 	}
-	if (since && moved_at - since >= 2000) {
-		char note[100];
-		snprintf(note, sizeof(note), "data moved for %lu ms; GEM had %ld turns, %lu ms of it",
-			 moved_at - since, turns, gem_ms);
-		conn_log("EFTP", " -- ", note, (long)strlen(note));
-	}
-	since = 0;
+	idle_report();
 	which = evnt_multi_(MU_MESAG | MU_KEYBD | MU_BUTTON | MU_TIMER, 1, 1, 1, 5, msg, &ev);
 	if (which & ~MU_TIMER)
 		handle_poll_event(which, msg, &ev);
