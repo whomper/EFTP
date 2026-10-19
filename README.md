@@ -70,6 +70,10 @@ larger; free memory when it starts: about 350 KB for `EFTPST.PRG`, about 500 KB 
 with Falcon mode (more makes downloads faster); network: STinG (or STiK) on plain TOS, MiNTnet under FreeMiNT, or MagiC-Net. Falcon
 mode needs a Falcon or TT.
 
+**Under TOS, put Atari's `FOLDR100.PRG` first in `AUTO`**, renamed for more room (`FOLDR400.PRG`).
+TOS keeps an entry in a small internal pool for every folder a program or accessory has looked
+into, and halts with "OUT OF INTERNAL MEMORY" when it runs out; FOLDRxxx makes the pool bigger.
+
 ![EFTPST.PRG on a 1 MB ST in high resolution](docs/st-mono.png)
 
 ## How it reaches the servers

@@ -18,6 +18,10 @@ FTPS by the Falcon itself.
   with STinG), about 500 KB for `EFTP.PRG` with Falcon mode. More
   memory makes downloads faster: it holds the file until it is all
   there (see [Moving files](#moving-files))
+- Under TOS, Atari's `FOLDR100.PRG` first in your `AUTO` folder,
+  renamed for more room (`FOLDR400.PRG`): TOS keeps an entry in a
+  small pool for every folder a program has looked into, and halts
+  with "OUT OF INTERNAL MEMORY" when it runs out
 - A TCP/IP stack:
   - **STinG** on plain TOS (or STiK), or
   - **MiNTnet** under FreeMiNT (with or without GlueSTiK), or MagiC-Net
