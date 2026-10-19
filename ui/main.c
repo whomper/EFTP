@@ -324,11 +324,53 @@ void ui_poll(void)
 		handle_poll_event(which, msg, &ev);
 }
 
-/* waiting for the network: the same, with a short pause */
+/* waiting for the network. While data moves (some came or went in the
+   last half second) EFTP looks again at once and gives GEM a turn every
+   50 ms: a turn with a pause lasts a tick or more, and on a Falcon with
+   a NetUSBee the data was taken only every 120 ms, so a small STinG
+   window filled and the server had to wait (19 Oct 2026). When nothing
+   moves, the short pause as before, so a long wait for the server
+   leaves the CPU to the others under a multitasking AES. With the log
+   on, how long GEM had while data moved, once it stops */
 static void idle(void)
 {
+	static long seen = -1, turns;
+	static unsigned long moved_at, gem_at, since, gem_ms;
 	short msg[8], which;
 	AEVENT ev;
+	unsigned long now = pf_ms();
+	long bytes = conn_bytes + conn_bytes_out;
+	if (bytes != seen) {
+		if (!since || now - moved_at >= 500) {
+			since = now;
+			turns = 0;
+			gem_ms = 0;
+		}
+		seen = bytes;
+		moved_at = now;
+	}
+	if (now - moved_at < 500) {
+		if (now - gem_at < 50) {
+			/* not again before the clock's next step (5 ms): STinG
+			   does its work in an interrupt, and a program always
+			   inside it could hold that up */
+			while (pf_ms() == now)
+				;
+			return;
+		}
+		ui_poll();
+		gem_at = pf_ms();
+		turns++;
+		gem_ms += gem_at - now;
+		return;
+	}
+	if (since && moved_at - since >= 2000) {
+		char note[100];
+		snprintf(note, sizeof(note), "data moved for %lu ms; GEM had %ld turns, %lu ms of it",
+			 moved_at - since, turns, gem_ms);
+		conn_log("EFTP", " -- ", note, (long)strlen(note));
+	}
+	since = 0;
 	which = evnt_multi_(MU_MESAG | MU_KEYBD | MU_BUTTON | MU_TIMER, 1, 1, 1, 5, msg, &ev);
 	if (which & ~MU_TIMER)
 		handle_poll_event(which, msg, &ev);
