@@ -11,7 +11,11 @@ C:\\FASTCLK makes FAKESTNG set timer C to 312 Hz, as on that Falcon; one
 download's time in EFTP.LOG is then compared with the time this computer
 saw it take (Hatari runs in real time), and once more on a 200 Hz clock.
 
-    clock_test.py WORKDIR EMUTOS.IMG     (Xvfb, xdotool, pip install pyftpdlib)
+    clock_test.py WORKDIR [MACHINE]     (Xvfb, xdotool, pip install pyftpdlib)
+
+MACHINE: Falcon by default, or another with a 640x480 screen (Falcon-4,
+TT; common/tools/machines.py list), on Erez's TOS when it is in
+~/.aera/tos.
 """
 import os
 import re
@@ -23,7 +27,8 @@ import rig  # noqa: E402
 import server  # noqa: E402
 from rig import K  # noqa: E402
 
-work, tos = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
+work = os.path.abspath(sys.argv[1])
+spec = sys.argv[2] if len(sys.argv) > 2 else "Falcon"
 fails = []
 ROW0, ROWH, REMOTE_X = 131, 16, 400     # as net_test.py
 
@@ -43,12 +48,15 @@ def run(fast):
     tag = "312 Hz" if fast else "200 Hz"
     w = os.path.join(work, "fast" if fast else "true")
     os.makedirs(w, exist_ok=True)
+    m = rig.machine(spec, w)
+    if m.screen not in ("16", "256", "ttmed"):
+        sys.exit("clock_test.py: a 640x480 screen (Falcon, Falcon-4, TT): its clicks are placed for one")
+    print("%s: on %s, %s" % (tag, m.describe(), m.prg), flush=True)
     srv, home = server.ftp_server(w)
-    hd = server.drive_c(w)
+    hd = server.drive_c(w, prg=m.prg)
     if fast:
         open(os.path.join(hd, "FASTCLK"), "w").close()
-    bridge, serial = server.bridge(w)
-    r = rig.Rig(w, tos, serial=serial, extra=["--memsize", "4"])
+    r = rig.Rig(w, m, extra=m.network())      # FAKESTNG and its bridge
     got = os.path.join(hd, "STING_~1.ZIP")
     want = os.path.getsize(os.path.join(home, "pub", "atari", "STinG 1.26.zip"))
     try:
@@ -81,7 +89,7 @@ def run(fast):
         time.sleep(5)
     finally:
         r.stop()
-        bridge.terminate()
+        m.stop()
         srv.close_all()
     check(t1 is not None, "%s: the file came down" % tag)
     log = open(os.path.join(hd, "EFTP.LOG"), errors="replace").read().splitlines()

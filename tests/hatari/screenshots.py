@@ -6,7 +6,10 @@ colours (a folder coming down, one going up, one file on its way), the
 Site Manager on an SFTP site, Settings > Secure, and EFTPST.PRG on a
 1 MB ST with a monochrome monitor.
 
-    screenshots.py WORKDIR EMUTOS.IMG     (Xvfb, xdotool, pip install pyftpdlib)
+    screenshots.py WORKDIR     (Xvfb, xdotool, pip install pyftpdlib)
+
+The machines are Falcon:256 and ST-1:mono (common/tools/machines.py), on
+Erez's TOS when it is in ~/.aera/tos; AERA_TOS=emutos for EmuTOS's.
 """
 import os
 import shutil
@@ -19,7 +22,7 @@ from rig import K
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.normpath(os.path.join(HERE, "..", "..", "docs"))
-work, tos = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
+work = os.path.abspath(sys.argv[1])
 ROW0, ROWH = 131, 16
 
 
@@ -37,21 +40,21 @@ SFTP_SITE = ("[SITE]\r\nNAME=My web space\r\nHOST=sftp.example.org\r\nPROTOCOL=s
              "ANONYMOUS=0\r\nUSER=erez\r\nREMOTEDIR=/var/www\r\nLOCALDIR=C:\\WEB\r\n")
 
 
-def session(machine, extra, desk, prg="EFTP.PRG"):
+def session(spec):
     os.makedirs(work, exist_ok=True)
+    m = rig.machine(spec, work)
+    print("on %s, %s" % (m.describe(), m.prg), flush=True)
     srv, home = server.ftp_server(work)
-    os.environ["EFTP_PRG"] = prg
-    hd = server.drive_c(work, inf_extra=SECURE if prg == "EFTP.PRG" else "", desk=desk)
-    if prg == "EFTP.PRG":
+    hd = server.drive_c(work, inf_extra=SECURE if m.prg == "EFTP.PRG" else "", prg=m.prg)
+    if m.prg == "EFTP.PRG":
         with open(os.path.join(hd, "EFTP.INF"), "a", newline="") as f:
             f.write(SFTP_SITE)
-    bridge, serial = server.bridge(work)
-    r = rig.Rig(work, tos, machine=machine, serial=serial, extra=extra)
-    return r, srv, bridge
+    r = rig.Rig(work, m, extra=m.network())      # FAKESTNG and its bridge
+    return r, srv, m
 
 
 # the Falcon, in colour
-r, srv, bridge = session("falcon", ["--memsize", "14"], "1B")
+r, srv, m = session("Falcon:256")
 try:
     time.sleep(30)
     r.ctrl("k")
@@ -97,11 +100,11 @@ try:
     r.key(K["ESC"])
 finally:
     r.stop()
-    bridge.terminate()
+    m.stop()
     srv.close_all()
 
 # an ST in high resolution, black and white
-r, srv, bridge = session("st", ["--memsize", "1", "--monitor", "mono"], None, prg="EFTPST.PRG")
+r, srv, m = session("ST-1:mono")
 try:
     time.sleep(30)
     r.ctrl("k")
@@ -117,5 +120,5 @@ try:
     keep(r, "mono", "st-mono.png")
 finally:
     r.stop()
-    bridge.terminate()
+    m.stop()
     srv.close_all()

@@ -8,7 +8,11 @@ Undo closes it: the dialog must be gone (the window seen again), the
 typing not kept in the field's place and nothing written: EFTP.INF is
 the same, byte for byte, as before.
 
-    esc_test.py WORKDIR EMUTOS.IMG     (Xvfb, xdotool, pip install pyftpdlib)
+    esc_test.py WORKDIR [MACHINE]     (Xvfb, xdotool, pip install pyftpdlib)
+
+MACHINE: Falcon by default, or another with a 640x480 screen (Falcon-4,
+TT; common/tools/machines.py list), on Erez's TOS when it is in
+~/.aera/tos.
 """
 import os
 import sys
@@ -19,13 +23,16 @@ import rig  # noqa: E402
 import server  # noqa: E402
 from rig import K  # noqa: E402
 
-work, tos = os.path.abspath(sys.argv[1]), os.path.abspath(sys.argv[2])
+work = os.path.abspath(sys.argv[1])
 os.makedirs(work, exist_ok=True)
+m = rig.machine(sys.argv[2] if len(sys.argv) > 2 else "Falcon", work)
+if m.screen not in ("16", "256", "ttmed"):
+    sys.exit("esc_test.py: a 640x480 screen (Falcon, Falcon-4, TT): its clicks are placed for one")
+print("on %s, %s" % (m.describe(), m.prg), flush=True)
 srv, home = server.ftp_server(work)
-hd = server.drive_c(work)
+hd = server.drive_c(work, prg=m.prg)
 inf = os.path.join(hd, "EFTP.INF")
-bridge, serial = server.bridge(work)
-r = rig.Rig(work, tos, serial=serial, extra=["--memsize", "4"])
+r = rig.Rig(work, m, extra=m.network())      # FAKESTNG and its bridge
 fails = []
 
 
@@ -159,7 +166,7 @@ try:
     check(log.count("RETR /pub/atari/STinG") == 1, "and it didn't come down again")
 finally:
     r.stop()
-    bridge.terminate()
+    m.stop()
     srv.close_all()
 
 print("screenshots in %s: %s" % (os.path.join(work, "shots"), ", ".join(shots)))

@@ -213,17 +213,16 @@ make itest    # against pyftpdlib: logins, MLSD and LIST, files and folders both
 ```sh
 python3 tests/hatari/net_test.py /tmp/eftp-net Falcon              # a real FTP server; or ST-1, ST, TT
 python3 tests/hatari/secure_test.py /tmp/eftp-sec Falcon           # Falcon mode FTPS; SFTP via eftpgate
-python3 tests/hatari/esc_test.py /tmp/eftp-esc etos512us.img       # Esc and Undo cancel every dialog
+python3 tests/hatari/esc_test.py /tmp/eftp-esc Falcon             # Esc and Undo cancel every dialog
 python3 tests/hatari/disk_audit.py /tmp/eftp-disk Falcon          # disk access against its budgets (6.5)
-python3 tests/hatari/clock_test.py /tmp/eftp-clock etos512us.img   # times right on a fast 200 Hz clock
+python3 tests/hatari/clock_test.py /tmp/eftp-clock Falcon         # times right on a fast 200 Hz clock
 python3 tests/hatari/font_test.py /tmp/eftp-font Falcon:16         # a GDOS font chosen, kept, drawn
-python3 tests/hatari/screenshots.py /tmp/eftp-shots etos512us.img  # the pictures in docs/
+python3 tests/hatari/screenshots.py /tmp/eftp-shots               # the pictures in docs/
 ```
 
-`etos512us.img` is EmuTOS's 512 KB image; `machines.py` keeps one in `~/.cache/aera/emutos-1.4/`.
-
 The machines are the family's (`common/tools/machines.py list`): `ST-1` (1 MB) and `ST` run the ST
-edition, `TT` and `Falcon` `EFTP.PRG`, with EmuTOS 1.4, which `machines.py` fetches.
+edition, `TT`, `Falcon` and `Falcon-4` `EFTP.PRG`, with EmuTOS 1.4, which `machines.py` fetches, or
+with your own TOS 1.04 and 4.04 when they are in `~/.aera/tos` (`AERA_TOS=emutos` for EmuTOS's).
 `net_test.py` boots one, where EFTP connects from the
 Site Manager, downloads a folder, uploads one by dragging it, answers "already there" with Skip, and
 stops and resumes a download; the test checks every byte on both sides. After
