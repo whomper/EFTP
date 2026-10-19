@@ -331,6 +331,31 @@ void size_str(long n, char *out, int size)
 		snprintf(out, size, "%ld MB", (n + 512L * 1024) / (1024L * 1024));
 }
 
+/* how far a transfer has got, short: "100/200KB", both in the total's
+   unit ("0.4/1.2MB"); "100KB/?" when the total isn't known */
+void pair_str(long done, long total, char *out, int size)
+{
+	char d[16];
+	if (total < 0) {
+		size_str(done, d, sizeof(d));
+		snprintf(out, size, "%s/?", d);
+	} else if (total < 1000)
+		snprintf(out, size, "%ld/%ldB", done, total);
+	else if (total < 1000L * 1024)
+		snprintf(out, size, "%ld/%ldKB", (done + 512) / 1024, (total + 512) / 1024);
+	else if (total < 100L * 1024 * 1024)
+		snprintf(out, size, "%ld.%ld/%ld.%ldMB", done / (1024L * 1024), (done % (1024L * 1024)) * 10 / (1024L * 1024),
+			 total / (1024L * 1024), (total % (1024L * 1024)) * 10 / (1024L * 1024));
+	else
+		snprintf(out, size, "%ld/%ldMB", (done + 512L * 1024) / (1024L * 1024), (total + 512L * 1024) / (1024L * 1024));
+	/* no space between a number and its unit, to keep it short */
+	{
+		char *sp = strchr(out, ' ');
+		if (sp)
+			memmove(sp, sp + 1, strlen(sp));
+	}
+}
+
 void date_str(CTIME t, int wall, char *out, int size)
 {
 	DT d;

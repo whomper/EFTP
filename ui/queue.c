@@ -132,12 +132,11 @@ void queue_titles(void)
 	win_title(&w_queue, "Transfers");
 	if (running) {
 		RUNSUM r;
-		char a[16], b[16];
+		char a[32];
 		run_sum(&r);
-		size_str(r.bdone, a, sizeof(a));
-		size_str(r.btotal, b, sizeof(b));
-		snprintf(t, sizeof(t), "%s of %s file%s  %s of %s%s%s", num(r.k), num(r.all), r.all == 1 ? "" : "s",
-			 a, b, r.left[0] ? "  " : "", r.left);
+		pair_str(r.bdone, r.btotal, a, sizeof(a));
+		snprintf(t, sizeof(t), "%s/%s file%s  %s%s%s", num(r.k), num(r.all), r.all == 1 ? "" : "s",
+			 a, r.left[0] ? "  " : "", r.left);
 	} else if (xn) {
 		int o = 0;
 		if (done)
@@ -302,7 +301,9 @@ static void draw(WIN *w, GRECT *clip)
 			{
 				char lt[24];
 				left_str(x, lt, sizeof(lt));
-				n = (short)snprintf(t, sizeof(t), "%d%%  %s of %s  %s  %s", pct, a, x->size >= 0 ? b : "?", sp, lt);
+				char ab[32];
+				pair_str(x->done, x->size, ab, sizeof(ab));
+				n = (short)snprintf(t, sizeof(t), "%d%%  %s  %s  %s", pct, ab, sp, lt);
 			}
 			text_at(bar.x + bar.w + cw, y, t, n, rest - bw - 1, fl | TX_LTR);
 			break;
@@ -355,7 +356,7 @@ static void progress_status(long i)
 		return;
 	}
 	run_sum(&r);
-	snprintf(t, sizeof(t), "%s %s  -  file %s of %s%s%s   (Esc stops)", x->dir == XD_UP ? "Uploading" : "Downloading",
+	snprintf(t, sizeof(t), "%s %s  -  file %s/%s%s%s   (Esc stops)", x->dir == XD_UP ? "Uploading" : "Downloading",
 		 x->disp, num(r.k), num(r.all), r.left[0] ? ", " : "", r.left);
 	status(t);
 }

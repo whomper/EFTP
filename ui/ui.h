@@ -210,6 +210,7 @@ unsigned char key_char(short kstate, short key);	/* honours the Hebrew layout */
 void bell(void);
 /* "980 bytes", "12 KB", "1.4 MB" */
 void size_str(long n, char *out, int size);
+void pair_str(long done, long total, char *out, int size);
 /* a date for the lists: "13.10.26 18:56", in the zone the settings say */
 void date_str(CTIME t, int wall, char *out, int size);
 
