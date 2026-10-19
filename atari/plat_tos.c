@@ -201,16 +201,6 @@ int pf_settime_h(int h, const PFTIME *t)
 	return 0;
 }
 
-int pf_settime(const char *path, const PFTIME *t)
-{
-	long h = Fopen(path, 2);
-	if (h < 0)
-		return (int)h;
-	pf_settime_h((int)h, t);
-	Fclose((short)h);
-	return 0;
-}
-
 int pf_info(const char *path, long *size, PFTIME *t)
 {
 	void *old = Fgetdta();

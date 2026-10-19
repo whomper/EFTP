@@ -163,17 +163,35 @@ def run(mode):
         time.sleep(8)
         r.shot("%s-connected" % mode)
         check(ok, "%s: connected and in /pub" % mode)
-        r.click(REMOTE_X, row(1), double=True)      # demo.bin (sorted: demo.bin, letter.txt)
-        got = os.path.join(hd, "DEMO.BIN")
-        check(wait_for(lambda: os.path.exists(got) and open(got, "rb").read() == BIN, 240),
+        # the server's own log says when a download was asked for: the
+        # gateway's (-v) for SFTP, pyftpdlib's for FTPS
+        slog = os.path.join(w, "gate.log" if mode == "sftp" else "ftpd.log")
+
+        def asked(name):
+            text = open(slog, errors="replace").read() if os.path.exists(slog) else ""
+            return sum(1 for l in text.splitlines() if "RETR" in l and name in l)
+
+        def fetch(n, name, local, want, what):
+            # a click selects it, ^T downloads the selection: on TOS 1.04 a
+            # double click on the pane could go unseen. Once more if the
+            # server hears nothing, then the bytes are checked
+            got = os.path.join(hd, local)
+            before = asked(name)
+            for attempt in range(2):
+                r.click(REMOTE_X, row(n))
+                time.sleep(2)
+                r.ctrl("t")
+                if wait_for(lambda: asked(name) > before, 60):
+                    break
+            check(wait_for(lambda: os.path.exists(got) and open(got, "rb").read() == want, 240), what)
+            # done when the bytes are there; then the transfer's end and the
+            # lists read again, before the next click
+            time.sleep(8)
+
+        fetch(1, "demo.bin", "DEMO.BIN", BIN,           # sorted: demo.bin, letter.txt
               "%s: a binary file came down intact" % mode)
-        time.sleep(3)
-        r.click(REMOTE_X, row(2), double=True)      # letter.txt, as text
-        got = os.path.join(hd, "LETTER.TXT")
-        want = TEXT.replace(b"\n", b"\r\n")
-        check(wait_for(lambda: os.path.exists(got) and open(got, "rb").read() == want, 240),
+        fetch(2, "letter.txt", "LETTER.TXT", TEXT.replace(b"\n", b"\r\n"),
               "%s: a text file came down with the Atari's line ends" % mode)
-        time.sleep(3)
         r.shot("%s-done" % mode)
         r.ctrl("d")                                 # disconnect: the log is written out
         time.sleep(5)

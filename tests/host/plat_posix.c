@@ -153,13 +153,6 @@ static time_t pf_mktime(const PFTIME *t)
 	return mktime(&tmv);
 }
 
-int pf_settime(const char *path, const PFTIME *t)
-{
-	struct utimbuf ub;
-	ub.actime = ub.modtime = pf_mktime(t);
-	return utime(path, &ub);
-}
-
 int pf_settime_h(int h, const PFTIME *t)
 {
 	struct timespec ts[2];

@@ -12,11 +12,6 @@
 #include "charset.h"
 #include "util.h"
 
-/* a download's date goes on the file while it is still open, so the
-   file is opened once (the guidelines, 6.5); 0 opens it again for the
-   date afterwards, as EFTP did up to 1.41 */
-#define DATE_ON_HANDLE 1
-
 XITEM *xq;
 long xn;
 static long xcap;
@@ -592,9 +587,9 @@ static int run_file(FTP *f, long i)
 			to_pftime(x->wall ? x->mtime : zone_to_local(x->mtime), &p);
 			pt = &p;
 		}
-		r = ftp_get(f, x->remote, x->local, offset, x->size, x->text, DATE_ON_HANDLE ? pt : 0);
-		if (r == 1 && pt && !DATE_ON_HANDLE)
-			pf_settime(x->local, pt);
+		/* the date goes on the file while it is still open (ftp_get):
+		   one open a file (the guidelines, 6.5) */
+		r = ftp_get(f, x->remote, x->local, offset, x->size, x->text, pt);
 		if ((e = seen_find(x->local, 1)) != 0) {	/* there now */
 			e->type = FE_FILE;
 			e->size = x->done;

@@ -1047,7 +1047,9 @@ int ftp_get(FTP *f, const char *name, const char *local, long offset, long size,
 		conn_close(d);
 	}
 	/* the file stays open for the server's last word, so the date goes
-	   on it before it is closed: one open a file (the guidelines, 6.5) */
+	   on it before it is closed: one open a file (the guidelines, 6.5).
+	   Nothing may be written after it: on TOS 4.04, and TOS 1.04 on a
+	   hard disk, a write after Fdatime loses the date */
 	code = r == 2 ? 226 : closing_reply(f, n < 0);
 	if (n >= 0 && code / 100 == 2 && mtime)
 		pf_settime_h(h, mtime);
