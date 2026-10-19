@@ -16,7 +16,8 @@ import machines  # noqa: E402
 
 # the family's test machines (common/tools/machines.py); the ST edition
 # for the STs, EFTP.PRG (Falcon mode) for the 68030s
-PRG = {"ST": "EFTPST.PRG", "ST-1": "EFTPST.PRG", "TT": "EFTP.PRG", "Falcon": "EFTP.PRG"}
+PRG = {"ST": "EFTPST.PRG", "ST-1": "EFTPST.PRG", "TT": "EFTP.PRG", "Falcon": "EFTP.PRG",
+       "Falcon-4": "EFTP.PRG"}
 
 
 def machine(spec, work):

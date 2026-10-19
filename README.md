@@ -216,6 +216,7 @@ python3 tests/hatari/secure_test.py /tmp/eftp-sec Falcon           # Falcon mode
 python3 tests/hatari/esc_test.py /tmp/eftp-esc etos512us.img       # Esc and Undo cancel every dialog
 python3 tests/hatari/disk_audit.py /tmp/eftp-disk Falcon          # disk access against its budgets (6.5)
 python3 tests/hatari/clock_test.py /tmp/eftp-clock etos512us.img   # times right on a fast 200 Hz clock
+python3 tests/hatari/font_test.py /tmp/eftp-font Falcon:16         # a GDOS font chosen, kept, drawn
 python3 tests/hatari/screenshots.py /tmp/eftp-shots etos512us.img  # the pictures in docs/
 ```
 
@@ -237,6 +238,10 @@ the dates right both ways, at most one Dfree a job.
 `secure_test.py` does the same against secure servers: FTPS in Falcon mode (RSA on the emulated DSP,
 every data connection resuming the TLS session) and SFTP through `eftpgate.py`, and checks the
 files' bytes and line ends.
+`font_test.py` chooses the first monospaced GDOS font in Options > Font and checks that both panes
+redraw in it, Hebrew file names too, that it is kept in `EFTP.INF` and that EFTP draws its folder
+whole in it when started again. It needs a GDOS: with `AERA_WITH_NVDI=1`, `machines.py` installs
+NVDI on the Falcon from your own copy (see its notes); without one it says so and passes.
 
 ## Licence
 
