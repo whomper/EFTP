@@ -70,6 +70,12 @@ larger; free memory when it starts: about 350 KB for `EFTPST.PRG`, about 500 KB 
 with Falcon mode (more makes downloads faster); network: STinG (or STiK) on plain TOS, MiNTnet under FreeMiNT, or MagiC-Net. Falcon
 mode needs a Falcon or TT.
 
+**With STinG, set the Delay in `STING.CPX` to suit the machine:** 10 on a
+Falcon or TT, 25 to 50 on an ST, as STinG's manual says. STinG looks at the network card that
+often, so it sets the speed of every STinG program: on Erez's Falcon with a NetUSBee, Delay 10
+took EFTP's downloads from 40 to 75 KB/s. With a NetUSBee, also keep STinG's TCP receive window
+small (5840 with an MSS of 1460): the card holds about four full packets.
+
 **Under TOS, put Atari's `FOLDR100.PRG` first in `AUTO`**, renamed for more room (`FOLDR400.PRG`).
 TOS keeps an entry in a small internal pool for every folder a program or accessory has looked
 into, and halts with "OUT OF INTERNAL MEMORY" when it runs out; FOLDRxxx makes the pool bigger.
