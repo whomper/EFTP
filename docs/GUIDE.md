@@ -359,7 +359,7 @@ Options > Settings (^,), in five parts:
 
 Options > Font picks the font for the lists in the family's Font
 dialog: the font families on the left, the chosen one's styles and
-sizes beside them (type a size after Pt:), its kind and a sample below.
+sizes beside them, its kind and a sample below.
 EFTP lays its lists out in even columns, so only the system font (in
 two sizes) and the fixed-width GDOS fonts are listed. A vector font's
 Hebrew letters come from the font through NVDI, or from the system
