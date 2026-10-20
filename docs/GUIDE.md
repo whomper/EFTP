@@ -358,8 +358,15 @@ Options > Settings (^,), in five parts:
   gateway's address and port (2121) for SFTP, and for FTPS without
   Falcon mode
 
-Options > Font picks the font for the lists, as in EMail: the system
-font in two sizes, or any monospaced GDOS font.
+Options > Font picks the font for the lists in the family's Font
+dialog: the font families on the left, the chosen one's styles and
+sizes beside them (type a size after Pt:), its kind and a sample below.
+EFTP lays its lists out in even columns, so only the system font (in
+two sizes) and the fixed-width GDOS fonts are listed. A vector font's
+Hebrew letters come from the font through NVDI, or from the system
+font when it has none. If the Hebrew in a bitmap font shows as other
+letters, set HEBFONT= in EFTP.INF: 1 for fonts with ISO-8859-8
+Hebrew, 2 for DOS 862, 0 for the Atari's own places.
 
 **Options > Falcon mode (TLS)** switches Falcon mode on and off, the
 same as the tick in Settings > Secure, and **Options > Protocol log**

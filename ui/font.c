@@ -9,12 +9,13 @@
  * is here: the font set and its cells, where its Hebrew comes from, and
  * what OK does.
  *
- * The dialog also says where the system and bitmap fonts keep their
- * Hebrew letters: the Atari character set (TOS, EmuTOS) or the
+ * Where the system and bitmap fonts keep their Hebrew letters is
+ * EFTP.INF's HEBFONT=: the Atari character set (TOS, EmuTOS) or the
  * ISO-8859-8 or DOS places, as Israeli system fonts and many GDOS fonts
- * have them. A vector font (Speedo, TrueType, Type 1) is asked through
- * NVDI for its Hebrew letters by Unicode; when it has none, they are
- * drawn in the system font in the same cells.
+ * have them (the dialog no longer asks: Erez, 20 Oct 2026). A vector
+ * font (Speedo, TrueType, Type 1) is asked through NVDI for its Hebrew
+ * letters by Unicode; when it has none, they are drawn in the system
+ * font in the same cells.
  */
 #include <string.h>
 #include <stdio.h>
@@ -174,7 +175,7 @@ static short format_of(short id)
 
 /* ---------------- the dialog (common/ui/fontsel.c) ---------------- */
 
-/* OK: the font for the windows, kept in EFTP.INF (FONT=id,pt, HEBFONT=) */
+/* OK: the font for the windows, kept in EFTP.INF (FONT=id,pt) */
 static void take(fontsel *s)
 {
 	opt.font_id = s->id;

@@ -389,7 +389,7 @@ int store_save_settings(void)
 		"PANES", "%d,%d", opt.pane_w, opt.pane_h);
 	put_fmt(&b, "text font: GDOS font id (1 = system font), size (system font: 0, 8 small, 16 large)",
 		"FONT", "%d,%d", opt.font_id, opt.font_pt);
-	put_fmt(&b, "the font's Hebrew letters: 0 = Atari places, 1 = ISO-8859-8, 2 = DOS 862 (Options > Font)",
+	put_fmt(&b, "where a bitmap font keeps its Hebrew letters: 0 = Atari places, 1 = ISO-8859-8, 2 = DOS 862",
 		"HEBFONT", "%d", opt.hebfont);
 	put_fmt(&b, "sort the lists by 0 name, 1 size, 2 date; add 8 for the other way round",
 		"SORT", "%d", opt.sort);
