@@ -202,9 +202,8 @@ ECDHE-RSA, ChaCha20-Poly1305", or "... through the Pi - SFTP", and the
 server's name in the toolbar shows it in its tooltip.
 
 In Falcon mode the 68030 decrypts every byte itself, so transfers are
-slower than through the Pi; a
-bigger TCP receive window in STinG's configuration helps. The clock must
-be right for certificates to check out.
+slower than through the Pi. The clock must be right for certificates
+to check out.
 
 ## Moving files
 
@@ -414,9 +413,15 @@ Undo or the Stop button stops it.
   file. EFTP only connects out (passive mode); the server must allow
   that. Options > Settings > Connection > Write a protocol log, then
   `EFTP.LOG` shows the conversation.
-- **A transfer stays at 0%**: STinG's own settings: a bigger TCP
-  receive window (and MTU) in STinG's configuration makes downloads
-  faster, too.
+- **A transfer stays at 0%**: STinG's own settings (its TCP receive
+  window and MTU).
+- **Downloads are slow, or slow down as they go**: STinG's TCP receive
+  window can be too big for the network card. A NetUSBee holds only
+  about four full packets, so a window of 32000 lets the server send
+  more at once than it can keep: packets are lost, and the server
+  waits before it sends them again. With an MSS of 1460, a window of
+  5840 (four packets) was the fastest on a Falcon with a NetUSBee:
+  about 40 KB/s, against 14 with 32000 and 25 with 7300.
 - **Not enough memory**: EFTPST.PRG needs about 350 KB free when it
   starts, EFTP.PRG about 500 KB for Falcon mode; on a 1 MB machine use
   EFTPST.PRG, and leave out accessories you don't need.
