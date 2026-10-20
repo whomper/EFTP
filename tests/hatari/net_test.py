@@ -121,8 +121,13 @@ try:
     r.shot("t2-connected")
     check("USER 'atari' logged in" in open(os.path.join(work, "ftpd.log")).read(), "logged in")
 
-    r.click(REMOTE_X, row(1), double=True)          # /pub/atari
-    time.sleep(6 * PAUSE)
+    # /pub/atari; once more if the double click went by as one (it did
+    # once on ST-1 under TOS 1.04, and the whole folder came down)
+    for _ in range(2):
+        r.click(REMOTE_X, row(1), double=True)
+        if wait_for(lambda: "CWD atari" in open(elog, errors="replace").read(), 6 * PAUSE, slow=False):
+            break
+    time.sleep(3 * PAUSE)
     r.click(REMOTE_X, row(1))                       # demos
     time.sleep(1.5)
     r.click(*DOWNLOAD)
