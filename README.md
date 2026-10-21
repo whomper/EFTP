@@ -107,17 +107,25 @@ picks the way from the site's **Protocol** (**File > Sites**) and **Options > Se
   connection's session, which saves the slow part of the handshake and which vsftpd and others
   insist on.
 
-**Setting up the Pi** (Raspberry Pi OS, from a fresh card), with your Atari's address for `ATARI_IP`:
+**Setting up the Pi** (Raspberry Pi OS, from a fresh card), with your Atari's address for `ATARI_IP`.
+The short way, one line that sets up every AERA gateway for that Atari, EFTP's among them:
+
+```sh
+sudo apt install -y git && git clone https://github.com/whomper/AERA-Gateway ~/AERA-Gateway && ~/AERA-Gateway/update-pi.sh --allow ATARI_IP
+```
+
+Or step by step, with EFTP's gateway only:
 
 ```sh
 sudo apt install -y git                  # Raspberry Pi OS Lite only
 git clone https://github.com/whomper/AERA-Gateway
 cd AERA-Gateway
 ./update-pi.sh
-sudo gateway/aera-gateway install ftp --allow ATARI_IP
+sudo aera-gateway install ftp --allow ATARI_IP
 ```
 
-To update: `cd ~/AERA-Gateway && ./update-pi.sh`. To check: `gateway/aera-gateway status`.
+(`update-pi.sh` makes `aera-gateway` a command; before it has run, it is `gateway/aera-gateway`.)
+To update: `cd ~/AERA-Gateway && ./update-pi.sh`. To check: `aera-gateway status`.
 
 In EFTP: **Options > Settings > Secure**, Pi gateway `PI_IP` (the Pi's address), port **2121**.
 Then give the sites their real server names and choose FTPS or SFTP as their Protocol in

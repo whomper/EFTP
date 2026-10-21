@@ -204,19 +204,29 @@ to check out.
 
 ### Setting up the Pi
 
-On a Raspberry Pi with Raspberry Pi OS (from a fresh card), type, with
-your Atari's address in place of ATARI_IP:
+On a Raspberry Pi with Raspberry Pi OS (from a fresh card), with your
+Atari's address in place of ATARI_IP. The short way, one line that
+sets up every AERA gateway for that Atari, EFTP's among them:
+
+```
+sudo apt install -y git && \
+  git clone https://github.com/whomper/AERA-Gateway ~/AERA-Gateway && \
+  ~/AERA-Gateway/update-pi.sh --allow ATARI_IP
+```
+
+Or step by step, with EFTP's gateway only:
 
 ```
 sudo apt install -y git                  (Raspberry Pi OS Lite only)
 git clone https://github.com/whomper/AERA-Gateway
 cd AERA-Gateway
 ./update-pi.sh
-sudo gateway/aera-gateway install ftp --allow ATARI_IP
+sudo aera-gateway install ftp --allow ATARI_IP
 ```
 
-To update it later: `cd ~/AERA-Gateway && ./update-pi.sh`. To see
-that it runs: `gateway/aera-gateway status`.
+(update-pi.sh makes aera-gateway a command; before it has run, it is
+gateway/aera-gateway.) To update it later: `cd ~/AERA-Gateway &&
+./update-pi.sh`. To see that it runs: `aera-gateway status`.
 
 Then in EFTP: Options > Settings > Secure, Pi gateway: the Pi's
 address (PI_IP), port 2121. AERA-Gateway's README has the gateway's
