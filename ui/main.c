@@ -703,7 +703,7 @@ static int shortcut(short kstate, short key)
 		set_hebrew_kbd(!hebrew_kbd);
 		return 1;
 	}
-	if (crash_test(scan))		/* test builds only: F1-F4 crash on purpose */
+	if (crash_test(scan))		/* test builds only: F1-F5 crash on purpose */
 		return 1;
 	if (scan == 0x62) {		/* Help */
 		help_key_pressed();
