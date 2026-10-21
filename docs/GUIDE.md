@@ -172,13 +172,10 @@ Falcon, TT:  Falcon (EFTP.PRG, TLS 1.2, RSA on the DSP) ------------------------
 
 - **Through the Pi gateway.** `gateway/eftpgate.py` on a Raspberry Pi
   (or any Linux computer at home) takes EFTP's plain FTP and speaks FTPS
-  or SFTP to the server. On the Pi, fetch AERA-Gateway
-  (github.com/whomper/AERA-Gateway) and set it up with
-  `sudo gateway/aera-gateway install ftp` (its README says how, and
-  what to do when something doesn't work), then type the Pi's address
-  in Options > Settings > Secure, port 2121. Any Atari can use it, a Falcon too, and SFTP always
-  goes this way. The Pi goes only to servers on the internet: for one
-  on your home network (a NAS, say), install it with `--allow-local`.
+  or SFTP to the server; it is set up as below. Any Atari can use
+  it, a Falcon too, and SFTP always goes this way. The Pi goes only to
+  servers on the internet: for one on your home network (a NAS, say),
+  add `--allow-local` to the install line.
   The Pi checks the servers' certificates, and remembers
   an SSH server's key the first time and refuses the server if it
   changes. Everything else is as with FTP: resuming, dates, text files
@@ -204,6 +201,26 @@ server's name in the toolbar shows it in its tooltip.
 In Falcon mode the 68030 decrypts every byte itself, so transfers are
 slower than through the Pi. The clock must be right for certificates
 to check out.
+
+### Setting up the Pi
+
+On a Raspberry Pi with Raspberry Pi OS (from a fresh card), type, with
+your Atari's address in place of ATARI_IP:
+
+```
+sudo apt install -y git                  (Raspberry Pi OS Lite only)
+git clone https://github.com/whomper/AERA-Gateway
+cd AERA-Gateway
+./update-pi.sh
+sudo gateway/aera-gateway install ftp --allow ATARI_IP
+```
+
+To update it later: `cd ~/AERA-Gateway && ./update-pi.sh`. To see
+that it runs: `gateway/aera-gateway status`.
+
+Then in EFTP: Options > Settings > Secure, Pi gateway: the Pi's
+address (PI_IP), port 2121. AERA-Gateway's README has the gateway's
+options and what to do when something doesn't work.
 
 ## Moving files
 

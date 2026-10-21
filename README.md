@@ -100,18 +100,33 @@ picks the way from the site's **Protocol** (**File > Sites**) and **Options > Se
   ftplib, resuming the TLS session on every data connection) or SFTP (paramiko) to the server named
   in the login, `sftp:user@host:port`; EFTP writes that for you from the site's Protocol. It checks
   certificates, remembers SSH host keys, and turns text files' line ends for SFTP.
-  On the Pi, a copy of [AERA-Gateway](https://github.com/whomper/AERA-Gateway) sets it up as a
-  service: `sudo gateway/aera-gateway install ftp`.
+  On the Pi, [AERA-Gateway](https://github.com/whomper/AERA-Gateway) sets it up as a service (below).
 - **Falcon mode.** `EFTP.PRG` does FTPS itself with [BearSSL](https://bearssl.org/), the same TLS
   code as EMail and ECal (ChaCha20 first, RSA certificates checked on the DSP56001, sessions
   resumed); explicit (AUTH TLS) and implicit (port 990). Every data connection resumes the control
   connection's session, which saves the slow part of the handshake and which vsftpd and others
   insist on.
 
-Setting up the Pi, its options, keeping it private and what to do when something doesn't work:
-the gateway's own README, [gateway/README.md](gateway/README.md). `gateway/` here is a copy of
-AERA-Gateway's for EFTP's tests; set the Pi up from AERA-Gateway itself, whose `update-pi.sh` keeps
-it at the latest release.
+**Setting up the Pi** (Raspberry Pi OS, from a fresh card), with your Atari's address for `ATARI_IP`:
+
+```sh
+sudo apt install -y git                  # Raspberry Pi OS Lite only
+git clone https://github.com/whomper/AERA-Gateway
+cd AERA-Gateway
+./update-pi.sh
+sudo gateway/aera-gateway install ftp --allow ATARI_IP
+```
+
+To update: `cd ~/AERA-Gateway && ./update-pi.sh`. To check: `gateway/aera-gateway status`.
+
+In EFTP: **Options > Settings > Secure**, Pi gateway `PI_IP` (the Pi's address), port **2121**.
+Then give the sites their real server names and choose FTPS or SFTP as their Protocol in
+**File > Sites**. For a server on your home network (a NAS, say), add `--allow-local` to the
+install line.
+
+The gateway's options, keeping it private and what to do when something doesn't work are in
+its own README, [gateway/README.md](gateway/README.md). `gateway/` here is a copy of
+AERA-Gateway's for EFTP's tests; set the Pi up from AERA-Gateway itself, as above.
 
 ![The Site Manager, on an SFTP site that goes through the Pi gateway](docs/sites.png)
 
