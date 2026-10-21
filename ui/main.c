@@ -913,7 +913,34 @@ int main(void)
 	vdi_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
 	cw = gl_wchar;
 	ch = gl_hchar;
-	vdi_h = v_opnvwk_(vdi_h, work_out);
+	{
+		/* the workstation: NVDI needs memory for it (more with many
+		   fonts), and on a 4 MB Falcon with accessories it may have
+		   none. 0 is no workstation: drawing with it brings NVDI's
+		   "Invalid handle" alert, so try once more, then say why and
+		   go (the guidelines, 2.1; as EMail) */
+		short aes_h = vdi_h, tries;
+		long st = (long)Mxalloc(-1L, 0), tt = (long)Mxalloc(-1L, 1), free_kb;
+		if (st == -32) {		/* TOS 1.x: no Mxalloc, no TT RAM */
+			st = (long)Malloc(-1L);
+			tt = 0;
+		}
+		free_kb = ((st > 0 ? st : 0) + (tt > 0 ? tt : 0)) / 1024;
+		for (tries = 0; tries < 2; tries++) {
+			vdi_h = v_opnvwk_(aes_h, work_out);
+			if (vdi_h > 0)
+				break;
+			evnt_timer_(500);
+		}
+		if (vdi_h <= 0) {
+			char a[200];
+			snprintf(a, sizeof(a), "[3][EFTP can't open its screen:|the VDI has no memory for it.|%ld KB were free; the|accessories hold the rest.|Load fewer, or add memory.][ Quit ]",
+				 free_kb);
+			form_alert(1, a);
+			appl_exit();
+			return 1;
+		}
+	}
 	scr_w = work_out[0] + 1;
 	scr_h = work_out[1] + 1;
 	vq_extnd(vdi_h, 1, work_out);
