@@ -58,8 +58,12 @@ UI      := main draw win files queue dialogs popup font fontsel about theme dsp 
 OBJDIR  := build
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/crash_s.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE) $(ATARI) $(UI)))
-# the ST edition: tls_none.c instead of tls.c and BearSSL
-STOBJS  := $(OBJS0) $(OBJDIR)/tls_none.o
+# the ST edition: tls_none.c instead of tls.c and BearSSL, and an About
+# box without the 256-colour icon (NO_ICON256: an ST never shows 256
+# colours; 2 KB kept)
+STONLY  := about aboutbox
+STOBJS  := $(filter-out $(addprefix $(OBJDIR)/,$(addsuffix .o,$(STONLY))),$(OBJS0)) \
+           $(addprefix $(OBJDIR)/st/,$(addsuffix .o,$(STONLY))) $(OBJDIR)/tls_none.o
 OBJS    := $(OBJS0) $(OBJDIR)/tls.o
 HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
            common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h)
@@ -118,6 +122,12 @@ $(OBJDIR)/%.o: common/atari/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 $(OBJDIR)/%.o: common/ui/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJDIR)/st/%.o: ui/%.c $(HDRS) | $(OBJDIR)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DNO_ICON256 -c -o $@ $<
+$(OBJDIR)/st/%.o: common/ui/%.c $(HDRS) | $(OBJDIR)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -DNO_ICON256 -c -o $@ $<
 # a 24 KB stack (48 KB by default): EFTP's deepest is a folder deleted
 # inside folders, and memory is short on a 1 MB ST
 $(OBJDIR)/crt0.o: common/atari/crt0.S | $(OBJDIR)
