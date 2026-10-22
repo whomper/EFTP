@@ -13,6 +13,7 @@
 #include "../src/xfer.h"
 #include "icon.h"
 #include "icon16.h"
+#include "icon256.h"
 #include "../src/version.h"
 #include "../src/plat.h"
 
@@ -20,7 +21,7 @@ void dlg_about(void)
 {
 	static char conn[80], where[60], avail[60];
 	ABOUT a = { "EFTP", ftp_version, "File transfer for the Atari ST, TT and Falcon", { conn, where, avail }, { 0, 0, 0 },
-		    icon_bits, icon16_px, icon16_rgb };
+		    icon_bits, icon16_px, icon16_rgb, icon256_px, icon256_rgb };
 	/* the network, the server, and how secure sites are reached (as ECal) */
 	snprintf(conn, sizeof(conn), "%s  \xF9  %.24s  \xF9  %s",
 		 strcmp(net_stack(), "none") ? net_stack() : "no network",
