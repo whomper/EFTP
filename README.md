@@ -1,6 +1,6 @@
 # EFTP
 
-<img src="docs/icon16.png" width="96" align="right" alt="EFTP icon: an Atari SM124-style monitor showing a folder and two arrows, up and down">
+<img src="docs/icon.png" width="96" align="right" alt="EFTP icon: two folders, a gold one for this Atari and a blue one for the server, with a blue arrow going up to the server and a green one coming down">
 
 A two-pane FTP program for the Atari ST, STE, TT and Falcon, written in C for GEM, that reaches FTPS
 and SFTP servers too.
@@ -163,7 +163,7 @@ AERA-Gateway's for EFTP's tests; set the Pi up from AERA-Gateway itself, as abov
 EFTP shares a lot with [EMail](https://github.com/whomper/EMail),
 [ECal](https://github.com/whomper/ECal) and [ClaudeST](https://github.com/whomper/ClaudeST): the same
 freestanding TOS runtime, GEM bindings and STinG client, the same window with panes, dialogs,
-colours and Settings, and the same monitor on the icon.
+colours and Settings, and icons drawn the same way.
 
 ## Building
 
@@ -194,8 +194,9 @@ No MiNTLib is needed: the program is freestanding (its runtime is in `common/ata
 `common/tools/elf2tos.py` writes the TOS executable. It is built for the 68000, so it runs on every
 Atari from the ST to the Falcon; BearSSL (`common/third_party/bearssl`, in `EFTP.PRG` only) is built
 for the 68030. `common/tools/mkroots.c` decodes `CACERT.PEM` (from `common/certs/`) into
-`ROOTS.DAT`. The desktop icon is drawn by `tools/icon/make_icon.py` (which also writes `ui/icon.h`,
-`ui/icon16.h` and the previews in `docs/`) and `tools/icon/make_rsc.py`.
+`ROOTS.DAT`. The desktop icon is the family's: its drawing, in 256 colours, 16 and black and white,
+is `common/icons/EFTP.txt` (change it in AERA-Atari), and `make icons` (`common/tools/appicon.py`)
+makes `icons/`, `ui/icon.h`, `ui/icon16.h` and the pictures in `docs/` from it.
 
 ## Source
 
@@ -214,8 +215,8 @@ common/   code shared with the other AERA programs (from AERA-Atari): the TOS ru
 gateway/  the Raspberry Pi gateways (eftpgate.py is EFTP's) and aera-gateway, their installer:
           a copy of AERA-Gateway's; change it there, then run tools/sync-gateway.sh
 tests/    unit, fuzz and integration tests, the Hatari test rig
-tools/    the icon generator, the help builder, sync-common.sh, sync-gateway.sh, bump.py
-icons/    the desktop icon (RSC and ICN files), from tools/icon
+tools/    the help builder, sync-common.sh, sync-gateway.sh, bump.py, add_to_emuicon.py
+icons/    the desktop icon (RSC and ICN files), from make icons
 docs/     the user guide (GUIDE.md, the source of EFTP.HYP) and pictures
 binary/   what make builds for the Atari (not committed: the releases have it)
 dist/     a release's files, from make dist (not committed)

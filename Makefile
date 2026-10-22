@@ -86,10 +86,11 @@ FORCE:
 $(OBJDIR)/build.o: $(OBJDIR)/build.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-# EFTP's icon for the desktop: icons/, drawn by tools/icon and
-# committed; a release carries them
+# EFTP's icon for the desktop: icons/, ui/icon*.h and docs/icon*.png
+# from common/icons/EFTP.txt (the family's, guideline 5.5), committed; a
+# release carries icons/
 icons:
-	python3 tools/icon/make_rsc.py
+	python3 common/tools/appicon.py EFTP --rsc icons/EFTP.RSC --icn icons/EFTP.ICN --mask icons/EFTPMK.ICN --headers ui --docs docs
 
 $(OBJDIR)/eftp.elf: $(OBJS) $(OBJDIR)/build.o $(OBJDIR)/libbearssl.a common/atari/link.ld
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(OBJDIR)/build.o $(OBJDIR)/libbearssl.a -lgcc

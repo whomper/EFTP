@@ -63,7 +63,8 @@ with the evidence.
   (`ui/win.c`, `draw.c`, `dialogs.c`, `font.c`, `about.c`, `theme.c`)
   follow EMail's. Keep the look and the conventions the same: one window
   with panes, EMail's Settings sidebar, `EFTP.INF` with a note above
-  every setting, the family's About box and the SM124 icon.
+  every setting, the family's About box and its icon (`common/icons/EFTP.txt`,
+  `make icons`).
 - **A release** carries `EFTP.PRG`, `EFTPST.PRG`, `EFTP.HYP` (hcp from `common/tools/build-hcp.sh`),
   `CACERT.PEM`, `ROOTS.DAT` and the icon. The icons are committed in `icons/` (`make icons`).
 - Two editions, as ECal: `EFTP.PRG` (BearSSL, Falcon mode, for Falcon

@@ -80,8 +80,8 @@ next to `EFTP.PRG` or from the viewer's own help folder. Without a
 viewer, Help says how to get one and offers the list of keys instead;
 **Help > Keys** shows that list at any time.
 
-The desktop icon, the same monitor as EMail's and ECal's showing a
-folder and the two ways files go, is in the release (in the zip, in `icons/`): `EFTP.RSC` for
+The desktop icon, two folders (a gold one here, a blue one on the
+server) with an arrow each way, is in the release (in the zip, in `icons/`): `EFTP.RSC` for
 the resource editors, `EFTP.ICN` and its mask `EFTPMK.ICN`.
 
 ## The window
