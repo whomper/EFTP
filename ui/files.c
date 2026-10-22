@@ -997,16 +997,23 @@ static FENTRY *the_one(SIDE *s)
 	return 0;
 }
 
+/* what a name typed in takes: 8+3 when names are shortened, an Atari
+   name, or a server's (the guidelines, 5.4) */
+static short name_cap(int side)
+{
+	return side == SIDE_LOCAL ? (opt.shorten ? 12 : LNAME - 1) : 199;
+}
+
 void files_new_folder(int side)
 {
-	char name[64] = "";
+	char name[200] = "";
 	if (side == SIDE_LOCAL && !ldir[0]) {
 		alert(1, "[1][Open a drive first.][ OK ]");
 		return;
 	}
 	if (side == SIDE_REMOTE && (!ftp || !check_line()))
 		return;
-	if (!dlg_ask("New folder", "Name:", name, side == SIDE_LOCAL && opt.shorten ? 12 : 40))
+	if (!dlg_ask("New folder", "Name:", name, side == SIDE_LOCAL && opt.shorten ? 12 : 40, name_cap(side)))
 		return;
 	if (side == SIDE_LOCAL) {
 		char p[260], tn[LNAME];
@@ -1044,12 +1051,12 @@ void files_rename(int side)
 {
 	SIDE *s = &sd[side];
 	FENTRY *e = the_one(s);
-	char name[64], old[256];
+	char name[200], old[256];
 	if (!e || (side == SIDE_REMOTE && (!ftp || !check_line())) || (side == SIDE_LOCAL && !ldir[0]))
 		return;
 	str_copy(name, e->disp, sizeof(name));
 	str_copy(old, e->name, sizeof(old));
-	if (!dlg_ask("Rename", "New name:", name, 40) || !strcmp(name, e->disp))
+	if (!dlg_ask("Rename", "New name:", name, 40, name_cap(side)) || !strcmp(name, e->disp))
 		return;
 	if (side == SIDE_LOCAL) {
 		char from[260], to[260], tn[LNAME];

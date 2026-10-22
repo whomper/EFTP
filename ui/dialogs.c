@@ -16,6 +16,7 @@
 #include "charset.h"
 #include "tz.h"
 #include "clip.h"
+#include "field.h"
 #include "theme.h"
 #include "tls.h"
 
@@ -28,6 +29,13 @@ static short npw;
 static TEDINFO ted[TMAX];
 static char tmpl[TMAX][64], valid[TMAX][64];
 static short nobj, nted, last_child;
+
+/* fields that hold more than they show (the guidelines, 5.4,
+   common/ui/field.c): the text is the dialog's, the field shows the
+   piece of it around the cursor */
+#define LFMAX 8
+static LFIELD lfs[LFMAX];
+static short nlf, nested;
 
 /* ---------------- builder ---------------- */
 
@@ -44,6 +52,10 @@ void d_begin(short w, short h)
 		eyes_made = 1;
 	}
 	npw = 0;
+	if (!nested) {
+		lf_forget(tree);
+		nlf = 0;
+	}
 	memset(tree, 0, sizeof(tree));
 	nobj = 1;
 	nted = 0;
@@ -111,6 +123,20 @@ short d_edit(short x, short y, char *buf, short len, char kind)
 	return d_add(G_FTEXT, EDITABLE, 0, (long)t, x, y, len, 1);
 }
 
+/* a field showing len characters of buf, which holds cap (cap + 1 bytes)
+   and scrolls */
+static short d_long(short x, short y, char *buf, short len, short cap)
+{
+	LFIELD *f = &lfs[nlf];
+	short i;
+	if (nlf == LFMAX)
+		return d_edit(x, y, buf, len < cap ? len : cap, 'X');
+	nlf++;
+	i = d_edit(x, y, f->view, len, 'X');
+	lf_init(f, tree, i, buf, cap, 0);
+	return i;
+}
+
 short d_button(short x, short y, short w, const char *s, short flags)
 {
 	return d_add(G_BUTTON, SELECTABLE | flags, 0, (long)s, x, y, w, 1);
@@ -131,19 +157,16 @@ void d_end(void)
 }
 
 /* ---------------- password fields ----------------
- * GEM's text fields can't hide what they show, so a password field
- * shows a row of '*' while the real text is kept aside; the eye button
- * next to it shows it in clear. form_loop() below is form_do() written
- * out with form_keybd/form_button/objc_edit, so it can type into a
- * password field itself. */
+ * A password field is a long field shown as stars; the eye button next
+ * to it shows it in clear. form_loop() below is form_do() written out
+ * with form_keybd/form_button/objc_edit, so the long fields take their
+ * own keys. */
 
 #define PWMAX 2
 
 typedef struct {
 	short obj, eye;		/* the text field and its eye button */
-	char *real;		/* the password */
-	short max;
-	char shown[48];		/* what the field displays */
+	LFIELD *lf;		/* the password, in it */
 	short clear;		/* 1: shown in clear */
 } PWFIELD;
 
@@ -229,32 +252,27 @@ static void make_eyes(void)
 	}
 }
 
-static void pw_update_text(PWFIELD *p)
+/* the eye and the stars as p->clear says */
+static void pw_update(PWFIELD *p)
 {
-	short n = (short)strlen(p->real), i;
-	if (n > p->max)
-		n = p->max;
-	for (i = 0; i < n; i++)
-		p->shown[i] = p->clear ? p->real[i] : '*';
-	p->shown[n] = 0;
+	if (p->lf)
+		p->lf->mask = p->clear ? 0 : '*';
 	eye_blk[p - pwf].bi_pdata = p->clear ? eye_shut : eye_open;
 }
 
-/* a password field of len characters on real (which holds len+1) */
-short d_pass(short x, short y, char *real, short len)
+/* a password field showing len characters of real, which holds cap */
+short d_pass(short x, short y, char *real, short len, short cap)
 {
 	PWFIELD *p = &pwf[npw];
 	BITBLK *b = &eye_blk[npw];
 	short f;
-	if (len > 46)
-		len = 46;
-	p->real = real;
-	p->max = len;
-	p->clear = 0;
-	real[len] = 0;
-	pw_update_text(p);
-	f = d_edit(x, y, p->shown, len, 'X');
+	f = d_long(x, y, real, len, cap);
 	p->obj = f;
+	p->lf = lf_of(tree, f);
+	p->clear = 0;
+	pw_update(p);
+	if (p->lf)
+		lf_view(p->lf);
 	b->bi_wb = 2;
 	b->bi_hl = gl_hchar >= 16 ? 16 : 8;
 	b->bi_x = b->bi_y = 0;
@@ -280,30 +298,6 @@ static void draw_obj(short obj)
 	objc_draw(tree, obj, 0, x - 2, y - 2, tree[obj].ob_width + 4, tree[obj].ob_height + 4);
 }
 
-/* type into a password field; 1 if the key was used */
-static int pw_key(PWFIELD *p, short key, short *idx)
-{
-	short scan = KEY_SCAN(key), ascii = KEY_ASCII(key), n = (short)strlen(p->real);
-	if (scan == 0x0e) {			/* Backspace */
-		if (n)
-			p->real[n - 1] = 0;
-	} else if (scan == 0x01 || scan == 0x53) {	/* Delete (Esc: where nothing cancels): clear */
-		p->real[0] = 0;
-	} else if (scan == 0x4b || scan == 0x4d) {	/* the cursor stays at the end */
-		return 1;
-	} else if (ascii >= 32 && n < p->max) {
-		p->real[n] = (char)ascii;
-		p->real[n + 1] = 0;
-	} else {
-		return ascii >= 32;		/* full */
-	}
-	objc_edit(tree, p->obj, 0, idx, ED_END);
-	pw_update_text(p);
-	draw_obj(p->obj);
-	objc_edit(tree, p->obj, 0, idx, ED_INIT);
-	return 1;
-}
-
 static short first_editable(void)
 {
 	short i;
@@ -311,16 +305,6 @@ static short first_editable(void)
 		if (tree[i].ob_flags & EDITABLE)
 			return i;
 	return 0;
-}
-
-/* ^V in a password field: the clipboard's first line typed in (nothing is
-   ever copied out of one) */
-static void pw_paste(PWFIELD *p, short *idx)
-{
-	char buf[64], *c;
-	clip_get(buf, sizeof(buf));
-	for (c = clip_line(buf); *c; c++)
-		pw_key(p, (unsigned char)*c, idx);
 }
 
 /* what Esc and Undo press (the guidelines, 3.5): Cancel, else the only
@@ -352,24 +336,27 @@ static short form_loop(short start)
 		if (next && next != edit) {
 			edit = next;
 			next = 0;
-			objc_edit(tree, edit, 0, &idx, ED_INIT);
+			if (lf_of(tree, edit))
+				lf_enter(lf_of(tree, edit), &idx);
+			else
+				objc_edit(tree, edit, 0, &idx, ED_INIT);
 		}
 		evnt_multi_(MU_KEYBD | MU_BUTTON, 2, 1, 1, 0, m, &e);
 		if (e.which & MU_KEYBD) {
-			PWFIELD *p = pw_of(edit);
-			short scan = KEY_SCAN(e.kreturn);
-			short nav = scan == 0x1c || scan == 0x72 || scan == 0x0f || scan == 0x48 || scan == 0x50;
+			LFIELD *lf = edit ? lf_of(tree, edit) : 0;
+			short scan = KEY_SCAN(e.kreturn), ck = clip_key(e.kreturn);
 			if (scan == 0x01 || scan == 0x61) {	/* Esc, Undo */
 				if (esc_button()) {
 					next = esc_button();	/* as if it were clicked */
 					cont = 0;
 				}
-			} else if (edit && clip_key(e.kreturn)) {
-				if (!p)
-					clip_edit(tree, edit, &idx, e.kreturn);
-				else if (clip_key(e.kreturn) == CLIP_PASTE)
-					pw_paste(p, &idx);
-			} else if (!(p && !nav && pw_key(p, e.kreturn, &idx))) {
+			} else if (lf && pw_of(edit) && (ck == CLIP_COPY || ck == CLIP_CUT)) {
+				;			/* a password is never copied out, shown or not */
+			} else if (lf && lf_key(lf, e.kreturn, key_char(e.kstate, e.kreturn), e.kstate, &idx)) {
+				;
+			} else if (edit && ck) {
+				clip_edit(tree, edit, &idx, e.kreturn);
+			} else {
 				short kr;
 				cont = form_keybd(tree, edit, next, e.kreturn, &next, &kr);
 				if (kr)
@@ -384,14 +371,11 @@ static short form_loop(short start)
 					eye = &pwf[i];
 			if (eye) {
 				/* show or hide the password; the dialog stays */
-				if (edit)
-					objc_edit(tree, edit, 0, &idx, ED_END);
 				eye->clear = !eye->clear;
-				pw_update_text(eye);
-				draw_obj(eye->obj);
+				pw_update(eye);
+				if (eye->lf)
+					lf_mask(eye->lf, eye->lf->mask, &idx, edit == eye->obj);
 				draw_obj(eye->eye);
-				if (edit)
-					objc_edit(tree, edit, 0, &idx, ED_INIT);
 				evnt_timer_(150);
 			} else if (obj < 0) {
 				next = 0;
@@ -483,14 +467,18 @@ static void tick_draw(short k)
 }
 
 /* a field in a thin frame */
-static short d_field(short x, short y, char *buf, short len, char kind)
+static short framed(short i)
 {
-	short i = d_edit(x, y, buf, len, kind);
 	TEDINFO *t = (TEDINFO *)tree[i].ob_spec;
 	tree[i].ob_type = G_FBOXTEXT;
 	t->te_thickness = -1;
 	t->te_color = 0x1180;
 	return i;
+}
+
+static short d_field(short x, short y, char *buf, short len, char kind)
+{
+	return framed(d_edit(x, y, buf, len, kind));
 }
 
 /* a choice: its label in a thin frame with a down arrow, clicked for
@@ -615,7 +603,9 @@ static short pick_over(const char *title, const char **items, short n, short lw,
 	keep_n[2] = last_child;
 	keep_n[3] = npw;
 	pick_from = sel;
+	nested = 1;			/* the settings' long fields stay */
 	i = pick_w(title, items, n, lw);
+	nested = 0;
 	pick_from = 0;
 	memcpy(tree, &keep_tree, sizeof(keep_tree));
 	memcpy(ted, &keep_ted, sizeof(keep_ted));
@@ -799,7 +789,7 @@ static void part_secure(short x, short y)
 	d_tick(x + 3, ROW(1), "Check certificates on the DSP", T_DSP);
 	d_add(G_STRING, 0, 0, (long)note, x + 3, ROW(2), (short)strlen(note), 1);
 	d_add(G_STRING, 0, 0, (long)"Pi gateway", x, ROW(3), 10, 1);
-	d_field(x + 11, ROW(3), s_gate, 18, 'X');
+	framed(d_long(x + 11, ROW(3), s_gate, 18, (short)sizeof(s_gate) - 1));
 	d_add(G_STRING, 0, 0, (long)"Port", x + 31, ROW(3), 4, 1);
 	d_field(x + 36, ROW(3), s_gport, 5, '9');
 	d_add(G_STRING, 0, 0, (long)"SFTP goes through the Pi gateway,", x + 3, ROW(4), 33, 1);
@@ -1034,23 +1024,27 @@ int dlg_chmod(const char *name, int mode)
 
 /* ---------------- a line of text ---------------- */
 
-int dlg_ask(const char *title, const char *label, char *buf, short len)
+int dlg_ask(const char *title, const char *label, char *buf, short len, short cap)
 {
-	static char field[48];
+	static char field[256];
 	short f, b_ok;
+	if (cap > (short)sizeof(field) - 1)
+		cap = (short)sizeof(field) - 1;
+	if (len > cap)
+		len = cap;
 	if (len > 46)
 		len = 46;
-	str_copy(field, buf, sizeof(field));
+	str_copy(field, buf, cap + 1);
 	d_begin(len + 6 > 40 ? len + 6 : 40, 8);
 	d_add(G_STRING, 0, 0, (long)title, 2, 1, (short)strlen(title), 1);
 	d_text(2, 3, label);
-	f = d_edit(2, 4, field, len, 'X');
+	f = d_long(2, 4, field, len, cap);
 	d_button((len + 6 > 40 ? len + 6 : 40) - 24, 6, 10, "Cancel", EXIT);
 	b_ok = d_button((len + 6 > 40 ? len + 6 : 40) - 12, 6, 10, "OK", EXIT | DEFAULT);
 	d_end();
 	if (d_do(f) != b_ok || !field[0])
 		return 0;
-	str_copy(buf, field, len + 1);
+	str_copy(buf, field, cap + 1);
 	return 1;
 }
 
@@ -1239,7 +1233,8 @@ void dlg_keys(void)
 
 static SITE *work;		/* the copy being edited, only while the dialog is open */
 static short nwork, wsel;
-static char f_name[26], f_host[42], f_port[6], f_user[34], f_pass[34], f_rdir[42], f_ldir[42];
+/* as long as the site keeps them (store.h); the fields show part of them */
+static char f_name[32], f_host[64], f_port[6], f_user[64], f_pass[64], f_rdir[160], f_ldir[160];
 static char srow[SROWS][SLW + 2];
 
 /* ---- a site's protocol: a choice button with a popup list ---- */
@@ -1378,22 +1373,22 @@ static SITE *sites_dialog(void)
 
 	x = SLW + 6;
 	d_text(x, 2, "Name:");
-	e_name = d_edit(x + 10, 2, f_name, 24, 'X');
+	e_name = d_long(x + 10, 2, f_name, 24, (short)sizeof(f_name) - 1);
 	d_text(x, 4, "Server:");
-	e_host = d_edit(x + 10, 4, f_host, 28, 'X');
+	e_host = d_long(x + 10, 4, f_host, 28, (short)sizeof(f_host) - 1);
 	d_text(x, 5, "Port:");
 	e_port = d_edit(x + 10, 5, f_port, 5, '9');
 	b_proto = d_choice(x + 17, 5, 21, f_plabel);
 	s_on[0] = anon_on;
 	f_anon = d_tick(x, 7, "Log in anonymously", 0);
 	d_text(x, 8, "User:");
-	e_user = d_edit(x + 10, 8, f_user, 28, 'X');
+	e_user = d_long(x + 10, 8, f_user, 28, (short)sizeof(f_user) - 1);
 	d_text(x, 9, "Password:");
-	d_pass(x + 10, 9, f_pass, 22);
+	d_pass(x + 10, 9, f_pass, 22, (short)sizeof(f_pass) - 1);
 	d_text(x, 11, "Server folder:");
-	e_rdir = d_edit(x + 15, 11, f_rdir, 23, 'X');
+	e_rdir = d_long(x + 15, 11, f_rdir, 23, (short)sizeof(f_rdir) - 1);
 	d_text(x, 12, "Atari folder:");
-	e_ldir = d_edit(x + 15, 12, f_ldir, 18, 'X');
+	e_ldir = d_long(x + 15, 12, f_ldir, 18, (short)sizeof(f_ldir) - 1);
 	b_ldir = d_button(x + 34, 12, 4, "...", 0);
 	tree[b_ldir].ob_flags |= TOUCHEXIT;
 	d_text(x, 14, "Files go:");
@@ -1430,7 +1425,7 @@ static SITE *sites_dialog(void)
 		if (r == b_ldir) {
 			tree[r].ob_state &= ~SELECTED;
 			if (pick_folder(f_ldir, sizeof(f_ldir)))
-				;
+				lf_end(lf_of(tree, e_ldir));
 			win_redraw_area(0);
 			objc_draw(tree, 0, 8, x, y, w, h);
 			continue;
@@ -1506,8 +1501,11 @@ static SITE *sites_dialog(void)
 		if (changed) {
 			fields_from(&work[wsel]);
 			s_on[0] = work[wsel].anon;
+			for (k2 = 0; k2 < nlf; k2++)
+				lf_end(&lfs[k2]);	/* the fields show the site's own */
 			pwf[0].clear = 0;
-			pw_update_text(&pwf[0]);
+			pw_update(&pwf[0]);
+			lf_view(pwf[0].lf);
 			tree[m_ext].ob_state = work[wsel].ascii == 0 ? SELECTED : 0;
 			tree[m_txt].ob_state = work[wsel].ascii == 1 ? SELECTED : 0;
 			tree[m_bin].ob_state = work[wsel].ascii == 2 ? SELECTED : 0;
@@ -1563,22 +1561,22 @@ SITE *dlg_sites(void)
 SITE *dlg_quick(void)
 {
 	static SITE q;
-	static char host[42], port[6] = "21", user[34], pass[34];
+	static char host[64], port[6] = "21", user[64], pass[64];
 	static short proto;
 	short e_host, ok, keep, r, b_proto;
 	d_begin(50, 13);
 	nticks = 0;
 	d_band(50, " Quick connect");
 	d_text(2, 2, "Server:");
-	e_host = d_edit(13, 2, host, 34, 'X');
+	e_host = d_long(13, 2, host, 34, (short)sizeof(host) - 1);
 	d_text(2, 3, "Port:");
 	d_edit(13, 3, port, 5, '9');
 	proto_label(proto);
 	b_proto = d_choice(20, 3, 21, f_plabel);
 	d_text(2, 5, "User:");
-	d_edit(13, 5, user, 30, 'X');
+	d_long(13, 5, user, 30, (short)sizeof(user) - 1);
 	d_text(2, 6, "Password:");
-	d_pass(13, 6, pass, 24);
+	d_pass(13, 6, pass, 24, (short)sizeof(pass) - 1);
 	d_text(13, 7, "(no user: anonymous)");
 	s_on[0] = 0;
 	keep = d_tick(2, 9, "Keep it in the site list", 0);

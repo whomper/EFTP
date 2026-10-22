@@ -143,6 +143,11 @@ New, Copy and Del under the list add, copy and remove sites; Save keeps
 the changes without connecting, Cancel forgets them. Passwords are kept
 encrypted in EFTP.INF, with a key in EFTP.KEY.
 
+A field takes more than it shows: a long folder, server name or
+password scrolls as you type, up to 159 characters for a folder and 63
+for a server, user or password. Left and Right move in it (with Shift: to the start or
+the end), Clr/Home goes to the start.
+
 **File > Quick connect** connects to a server without making a site:
 its name, a port and protocol, and a login (none: anonymous). Tick "Keep it in the
 site list" to make it a site after all.
@@ -417,6 +422,7 @@ F10 switches to the Israeli keyboard for typing Hebrew names.
 | ^A             | select all                                     |
 | ^C             | copy the names of the files chosen             |
 | ^C ^X ^V       | in a dialog: copy, cut, paste a field          |
+| Left, Right    | in a dialog's field: move (Shift: start, end)  |
 | ^R, Esc        | read the lists again                           |
 | Esc, Undo      | in a dialog or an alert: Cancel                |
 | Space, Insert  | select the file under the cursor and move on   |

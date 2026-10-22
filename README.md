@@ -246,6 +246,7 @@ python3 tests/hatari/esc_test.py /tmp/eftp-esc Falcon             # Esc and Undo
 python3 tests/hatari/disk_audit.py /tmp/eftp-disk Falcon          # disk access against its budgets (6.5)
 python3 tests/hatari/clock_test.py /tmp/eftp-clock Falcon         # times right on a fast 200 Hz clock
 python3 tests/hatari/font_test.py /tmp/eftp-font Falcon:16         # a GDOS font chosen, kept, drawn
+python3 tests/hatari/field_test.py /tmp/eftp-field Falcon         # fields hold more than they show
 python3 tests/hatari/screenshots.py /tmp/eftp-shots               # the pictures in docs/
 ```
 
@@ -270,6 +271,10 @@ files' bytes and line ends.
 redraw in it, Hebrew file names too, that it is kept in `EFTP.INF` and that EFTP draws its folder
 whole in it when started again. It needs a GDOS: with `AERA_WITH_NVDI=1`, `machines.py` installs
 NVDI on the Falcon from your own copy (see its notes); without one it says so and passes.
+`field_test.py` types, with the keyboard alone, more than the Site Manager's fields show: a user,
+a password of 60 and a server folder, edited with ClrHome, Delete and Shift+Right, ^C ^V ^X;
+then renames a server file to a name longer than its field. It checks `EFTP.INF`, the server's
+login and folder, the clipboard and the new name (guidelines 5.4).
 
 ## Licence
 
