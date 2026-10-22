@@ -225,10 +225,9 @@ sudo apt install -y git && \
 Or step by step, with EFTP's gateway only:
 
 ```
-sudo apt install -y git                  (Raspberry Pi OS Lite only)
-git clone https://github.com/whomper/AERA-Gateway
-cd AERA-Gateway
-./update-pi.sh
+sudo apt install -y git           (Raspberry Pi OS Lite comes without it)
+git clone https://github.com/whomper/AERA-Gateway ~/AERA-Gateway
+~/AERA-Gateway/update-pi.sh       (the latest release; and aera-gateway a command)
 sudo aera-gateway install ftp --allow ATARI_IP
 ```
 
