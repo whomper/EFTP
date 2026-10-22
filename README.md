@@ -33,7 +33,7 @@ and SFTP servers too.
   sort, colour on 16- and 256-colour screens, a Settings dialog with a sidebar, the server's
   messages in a log pane, iconify, help in EHypView or ST-Guide.
 - **Hebrew** names, shown in the Atari character set; F10 switches to the Hebrew keyboard.
-- **Small and quick:** the ST edition is about 180 KB of plain 68000 code and runs on a 1 MB ST with
+- **Small and quick:** the ST edition is about 200 KB of plain 68000 code and runs on a 1 MB ST with
   STinG; both editions run in TT RAM when there is some.
 
 ![EFTP on a Falcon: the Atari's files on the left, the server's on the right, the transfers below](docs/screenshot.png)
@@ -46,7 +46,7 @@ file by file or all together in the zip:
 | File | What it is |
 |---|---|
 | `EFTP.PRG` | Falcon and TT: with Falcon mode (TLS, DSP); also works through the Pi |
-| `EFTPST.PRG` | ST and STE: the same program without TLS (about 105 KB smaller), through the Pi |
+| `EFTPST.PRG` | ST and STE: the same program without TLS (about 110 KB smaller), through the Pi |
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode |
 | `EFTP.HYP` | the user guide, for EHypView or ST-Guide; the Help key opens it |
 | `EFTP.RSC`, `EFTP.ICN`, `EFTPMK.ICN` | the desktop icon (in the zip's `icons/` folder) |
@@ -107,8 +107,10 @@ picks the way from the site's **Protocol** (**File > Sites**) and **Options > Se
   connection's session, which saves the slow part of the handshake and which vsftpd and others
   insist on.
 
-**Setting up the Pi** (Raspberry Pi OS, from a fresh card), with your Atari's address for `ATARI_IP`.
-The short way, one line that sets up every AERA gateway for that Atari, EFTP's among them:
+**Setting up the Pi** (Raspberry Pi OS bullseye or newer, from a fresh card), with your Atari's
+address for `ATARI_IP`. The short way, one line that takes AERA-Gateway's latest release and sets up
+the AERA gateways for that Atari (`aera-gateway install all`), EFTP's among them; EMail's needs
+your mail servers after `--mail` (see [AERA-Gateway](https://github.com/whomper/AERA-Gateway)):
 
 ```sh
 sudo apt install -y git && git clone https://github.com/whomper/AERA-Gateway ~/AERA-Gateway && ~/AERA-Gateway/update-pi.sh --allow ATARI_IP
@@ -124,8 +126,9 @@ cd AERA-Gateway
 sudo aera-gateway install ftp --allow ATARI_IP
 ```
 
-(`update-pi.sh` makes `aera-gateway` a command; before it has run, it is `gateway/aera-gateway`.)
-To update: `cd ~/AERA-Gateway && ./update-pi.sh`. To check: `aera-gateway status`.
+(`update-pi.sh` makes `aera-gateway` a command; before it has run once, it is
+`~/AERA-Gateway/gateway/aera-gateway`.) To update: `~/AERA-Gateway/update-pi.sh`. To check:
+`aera-gateway status`.
 
 In EFTP: **Options > Settings > Secure**, Pi gateway `PI_IP` (the Pi's address), port **2121**.
 Then give the sites their real server names and choose FTPS or SFTP as their Protocol in
@@ -155,7 +158,7 @@ AERA-Gateway's for EFTP's tests; set the Pi up from AERA-Gateway itself, as abov
 - Hidden files on request, folders above files, sort by name, size or date.
 - A protocol log (`EFTP.LOG`) with every line timed to the hundredth of a second and the passwords
   left out.
-- `EFTP.INF` in capitals, each setting with a note above it, as EMail's.
+- `EFTP.INF` in capitals, each setting with a note above it and an empty line after it, as EMail's.
 - The help: `EFTP.HYP` for EHypView or ST-Guide, opened by the Help key.
 
 EFTP shares a lot with [EMail](https://github.com/whomper/EMail),

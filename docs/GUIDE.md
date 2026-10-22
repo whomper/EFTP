@@ -42,7 +42,7 @@ The files are in the latest release on EFTP's GitHub page
 | Falcon, TT        | `EFTP.PRG`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (Falcon mode), SFTP through the Pi |
 | ST, STE, Mega ST  | `EFTPST.PRG`                 | FTPS and SFTP through the Pi         |
 
-`EFTPST.PRG` is the same program without TLS, about 105 KB smaller: rename it
+`EFTPST.PRG` is the same program without TLS, about 110 KB smaller: rename it
 to `EFTP.PRG` if you like.
 
 EFTP can live in any folder, on any drive: there is no folder it must
@@ -209,9 +209,12 @@ to check out.
 
 ### Setting up the Pi
 
-On a Raspberry Pi with Raspberry Pi OS (from a fresh card), with your
-Atari's address in place of ATARI_IP. The short way, one line that
-sets up every AERA gateway for that Atari, EFTP's among them:
+On a Raspberry Pi with Raspberry Pi OS bullseye or newer (from a
+fresh card), with your Atari's address in place of ATARI_IP. The short
+way, one line that takes AERA-Gateway's latest release and sets up the
+AERA gateways for that Atari (aera-gateway install all), EFTP's among
+them; EMail's needs your mail servers after --mail (AERA-Gateway's
+README):
 
 ```
 sudo apt install -y git && \
@@ -229,9 +232,10 @@ cd AERA-Gateway
 sudo aera-gateway install ftp --allow ATARI_IP
 ```
 
-(update-pi.sh makes aera-gateway a command; before it has run, it is
-gateway/aera-gateway.) To update it later: `cd ~/AERA-Gateway &&
-./update-pi.sh`. To see that it runs: `aera-gateway status`.
+(update-pi.sh makes aera-gateway a command; before it has run once, it
+is ~/AERA-Gateway/gateway/aera-gateway.) To update it later:
+`~/AERA-Gateway/update-pi.sh`. To see that it runs: `aera-gateway
+status`.
 
 Then in EFTP: Options > Settings > Secure, Pi gateway: the Pi's
 address (PI_IP), port 2121. AERA-Gateway's README has the gateway's
@@ -462,7 +466,9 @@ Undo or the Stop button stops it.
   about 40 KB/s (Delay 20), against 14 with 32000 and 25 with 7300.
 - **Not enough memory**: EFTPST.PRG needs about 350 KB free when it
   starts, EFTP.PRG about 500 KB for Falcon mode; on a 1 MB machine use
-  EFTPST.PRG, and leave out accessories you don't need.
+  EFTPST.PRG, and leave out accessories you don't need. **"EFTP can't
+  open its screen"** says the same of the VDI's memory, with how much
+  was free: load fewer accessories, or add memory.
 - **"... needs the Raspberry Pi gateway"** or **"FTPS needs Falcon
   mode or the Raspberry Pi gateway"**: the site is FTPS or SFTP; set up
   the gateway (Settings > Secure), or switch on Falcon mode for FTPS.
@@ -489,7 +495,7 @@ Undo or the Stop button stops it.
 
 The settings and sites are kept in `EFTP.INF`, a text file that explains
 itself: each setting has a note above it saying what it is and what the
-numbers mean. EFTP writes it again whenever settings change, with the
+numbers mean, and an empty line after it. EFTP writes it again whenever settings change, with the
 notes. Passwords are encrypted with `EFTP.KEY`; type one in plain text
 in `PASS=` and EFTP encrypts it the next time it saves. Without
 `EFTP.KEY` the passwords can't be read: type them again in File > Sites.
