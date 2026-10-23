@@ -82,7 +82,9 @@ viewer, Help says how to get one and offers the list of keys instead;
 
 The desktop icon, two folders (a gold one here, a blue one on the
 server) with an arrow each way, is in the release (in the zip, in `icons/`): `EFTP.RSC` for
-the resource editors, `EFTP.ICN` and its mask `EFTPMK.ICN`.
+the resource editors, `EFTP.ICN` and its mask `EFTPMK.ICN`. Take `EFTP.RSC` under TOS,
+EmuTOS, or NVDI with TOS's palette loaded (COLORVDI); under NVDI with its own palette take
+`EFTPNV.RSC`, whose 256-colour image is drawn in NVDI's colours.
 
 ## The window
 

@@ -49,7 +49,7 @@ file by file or all together in the zip:
 | `EFTPST.PRG` | ST and STE: the same program without TLS (about 110 KB smaller), through the Pi |
 | `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode |
 | `EFTP.HYP` | the user guide, for EHypView or ST-Guide; the Help key opens it |
-| `EFTP.RSC`, `EFTP.ICN`, `EFTPMK.ICN` | the desktop icon (in the zip's `icons/` folder) |
+| `EFTP.RSC`, `EFTPNV.RSC`, `EFTP.ICN`, `EFTPMK.ICN` | the desktop icon (in the zip's `icons/` folder): `EFTP.RSC` under TOS, EmuTOS, or NVDI with TOS's palette loaded (COLORVDI); `EFTPNV.RSC` under NVDI with its own palette |
 | `EFTP-x.y.zip` | all of these together |
 
 1. Copy `EFTP.PRG` or `EFTPST.PRG` into any folder, with `EFTP.HYP`; for Falcon mode,
@@ -172,7 +172,7 @@ sudo apt install gcc-m68k-linux-gnu python3 zip   # Debian/Ubuntu; no MiNTLib ne
 make                         # binary/EFTP.PRG, EFTPST.PRG, ROOTS.DAT
 make help HCP=/path/to/hcp   # binary/EFTP.HYP from docs/GUIDE.md
 make dist                    # dist/: each of a release's files, and EFTP-x.y.zip
-make icons                   # icons/: EFTP.RSC, EFTP.ICN, EFTPMK.ICN
+make icons                   # icons/: EFTP.RSC, EFTPNV.RSC, EFTP.ICN, EFTPMK.ICN
 ```
 
 `make test` and `make itest` are under [Tests](#tests).
@@ -196,7 +196,9 @@ Atari from the ST to the Falcon; BearSSL (`common/third_party/bearssl`, in `EFTP
 for the 68030. `common/tools/mkroots.c` decodes `CACERT.PEM` (from `common/certs/`) into
 `ROOTS.DAT`. The desktop icon is the family's: its drawing, in 256 colours, 16 and black and white,
 is `common/icons/EFTP.txt` (change it in AERA-Atari), and `make icons` (`common/tools/appicon.py`)
-makes `icons/`, `ui/icon.h`, `ui/icon16.h` and the pictures in `docs/` from it.
+makes `icons/`, `ui/icon.h`, `ui/icon16.h`, `ui/icon256.h` and the pictures in `docs/` from it.
+`EFTPNV.RSC` is `EFTP.RSC` with its 256-colour image on NVDI's own 256 colours, which share only
+4 with TOS's.
 
 ## Source
 
