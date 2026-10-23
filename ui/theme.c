@@ -38,10 +38,9 @@ static const short tos_pal[16][3] = {
 	{ 0, 0, 667 }, { 0, 667, 667 }, { 667, 667, 0 }, { 667, 0, 667 },
 };
 
-/* the pen among the screen's 16 (have[], as the screen shows them:
-   vq_color_seen) nearest to TOS's colour c: NVDI's 16 aren't TOS's
-   (guidelines 5.2), and pens 16 and up hold whatever another program
-   left there */
+/* the pen among the screen's 16 (have[]) nearest to TOS's colour c:
+   NVDI's 16 aren't TOS's (guidelines 5.2), and pens 16 and up hold
+   whatever another program left there */
 static short tos_pen(short (*have)[3], short c)
 {
 	short i, pick = c;
@@ -70,11 +69,9 @@ void theme_init(void)
 	if (!colour)
 		return;
 	if (planes >= 8) {
-		/* saved as the screen shows them, so quitting puts back a palette
-		   loaded straight into the hardware (COLORVDI), not NVDI's table */
 		for (i = 0; i < NPEN; i++) {
 			short rgb[3];
-			vq_color_seen(vdi_h, planes, FIRST_PEN + i, saved[i]);
+			vq_color(vdi_h, FIRST_PEN + i, saved[i]);
 			rgb[0] = shade[i][0];
 			rgb[1] = shade[i][1];
 			rgb[2] = shade[i][2];
@@ -85,7 +82,7 @@ void theme_init(void)
 	} else {
 		short have[16][3];
 		for (i = 0; i < 16; i++)
-			vq_color_seen(vdi_h, planes, i, have[i]);
+			vq_color(vdi_h, i, have[i]);
 		for (i = 0; i < NPEN; i++)
 			pen[i] = tos_pen(have, stock[i]);
 	}

@@ -94,7 +94,7 @@ $(OBJDIR)/build.o: $(OBJDIR)/build.c
 # from common/icons/EFTP.txt (the family's, guideline 5.5), committed; a
 # release carries icons/
 icons:
-	python3 common/tools/appicon.py EFTP --rsc icons/EFTP.RSC --rsc16 icons/EFTP16.RSC --icn icons/EFTP.ICN --mask icons/EFTPMK.ICN --headers ui --docs docs
+	python3 common/tools/appicon.py EFTP --rsc icons/EFTP.RSC --icn icons/EFTP.ICN --mask icons/EFTPMK.ICN --headers ui --docs docs
 
 $(OBJDIR)/eftp.elf: $(OBJS) $(OBJDIR)/build.o $(OBJDIR)/libbearssl.a common/atari/link.ld
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(OBJDIR)/build.o $(OBJDIR)/libbearssl.a -lgcc
@@ -238,7 +238,7 @@ itest: $(OBJDIR)/ftp-cli
 # a release's files: each one in dist/, and all of them in
 # dist/EFTP-x.y.zip (the icons in icons/), for the release workflow
 DIST    := binary/EFTP.PRG binary/EFTPST.PRG binary/CACERT.PEM binary/ROOTS.DAT binary/EFTP.HYP
-ICONS   := icons/EFTP.RSC icons/EFTP16.RSC icons/EFTP.ICN icons/EFTPMK.ICN
+ICONS   := icons/EFTP.RSC icons/EFTP.ICN icons/EFTPMK.ICN
 dist: all help
 	rm -rf dist
 	mkdir -p dist/zip/icons
