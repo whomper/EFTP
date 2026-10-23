@@ -194,9 +194,11 @@ No MiNTLib is needed: the program is freestanding (its runtime is in `common/ata
 `common/tools/elf2tos.py` writes the TOS executable. It is built for the 68000, so it runs on every
 Atari from the ST to the Falcon; BearSSL (`common/third_party/bearssl`, in `EFTP.PRG` only) is built
 for the 68030. `common/tools/mkroots.c` decodes `CACERT.PEM` (from `common/certs/`) into
-`ROOTS.DAT`. The desktop icon is the family's: its drawing, in 256 colours, 16 and black and white,
-is `common/icons/EFTP.txt` (change it in AERA-Atari), and `make icons` (`common/tools/appicon.py`)
-makes `icons/`, `ui/icon.h`, `ui/icon16.h` and the pictures in `docs/` from it.
+`ROOTS.DAT`. The icon is the family's: its drawing, in 256 colours, 16 and black and white, is
+`common/icons/EFTP.txt` (change it in AERA-Atari), and `make icons` (`common/tools/appicon.py`)
+makes `icons/`, `ui/icon.h`, `ui/icon16.h`, `ui/icon256.h` and the pictures in `docs/` from it. The
+desktop's `EFTP.RSC` carries the 16-colour and black-and-white images only (the desktop would show
+the 256-colour one in the wrong colours under NVDI); the About box shows the 256-colour one.
 
 ## Source
 
