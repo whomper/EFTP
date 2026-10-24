@@ -962,7 +962,7 @@ int main(void)
 	work_dir(dir, sizeof(dir));
 	crash_install(dir, "EFTP", ftp_version);
 	help_init();			/* memory the help viewer may read */
-	av_init("EFTP|EFTPST");		/* the desktop's AV server, if there is one */
+	av_init("EFTP");		/* the desktop's AV server, if there is one */
 	crash_cleanup = crash_quit;
 	crash_report = conn_log_append;	/* the report in EFTP.LOG too */
 	secret_warn = warn_plain;	/* before anything is saved */
