@@ -6,10 +6,13 @@
  * One window, as EMail's: a toolbar along the top (ECal's buttons), then
  * three panes, this Atari's files on the left, the server's on the
  * right and the transfers across the bottom. The dividers between them
- * can be dragged, each pane has a header strip and its own scroll bar
- * (common's panebar.c: AES objects, so the AES's look), and the pane
- * last clicked has the keyboard (its header is drawn dark). The AES's
- * sizer resizes the window. Sizes go to EFTP.INF.
+ * can be dragged, and each pane has a header strip and a scroll bar:
+ * the pane at the window's right edge (the server's, or the transfers
+ * when they are the bigger) the AES's own sliders, the others a bar of
+ * AES objects from common's panebar.c, so all in the AES's look
+ * (guidelines 5.1). The pane last clicked has the keyboard (its header
+ * is drawn dark). The AES's sizer resizes the window. Sizes go to
+ * EFTP.INF.
  */
 #include <string.h>
 #include <stdio.h>
@@ -30,12 +33,14 @@ int running;
 static GRECT mwork;			/* the window's work area */
 static GRECT r_tool;			/* the toolbar */
 static WIN *focus = &w_local;
+static WIN *aes_pane = &w_remote;	/* the one with the window's sliders */
 static char main_info[120];
 static short sbw;			/* scroll bar width: the AES's slider column */
 #define DIV 4				/* divider thickness */
 
-/* the AES's sizer (guidelines 5.1): its look, not one drawn here */
-#define MAINKIND (NAME | CLOSER | FULLER | MOVER | INFO | SIZER)
+/* the AES's sizer and sliders (guidelines 5.1): its look, not ones
+   drawn here; the sliders scroll the pane at the right edge */
+#define MAINKIND (NAME | CLOSER | FULLER | MOVER | INFO | SIZER | VSLIDE | UPARROW | DNARROW)
 
 static int intersect(GRECT *a, GRECT *b)
 {
@@ -287,6 +292,28 @@ static void set_pane(WIN *w, short x, short y, short wd, short ht)
 	w->line_h = ch;
 }
 
+/* the window's sliders from the pane at the right edge (0..1000); all
+   says set them even where they seem unchanged (a new layout) */
+static void aes_sliders(int all)
+{
+	static short last_size = -1, last_pos = -1;
+	WIN *w = aes_pane;
+	long rows = win_rows(w), max = w->total - rows;
+	short size, pos;
+	if (main_h <= 0 || main_iconified)
+		return;
+	size = w->total <= rows ? 1000 : (short)(rows * 1000 / w->total);
+	if (size < 1)
+		size = 1;
+	pos = max > 0 ? (short)(w->top * 1000 / max) : 0;
+	if (all || size != last_size)
+		wind_set(main_h, WF_VSLSIZE, size, 0, 0, 0);
+	if (all || pos != last_pos)
+		wind_set(main_h, WF_VSLIDE, pos, 0, 0, 0);
+	last_size = size;
+	last_pos = pos;
+}
+
 /* the panes in the window from opt.pane_w / pane_h */
 static void layout(void)
 {
@@ -315,6 +342,10 @@ static void layout(void)
 	set_pane(&w_local, mwork.x, top, lw, fh);
 	set_pane(&w_remote, mwork.x + lw + DIV, top, mwork.w - lw - DIV, fh);
 	set_pane(&w_queue, mwork.x, top + fh + DIV, mwork.w, avail - fh - DIV);
+	/* the bigger of the two at the right edge has the AES's sliders,
+	   beside it: no bar of its own */
+	aes_pane = w_remote.box.h >= w_queue.box.h ? &w_remote : &w_queue;
+	aes_pane->work.w += sbw;
 	for (i = 0; i < NPANE; i++) {
 		WIN *w = panes[i];
 		long max = w->total - win_rows(w);
@@ -323,6 +354,7 @@ static void layout(void)
 		if (w->resized)
 			w->resized(w);
 	}
+	aes_sliders(1);
 }
 
 static GRECT div_v(void)
@@ -352,7 +384,7 @@ static GRECT sb_rect(WIN *w)
 	GRECT r;
 	r.x = w->box.x + w->box.w - sbw;
 	r.y = w->work.y;
-	r.w = sbw;
+	r.w = w == aes_pane ? 0 : sbw;	/* none: the AES's sliders */
 	r.h = w->work.h;
 	return r;
 }
@@ -514,7 +546,10 @@ void win_redraw_lines(WIN *w, long first, long n)
 void win_sliders(WIN *w)
 {
 	GRECT s = sb_rect(w);
-	main_redraw(&s);
+	if (w == aes_pane)
+		aes_sliders(0);
+	else
+		main_redraw(&s);
 }
 
 /* the window's title and info line: GEM draws them as stored, so Hebrew
@@ -687,9 +722,13 @@ void win_scroll_to(WIN *w, long top)
 		GRECT m;
 		long old = w->top;
 		w->top = top;
-		b = bar_of(w);
-		m = pb_moved(&b, old);	/* the slider's old and new places */
-		main_redraw(&m);
+		if (w == aes_pane) {
+			aes_sliders(0);
+		} else {
+			b = bar_of(w);
+			m = pb_moved(&b, old);	/* the slider's old and new places */
+			main_redraw(&m);
+		}
 	}
 	{
 		GRECT a = w->work;
@@ -953,6 +992,25 @@ void win_message(short *msg)
 	case WM_CLOSED:
 		if (!running)
 			main_closed();
+		break;
+	case WM_ARROWED:		/* the AES's sliders: the pane at the right */
+		if (!main_iconified) {
+			long rows = win_rows(aes_pane), t = aes_pane->top;
+			switch (msg[4]) {
+			case WA_UPPAGE: t -= rows - 1; break;
+			case WA_DNPAGE: t += rows - 1; break;
+			case WA_UPLINE: t--; break;
+			case WA_DNLINE: t++; break;
+			}
+			win_scroll_to(aes_pane, t);
+		}
+		break;
+	case WM_VSLID:
+		if (!main_iconified) {
+			long max = aes_pane->total - win_rows(aes_pane);
+			if (max > 0)
+				win_scroll_to(aes_pane, (msg[4] * max + 500) / 1000);
+		}
 		break;
 	case WM_BOTTOMED:
 		wind_set(main_h, WF_BOTTOM, 0, 0, 0, 0);
