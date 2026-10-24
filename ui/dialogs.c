@@ -92,6 +92,26 @@ short d_add(short type, short flags, short state, long spec, short x, short y, s
 	return i;
 }
 
+/* the objects added since box, which must be the last ones and whole
+   characters, become its children: a list's rows in its box, which
+   stays white in 3D with them (common's dlg_3d) */
+static void d_nest(short box)
+{
+	short i;
+	if (last_child == box)
+		return;
+	tree[box].ob_head = box + 1;
+	tree[box].ob_tail = last_child;
+	tree[last_child].ob_next = box;
+	for (i = box + 1; i <= last_child; i++) {
+		tree[i].ob_x -= tree[box].ob_x;
+		tree[i].ob_y -= tree[box].ob_y;
+	}
+	tree[box].ob_next = 0;
+	tree[0].ob_tail = box;
+	last_child = box;
+}
+
 short d_text(short x, short y, const char *s)
 {
 	return d_add(G_STRING, 0, 0, (long)s, x, y, (short)strlen(s), 1);
@@ -529,7 +549,7 @@ static void show_page(short p, int draw)
 		}
 	}
 	for (i = 1; i <= npages; i++)
-		tree[page_tab[i]].ob_state = i == p ? SELECTED : 0;
+		((TEDINFO *)tree[page_tab[i]].ob_spec)->te_color = i == p ? 0x1071 : 0x1180;
 	if (draw) {
 		short x, y, k;
 		for (k = 1; k <= npages; k++) {
@@ -1089,6 +1109,7 @@ static short pick_w(const char *title, const char **items, short n, short lw)
 	box = d_add(G_BOX, 0, 0, 0x00FF1100L, 2, 3, lw, PROWS);
 	for (i = 0; i < PROWS; i++)
 		row[i] = d_add(G_STRING, TOUCHEXIT, 0, (long)shown[i], 2, 3 + i, lw, 1);
+	d_nest(box);
 	b_up = d_add(G_BOXCHAR, TOUCHEXIT, 0, 0x01FF1100L, lw + 3, 3, 2, 1);
 	b_down = d_add(G_BOXCHAR, TOUCHEXIT, 0, 0x02FF1100L, lw + 3, 2 + PROWS, 2, 1);
 	f_count = d_add(G_STRING, 0, 0, (long)count, 2, PROWS + 4, lw, 1);
@@ -1376,6 +1397,7 @@ static SITE *sites_dialog(void)
 	list = d_add(G_BOX, 0, 0, 0x00FF1100L, 2, 2, SLW, SROWS);
 	for (k = 0; k < SROWS; k++)
 		row[k] = d_add(G_STRING, TOUCHEXIT, first + k == wsel ? SELECTED : 0, (long)srow[k], 2, 2 + k, SLW, 1);
+	d_nest(list);
 	b_up = d_add(G_BOXCHAR, TOUCHEXIT, 0, 0x01FF1100L, SLW + 2, 2, 2, 1);
 	b_down = d_add(G_BOXCHAR, TOUCHEXIT, 0, 0x02FF1100L, SLW + 2, 1 + SROWS, 2, 1);
 	b_new = d_button(2, SROWS + 3, 5, "New", EXIT);
