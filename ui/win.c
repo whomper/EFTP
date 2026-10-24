@@ -364,6 +364,7 @@ static PANEBAR bar_of(WIN *w)
 	b.total = w->total;
 	b.shown = win_rows(w);
 	b.top = w->top;
+	b.across = 0;
 	return b;
 }
 
@@ -437,7 +438,6 @@ static void draw_main(GRECT *clip)
 		r = sb_rect(w);
 		if (intersect(clip, &r) && r.h > 0) {
 			PANEBAR b = bar_of(w);
-			fill(&r, 0);	/* in 3D the bar's objects leave its edge columns */
 			pb_draw(&b, &r);
 		}
 	}
