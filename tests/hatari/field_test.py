@@ -19,7 +19,7 @@ Erez, 22 Oct 2026; common/ui/field.c), typed into with the keyboard alone:
 
     field_test.py WORKDIR [MACHINE]     (Xvfb, xdotool, pip install pyftpdlib)
 
-MACHINE: Falcon (the default, EFTP.PRG) or ST-1 (EFTPST.PRG), on Erez's
+MACHINE: Falcon (the default) or ST-1, EFTP.PRG on both, on Erez's
 TOS when ~/.aera/tos has it (common/tools/machines.py). Screenshots in
 WORKDIR/shots.
 """

@@ -16,6 +16,7 @@
 #include "util.h"
 #include "conn.h"
 #include "tls.h"
+#include "tlsovl.h"
 
 OPTIONS opt;
 SITE *sites[MAXSITE];
@@ -273,11 +274,12 @@ int store_init(const char *workdir)
 		secret_init(kf);
 		store_lost_passwords = 0;
 	}
-	/* Falcon mode: the root certificates and the random seed next to
-	   EFTP.PRG */
+	/* a Direct connection: TLS.OVL, the root certificates and the random
+	   seed next to EFTP.PRG */
 	path_join(conn_cacert, sizeof(conn_cacert), workdir, "CACERT.PEM");
 	path_join(tls_roots_cache, sizeof(tls_roots_cache), workdir, "ROOTS.DAT");
 	path_join(tls_seed_path, sizeof(tls_seed_path), workdir, "SEED.DAT");
+	path_join(tls_ovl_path, sizeof(tls_ovl_path), workdir, "TLS.OVL");
 	buf = pf_load(inf_path, 0);
 	if (buf) {
 		for (line = buf; line && *line; line = next) {
@@ -394,9 +396,9 @@ int store_save_settings(void)
 	put_fmt(&b, "sort the lists by 0 name, 1 size, 2 date; add 8 for the other way round",
 		"SORT", "%d", opt.sort);
 	put_str(&b, "the Atari folder shown last", "LOCALDIR", opt.ldir);
-	put_fmt(&b, "1 = Falcon mode: FTPS with TLS on this Atari (Falcon, TT; EFTP.PRG); 0 = through the Pi gateway",
+	put_fmt(&b, "1 = Direct connection: FTPS with TLS on this Atari (68020 or better: TT, Falcon; TLS.OVL next to EFTP.PRG); 0 = through the Pi gateway",
 		"FALCON", "%d", opt.falcon);
-	put_fmt(&b, "Falcon mode: 1 = the DSP checks the servers' signatures, 0 = the 68030 does",
+	put_fmt(&b, "Direct connection: 1 = the DSP checks the servers' signatures, 0 = the 68030 does",
 		"DSP", "%d", opt.dsp);
 	put_str(&b, "the Raspberry Pi gateway's address, for FTPS and SFTP servers (aera-gateway install ftp on the Pi)",
 		"GATE", opt.gate);

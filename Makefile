@@ -2,10 +2,10 @@
 # Copyright (C) 2026 AERA | Erez Yaary
 # EFTP - an FTP program for the Atari ST/STE/TT/Falcon, in C.
 #
-#   make            builds binary/EFTP.PRG (with Falcon mode: FTPS with TLS
-#                   on the Atari) and EFTPST.PRG (the ST edition: secure
-#                   servers through the Pi gateway, about 105 KB smaller), as
-#                   ECal does, with a stock m68k ELF cross compiler
+#   make            builds binary/EFTP.PRG, one program for every Atari,
+#                   and copies TLS.OVL next to it (a Direct connection's
+#                   TLS, loaded on a TT or Falcon: the guidelines, 7.4),
+#                   with a stock m68k ELF cross compiler
 #                   (Debian/Ubuntu: apt install gcc-m68k-linux-gnu).
 #                   No MiNTLib needed: the program is freestanding and
 #                   common/tools/elf2tos.py writes the TOS header.
@@ -19,8 +19,8 @@
 # binary/ is what make builds, never committed: releases carry the
 # programs (.github/workflows/release.yml).
 #
-# The code EFTP shares with the other AERA programs (BearSSL, the DSP RSA,
-# bidi, dates, passwords, the libc headers, the build tools) is in
+# The code EFTP shares with the other AERA programs (TLS.OVL, BearSSL for
+# the tests on this computer, bidi, dates, passwords, the libc headers, the build tools) is in
 # common/, a git subtree of github.com/whomper/AERA-Atari: change it there,
 # then tools/sync-common.sh. The rest of the Atari runtime, the STinG
 # client and the GEM building blocks still come from EMail
@@ -34,51 +34,39 @@ CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
            -fdisable-tree-bswap \
            -fno-asynchronous-unwind-tables -Wall -Wno-pointer-sign \
            -DFTP_TOS -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include \
-           -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/ui -Icommon/third_party/bearssl/inc \
-           -DTLS_FULL_EDITION=\"EFTP.PRG\"
+           -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/ui -Icommon/third_party/bearssl/inc
 LDFLAGS := -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/atari/link.ld \
            -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments
 
-# BearSSL 0.6 for Falcon mode, built for the 68030 (the rest stays 68000
-# code and runs on any ST), as in EMail and ECal
+# BearSSL 0.6, for the tests on this computer: on the Atari the TLS is
+# TLS.OVL's (common/tlsovl, built in AERA-Atari, never here)
 BSSL    := common/third_party/bearssl
 BSSLSRC := $(wildcard $(BSSL)/src/*/*.c)
-BSSLDEF := -DBR_USE_URANDOM=0 -DBR_USE_GETENTROPY=0 -DBR_USE_UNIX_TIME=0 \
-           -DBR_USE_WIN32_TIME=0 -DBR_USE_WIN32_RAND=0 -DBR_RDRAND=0
-BSSLCF  := -m68030 -O2 -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic -fno-pie \
-           -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables -w \
-           -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include -I$(BSSL)/inc -I$(BSSL)/src $(BSSLDEF)
-BSSLOBJ  = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/bssl/%.o,$(BSSLSRC))
 HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
-CORE    := util charset conn ftp xfer store futil bidi secret ctime tz
-ATARI   := libc tos plat_tos net_tos sting gem dsprsa crash bigbuf
-UI      := main draw win files queue dialogs popup font fontsel about theme dsp help av alert dialog field mbar aboutbox iconify clip clipedit dd
+CORE    := util charset conn ftp xfer store futil bidi secret ctime tz ovl
+ATARI   := libc tos plat_tos net_tos sting gem tls_ovl crash bigbuf
+UI      := main draw win files queue dialogs popup font fontsel about theme dsp_ovl help av alert dialog field mbar aboutbox iconify clip clipedit dd
 
 OBJDIR  := build
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/crash_s.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE) $(ATARI) $(UI)))
-# the ST edition: tls_none.c instead of tls.c and BearSSL, and an About
-# box without the 256-colour icon (NO_ICON256: an ST never shows 256
-# colours; 2 KB kept)
-STONLY  := about aboutbox
-STOBJS  := $(filter-out $(addprefix $(OBJDIR)/,$(addsuffix .o,$(STONLY))),$(OBJS0)) \
-           $(addprefix $(OBJDIR)/st/,$(addsuffix .o,$(STONLY))) $(OBJDIR)/tls_none.o
-OBJS    := $(OBJS0) $(OBJDIR)/tls.o
+OBJS    := $(OBJS0)
 HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
            common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h)
 
 # what goes onto the Atari: binary/ (built, never committed)
-all: binary/EFTP.PRG binary/EFTPST.PRG binary/ROOTS.DAT
+all: binary/EFTP.PRG binary/TLS.OVL binary/ROOTS.DAT
 
 binary/EFTP.PRG: $(OBJDIR)/eftp.elf common/tools/elf2tos.py | binary
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
-binary/EFTPST.PRG: $(OBJDIR)/eftpst.elf common/tools/elf2tos.py | binary
-	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
+# the family's TLS.OVL, as it comes with common/: copied, never built here
+binary/TLS.OVL: common/tlsovl/TLS.OVL | binary
+	cp $< $@
 
 # the version: VERSION holds the last release (major.minor, e.g. 1.31),
-# and the build never writes it. Every build shows it as it is, in both
-# editions' About box (only releases leave the build machine, so there
+# and the build never writes it. Every build shows it as it is, in the
+# About box (only releases leave the build machine, so there
 # is nothing else to mark). tools/bump.py starts a release.
 VERSION_STR := $(shell cat VERSION)
 
@@ -96,19 +84,8 @@ $(OBJDIR)/build.o: $(OBJDIR)/build.c
 icons:
 	python3 common/tools/appicon.py EFTP --rsc icons/EFTP.RSC --rscnv icons/EFTPNV.RSC --icn icons/EFTP.ICN --mask icons/EFTPMK.ICN --headers ui --docs docs
 
-$(OBJDIR)/eftp.elf: $(OBJS) $(OBJDIR)/build.o $(OBJDIR)/libbearssl.a common/atari/link.ld
-	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(OBJDIR)/build.o $(OBJDIR)/libbearssl.a -lgcc
-
-$(OBJDIR)/eftpst.elf: $(STOBJS) $(OBJDIR)/build.o common/atari/link.ld
-	$(CC) $(LDFLAGS) -o $@ $(STOBJS) $(OBJDIR)/build.o -lgcc
-
-$(OBJDIR)/bssl/%.o: $(BSSL)/src/%.c
-	@mkdir -p $(dir $@)
-	$(CC) $(BSSLCF) -c -o $@ $<
-
-$(OBJDIR)/libbearssl.a: $(BSSLOBJ)
-	rm -f $@
-	$(CROSS)ar rcs $@ $^
+$(OBJDIR)/eftp.elf: $(OBJS) $(OBJDIR)/build.o common/atari/link.ld
+	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(OBJDIR)/build.o -lgcc
 
 $(OBJDIR)/%.o: src/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -122,12 +99,6 @@ $(OBJDIR)/%.o: common/atari/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 $(OBJDIR)/%.o: common/ui/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
-$(OBJDIR)/st/%.o: ui/%.c $(HDRS) | $(OBJDIR)
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DNO_ICON256 -c -o $@ $<
-$(OBJDIR)/st/%.o: common/ui/%.c $(HDRS) | $(OBJDIR)
-	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS) -DNO_ICON256 -c -o $@ $<
 # a 24 KB stack (48 KB by default): EFTP's deepest is a folder deleted
 # inside folders, and memory is short on a 1 MB ST
 $(OBJDIR)/crt0.o: common/atari/crt0.S | $(OBJDIR)
@@ -237,7 +208,7 @@ itest: $(OBJDIR)/ftp-cli
 
 # a release's files: each one in dist/, and all of them in
 # dist/EFTP-x.y.zip (the icons in icons/), for the release workflow
-DIST    := binary/EFTP.PRG binary/EFTPST.PRG binary/CACERT.PEM binary/ROOTS.DAT binary/EFTP.HYP
+DIST    := binary/EFTP.PRG binary/TLS.OVL binary/CACERT.PEM binary/ROOTS.DAT binary/EFTP.HYP
 ICONS   := icons/EFTP.RSC icons/EFTPNV.RSC icons/EFTP.ICN icons/EFTPMK.ICN
 dist: all help
 	rm -rf dist

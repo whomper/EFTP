@@ -4,12 +4,15 @@
 """EFTP.PRG on an emulated Falcon against secure servers, the two ways
 an Atari reaches them (as ECal's net_test.py does for its calendars):
 
-  ftps    Falcon mode: FTPS with TLS on the Falcon itself (BearSSL, RSA
-          on the emulated DSP) to pyftpdlib's TLS server, every data
-          connection encrypted and resuming the control's TLS session
+  ftps    a Direct connection: FTPS with TLS on the Falcon itself
+          (TLS.OVL: BearSSL, RSA on the emulated DSP) to pyftpdlib's TLS
+          server, every data connection encrypted and resuming the
+          control's TLS session
   sftp    through the Pi gateway: plain FTP from the Atari to
           gateway/eftpgate.py, SFTP from there to an SSH server
           (paramiko, as in gateway/test_eftpgate.py)
+  noovl   no TLS.OVL next to EFTP.PRG: Options > Direct connection says
+          so in an alert and in the log, stays off, and EFTP goes on
 
 EFTP connects to the site from the Site Manager and downloads a binary
 file and a text file with double clicks; the test checks the bytes (and
@@ -19,9 +22,10 @@ the text's line ends) and EFTP.LOG.
     pip install pyftpdlib pyopenssl paramiko, openssl; make first)
 
 MACHINE is one of the family's test machines (common/tools/machines.py
-list), the Falcon when none is given. ftps needs Falcon mode, so a TT or
-the Falcon (RSA on the DSP only on the Falcon); sftp runs on the STs too,
-with EFTPST.PRG.
+list), the Falcon when none is given. ftps and noovl need a Direct
+connection, so a TT or a Falcon (RSA on the DSP only on the Falcon); sftp
+runs on the STs too, with the same EFTP.PRG. With no mode, ftps, sftp and
+noovl.
 """
 import logging
 import os
@@ -42,8 +46,9 @@ import server  # noqa: E402
 os.environ["TZ"] = "Asia/Jerusalem"
 time.tzset()
 work = os.path.abspath(sys.argv[1])
-modes = [a for a in sys.argv[2:] if a in ("ftps", "sftp")] or ["ftps", "sftp"]
-spec = ([a for a in sys.argv[2:] if a not in ("ftps", "sftp")] or ["Falcon"])[0]
+MODES = ("ftps", "sftp", "noovl")
+modes = [a for a in sys.argv[2:] if a in MODES] or list(MODES)
+spec = ([a for a in sys.argv[2:] if a not in MODES] or ["Falcon"])[0]
 BIN = os.urandom(60000)
 TEXT = b"Line one\nLine two\n" * 400
 fails = []
@@ -122,10 +127,12 @@ def run(mode):
     shutil.rmtree(w, ignore_errors=True)
     os.makedirs(w)
     m = rig.machine(spec, w)
-    if mode == "ftps" and m.prg != "EFTP.PRG":
-        print("skip ftps: Falcon mode needs a TT or the Falcon, not %s" % m.describe(), flush=True)
+    if mode != "sftp" and m.name not in ("TT", "Falcon", "Falcon-4"):
+        print("skip %s: a Direct connection needs a TT or a Falcon, not %s" % (mode, m.describe()), flush=True)
         return
     print("%s on %s, %s" % (mode, m.describe(), m.prg), flush=True)
+    if mode == "noovl":
+        return no_ovl(w, m)
     dsp = m.name == "Falcon"
     h = home(w)
     hd = server.drive_c(w, prg=m.prg)
@@ -213,6 +220,51 @@ def run(mode):
             p.terminate()
         if mode == "ftps":
             srv.close_all()
+
+
+def no_ovl(w, m):
+    """TLS.OVL left out: switching a Direct connection on gives the alert
+    (the guidelines, 7.4), never a crash, and leaves it off"""
+    hd = server.drive_c(w, prg=m.prg)
+    os.remove(os.path.join(hd, "TLS.OVL"))
+    write_inf(hd, "FALCON=0\r\n", "")
+    logf, inf = os.path.join(hd, "EFTP.LOG"), os.path.join(hd, "EFTP.INF")
+    r = rig.Rig(w, m, extra=m.network())
+    try:
+        time.sleep(30)                              # boot, FAKESTNG, EFTP
+        r.move(600, 450)
+        time.sleep(1)
+        plain = pixels(r.shot("noovl-start"))
+        r.click(398, 8)                             # Options
+        time.sleep(1.5)
+        r.click(470, 91)                            # Direct connection (TLS)
+        r.move(600, 450)
+        time.sleep(3)
+        alert = pixels(r.shot("noovl-alert"))
+        check(changed(plain, alert) > 5000, "noovl: an alert came up")
+        r.key(rig.K["RETURN"])                      # OK
+        time.sleep(3)
+        after = pixels(r.shot("noovl-after"))
+        check(changed(plain, after) < 2000, "noovl: OK closed it, the window as before")
+        log = open(logf, errors="replace").read() if os.path.exists(logf) else ""
+        check("TLS.OVL is missing" in log, "noovl: the log says TLS.OVL is missing")
+        r.ctrl("q")                                 # still running: Quit saves the settings
+        check(wait_for(lambda: "FALCON=0" in open(inf, errors="replace").read()
+                       and "Direct connection" in open(inf, errors="replace").read(), 30),
+              "noovl: EFTP went on and quit, Direct connection still off in EFTP.INF")
+        check(not os.path.exists(os.path.join(hd, "CRASH.LOG")), "noovl: no CRASH.LOG")
+    finally:
+        r.stop()
+        m.stop()
+
+
+def pixels(path):
+    from PIL import Image
+    return Image.open(path).convert("RGB").tobytes()
+
+
+def changed(a, b):
+    return sum(1 for i in range(0, len(a), 3) if a[i:i + 3] != b[i:i + 3])
 
 
 for m in modes:

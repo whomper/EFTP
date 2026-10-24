@@ -219,7 +219,7 @@ void date_str(CTIME t, int wall, char *out, int size);
 #define KEY_SCAN(k)  (((unsigned short)(k)) >> 8)
 #define KEY_ASCII(k) ((unsigned char)((k) & 0xff))
 
-/* Falcon mode (dsp.c): RSA on the DSP when there is one */
+/* a Direct connection (dsp_ovl.c, TLS.OVL): RSA on the DSP when there is one */
 void falcon_dsp_init(void);
 int  falcon_mode_set(int on);	/* main.c: 0 and an alert when it can't be */
 const char *falcon_dsp_state(void);	/* "DSP" or "68030" */

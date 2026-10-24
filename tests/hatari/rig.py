@@ -14,15 +14,16 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "common", "tools"))
 import machines  # noqa: E402
 
-# the family's test machines (common/tools/machines.py); the ST edition
-# for the STs, EFTP.PRG (Falcon mode) for the 68030s
-PRG = {"ST": "EFTPST.PRG", "ST-1": "EFTPST.PRG", "TT": "EFTP.PRG", "Falcon": "EFTP.PRG",
+# the family's test machines (common/tools/machines.py): one EFTP.PRG on
+# every one, TLS.OVL next to it (a Direct connection on the TT and the
+# Falcons; an ST never loads it)
+PRG = {"ST": "EFTP.PRG", "ST-1": "EFTP.PRG", "TT": "EFTP.PRG", "Falcon": "EFTP.PRG",
        "Falcon-4": "EFTP.PRG"}
 
 
 def machine(spec, work):
     """the machine named spec (ST-1, ST:med, TT, Falcon:256...), its C: in
-    work/hd; with .prg, the edition that runs on it"""
+    work/hd; with .prg, the program that runs on it (EFTP.PRG)"""
     m = machines.Machine(spec, os.path.join(work, "hd"))
     m.prg = PRG[m.name]
     return m

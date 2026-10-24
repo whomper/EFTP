@@ -74,12 +74,14 @@ with the evidence.
   with panes, EMail's Settings sidebar, `EFTP.INF` with a note above
   every setting, the family's About box and its icon (`common/icons/EFTP.txt`,
   `make icons`).
-- **A release** carries `EFTP.PRG`, `EFTPST.PRG`, `EFTP.HYP` (hcp from `common/tools/build-hcp.sh`),
+- **A release** carries `EFTP.PRG`, `TLS.OVL`, `EFTP.HYP` (hcp from `common/tools/build-hcp.sh`),
   `CACERT.PEM`, `ROOTS.DAT` and the icon. The icons are committed in `icons/` (`make icons`).
-- Two editions, as ECal: `EFTP.PRG` (BearSSL, Falcon mode, for Falcon
-  and TT) and `EFTPST.PRG` (`src/tls_none.c`, through the Pi gateway
-  only, for a 1 MB ST). The TLS code (`src/tls.c`) is EMail's and ECal's;
-  keep it in step with them.
+- One `EFTP.PRG` for every Atari (guidelines 7.4): the TLS of a Direct
+  connection (the user never sees "Falcon mode"; the INF keeps `FALCON=`)
+  is the family's `TLS.OVL`, which a TT or Falcon loads when needed. It
+  is built in AERA-Atari (`common/tlsovl/TLS.OVL`), copied to `binary/`,
+  never built here; the host tests link `common/src/tls.c` and BearSSL.
+  Keep the program small enough for a 1 MB ST with STinG.
 - FTPS data connections: the TLS handshake comes after the 125/150
   reply (before it, servers deadlock), and resumes the control
   connection's session (vsftpd's require_ssl_reuse).
@@ -94,8 +96,9 @@ with the evidence.
 - Before pushing: `make test`, `make itest` (pip install pyftpdlib
   pyopenssl paramiko) and, when the Atari side changes,
   `tests/hatari/net_test.py` and `tests/hatari/secure_test.py` in
-  Hatari on the family's machines (`common/tools/machines.py`): `ST-1`
-  and `ST` run EFTPST.PRG, `TT` and `Falcon` EFTP.PRG. `make help
+  Hatari on the family's machines (`common/tools/machines.py`), all
+  running EFTP.PRG: secure_test's ftps and noovl on the Falcon or TT,
+  sftp and net_test on `ST-1` too. `make help
   HCP=...` rebuilds `binary/EFTP.HYP` when `docs/GUIDE.md` changes.
 - The small C library has no `%o` or floating point: format octal by hand
   and keep `double` out (it pulls in libgcc code that needs a GOT).

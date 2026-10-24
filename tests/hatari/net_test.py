@@ -17,8 +17,7 @@ protocol's VA_START, which goes to the server folder shown.
     net_test.py WORKDIR [MACHINE]     (Xvfb, xdotool, pip install pyftpdlib)
 
 MACHINE is one of the family's test machines (common/tools/machines.py
-list): ST-1 and ST run EFTPST.PRG, the ST edition; TT and Falcon (the
-default) EFTP.PRG. On the TT and the Falcon the downloads gather in TT
+list), the Falcon by default; every one runs EFTP.PRG. On the TT and the Falcon the downloads gather in TT
 RAM, on the STs in ST RAM.
 """
 import os

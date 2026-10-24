@@ -24,7 +24,7 @@ and SFTP servers too.
 - **Dates kept** both ways (MDTM, MFMT), in your time zone by name.
 - **Text and binary:** texts go in ASCII mode by their extension.
 - **Secure servers:** FTPS and SFTP through a Raspberry Pi on your home network, from any Atari; FTPS
-  by a Falcon or TT itself in Falcon mode (TLS 1.2, RSA on the DSP), as in EMail and ECal.
+  by a TT or Falcon itself in a Direct connection (TLS 1.2, RSA on the DSP), as in EMail and ECal.
 - **Site Manager:** your servers with their logins (passwords encrypted in `EFTP.INF`), the folders
   to start in, anonymous logins; **Quick connect** for the others.
 - **File management on both sides:** new folder, rename, delete (folders with what is in them), and
@@ -33,8 +33,9 @@ and SFTP servers too.
   sort, colour on 16- and 256-colour screens, a Settings dialog with a sidebar, the server's
   messages in a log pane, iconify, help in EHypView or ST-Guide.
 - **Hebrew** names, shown in the Atari character set; F10 switches to the Hebrew keyboard.
-- **Small and quick:** the ST edition is about 200 KB of plain 68000 code and runs on a 1 MB ST with
-  STinG; both editions run in TT RAM when there is some.
+- **Small and quick:** one program for every Atari, about 200 KB of plain 68000 code, that runs on a
+  1 MB ST with STinG; a TT or Falcon loads the TLS (`TLS.OVL`) only for a Direct connection. It runs
+  in TT RAM when there is some.
 
 ![EFTP on a Falcon: the Atari's files on the left, the server's on the right, the transfers below](docs/screenshot.png)
 
@@ -45,15 +46,15 @@ file by file or all together in the zip:
 
 | File | What it is |
 |---|---|
-| `EFTP.PRG` | Falcon and TT: with Falcon mode (TLS, DSP); also works through the Pi |
-| `EFTPST.PRG` | ST and STE: the same program without TLS (about 110 KB smaller), through the Pi |
-| `CACERT.PEM`, `ROOTS.DAT` | the root certificates for Falcon mode |
+| `EFTP.PRG` | the program, for every ST, STE, TT and Falcon |
+| `TLS.OVL` | the Direct connection (TLS on a TT or Falcon, RSA on the DSP), loaded only when used; an ST leaves it on the disk |
+| `CACERT.PEM`, `ROOTS.DAT` | the root certificates for a Direct connection |
 | `EFTP.HYP` | the user guide, for EHypView or ST-Guide; the Help key opens it |
 | `EFTP.RSC`, `EFTPNV.RSC`, `EFTP.ICN`, `EFTPMK.ICN` | the desktop icon (in the zip's `icons/` folder): `EFTP.RSC` under TOS, EmuTOS, or NVDI with TOS's palette loaded (COLORVDI); `EFTPNV.RSC` under NVDI with its own palette |
 | `EFTP-x.y.zip` | all of these together |
 
-1. Copy `EFTP.PRG` or `EFTPST.PRG` into any folder, with `EFTP.HYP`; for Falcon mode,
-   `CACERT.PEM` and `ROOTS.DAT` too. EFTP has no folder it must be in: it keeps its settings
+1. Copy `EFTP.PRG` into any folder, with `EFTP.HYP`; on a TT or Falcon, for a Direct connection,
+   `TLS.OVL`, `CACERT.PEM` and `ROOTS.DAT` too. EFTP has no folder it must be in: it keeps its settings
    (`EFTP.INF`, `EFTP.KEY`) in the folder it is started from, so one of its own keeps them
    together. To update, copy a new release's files over these; the settings stay.
 2. Load STinG (or run MiNT with MiNTnet).
@@ -66,9 +67,9 @@ For FTPS and SFTP servers, see [How it reaches the servers](#how-it-reaches-the-
 [user guide](docs/GUIDE.md) describes everything else.
 
 **Needs:** TOS 1.04 or newer (TOS 4 on the Falcon), EmuTOS, MagiC or MiNT; 640×200 (ST medium) or
-larger; free memory when it starts: about 350 KB for `EFTPST.PRG`, about 500 KB for `EFTP.PRG`
-with Falcon mode (more makes downloads faster); network: STinG (or STiK) on plain TOS, MiNTnet under FreeMiNT, or MagiC-Net. Falcon
-mode needs a Falcon or TT.
+larger; free memory when it starts: about 350 KB, and about 140 KB more for a Direct connection,
+which loads `TLS.OVL` (more makes downloads faster); network: STinG (or STiK) on plain TOS, MiNTnet
+under FreeMiNT, or MagiC-Net. A Direct connection needs a 68020 or better: a TT or Falcon.
 
 **With STinG, set the Delay in `STING.CPX` to suit the machine:** 10 on a
 Falcon or TT, 25 to 50 on an ST, as STinG's manual says. STinG looks at the network card that
@@ -80,7 +81,7 @@ small (5840 with an MSS of 1460): the card holds about four full packets.
 TOS keeps an entry in a small internal pool for every folder a program or accessory has looked
 into, and halts with "OUT OF INTERNAL MEMORY" when it runs out; FOLDRxxx makes the pool bigger.
 
-![EFTPST.PRG on a 1 MB ST in high resolution](docs/st-mono.png)
+![EFTP on a 1 MB ST in high resolution](docs/st-mono.png)
 
 ## How it reaches the servers
 
@@ -89,11 +90,12 @@ Plain FTP goes straight to the server from any Atari. For FTPS and SFTP, like
 of two ways:
 
 ```
-ST, STE:     Atari (EFTPST.PRG) --plain FTP, home LAN--> Raspberry Pi (eftpgate.py) --FTPS or SFTP--> the server
-Falcon, TT:  Atari (EFTP.PRG, TLS 1.2, RSA on the DSP) ---------------------------------------FTPS--> the server
+ST, STE:     Atari (EFTP) --plain FTP, home LAN--> Raspberry Pi (eftpgate.py) --FTPS or SFTP--> the server
+Falcon, TT:  Atari (EFTP + TLS.OVL: TLS 1.2, RSA on the DSP) --------------------------FTPS--> the server
+             (a Direct connection; or through the Pi, as an ST)
 ```
 
-SFTP always goes through the Pi, from a Falcon too, and so does FTPS when Falcon mode is off. EFTP
+SFTP always goes through the Pi, from a Falcon too, and so does FTPS without a Direct connection. EFTP
 picks the way from the site's **Protocol** (**File > Sites**) and **Options > Settings > Secure**.
 
 - **Through the Pi.** `gateway/eftpgate.py` is an FTP server for the Atari that speaks FTPS (Python's
@@ -101,9 +103,9 @@ picks the way from the site's **Protocol** (**File > Sites**) and **Options > Se
   in the login, `sftp:user@host:port`; EFTP writes that for you from the site's Protocol. It checks
   certificates, remembers SSH host keys, and turns text files' line ends for SFTP.
   On the Pi, [AERA-Gateway](https://github.com/whomper/AERA-Gateway) sets it up as a service (below).
-- **Falcon mode.** `EFTP.PRG` does FTPS itself with [BearSSL](https://bearssl.org/), the same TLS
-  code as EMail and ECal (ChaCha20 first, RSA certificates checked on the DSP56001, sessions
-  resumed); explicit (AUTH TLS) and implicit (port 990). Every data connection resumes the control
+- **A Direct connection.** On a TT or Falcon, EFTP does FTPS itself with `TLS.OVL`, the family's
+  TLS: [BearSSL](https://bearssl.org/) built for the 68030, the same TLS code as EMail and ECal
+  (ChaCha20 first, RSA certificates checked on the DSP56001, sessions resumed); explicit (AUTH TLS) and implicit (port 990). Every data connection resumes the control
   connection's session, which saves the slow part of the handshake and which vsftpd and others
   insist on.
 
@@ -140,7 +142,7 @@ AERA-Gateway's for EFTP's tests; set the Pi up from AERA-Gateway itself, as abov
 
 ![The Site Manager, on an SFTP site that goes through the Pi gateway](docs/sites.png)
 
-![Settings: a sidebar of parts, here Secure: Falcon mode and the Pi gateway](docs/settings.png)
+![Settings: a sidebar of parts, here Secure: a Direct connection and the Pi gateway](docs/settings.png)
 
 ## In more detail
 
@@ -169,7 +171,7 @@ colours and Settings, and icons drawn the same way.
 
 ```sh
 sudo apt install gcc-m68k-linux-gnu python3 zip   # Debian/Ubuntu; no MiNTLib needed
-make                         # binary/EFTP.PRG, EFTPST.PRG, ROOTS.DAT
+make                         # binary/EFTP.PRG, TLS.OVL (common's, as it is), ROOTS.DAT
 make help HCP=/path/to/hcp   # binary/EFTP.HYP from docs/GUIDE.md
 make dist                    # dist/: each of a release's files, and EFTP-x.y.zip
 make icons                   # icons/: EFTP.RSC, EFTPNV.RSC, EFTP.ICN, EFTPMK.ICN
@@ -185,15 +187,17 @@ HCP compiler from the [hypview](https://github.com/th-otto/hypview) project
 and a build changes no tracked file. `VERSION` holds the last release, major.minor (e.g. 1.40). Every
 build shows it as it is in the About box: only releases leave the build machine. To
 release: `tools/bump.py`, commit and push, then **Actions > Release > Run workflow** on `main` with
-what is new. [`.github/workflows/release.yml`](.github/workflows/release.yml) tests, builds both
-editions and the help file, tags the commit `vX.Y` and publishes the files and the zip as a GitHub
+what is new. [`.github/workflows/release.yml`](.github/workflows/release.yml) tests, builds the
+program and the help file, tags the commit `vX.Y` and publishes the files and the zip as a GitHub
 Release with those notes. Pushing a tag `vX.Y` made with `git tag -a` does the same, with the tag's
 message as the notes.
 
 No MiNTLib is needed: the program is freestanding (its runtime is in `common/atari/`) and
 `common/tools/elf2tos.py` writes the TOS executable. It is built for the 68000, so it runs on every
-Atari from the ST to the Falcon; BearSSL (`common/third_party/bearssl`, in `EFTP.PRG` only) is built
-for the 68030. `common/tools/mkroots.c` decodes `CACERT.PEM` (from `common/certs/`) into
+Atari from the ST to the Falcon. The TLS for a Direct connection is not in it: `TLS.OVL`, the
+family's, is built in AERA-Atari from common's `tls.c` and BearSSL (`common/third_party/bearssl`)
+for the 68030, and comes here with `common/` (`common/tlsovl/TLS.OVL`); `make` copies it next to
+the program, never builds it. The tests on this computer link `tls.c` and BearSSL directly. `common/tools/mkroots.c` decodes `CACERT.PEM` (from `common/certs/`) into
 `ROOTS.DAT`. The desktop icon is the family's: its drawing, in 256 colours, 16 and black and white,
 is `common/icons/EFTP.txt` (change it in AERA-Atari), and `make icons` (`common/tools/appicon.py`)
 makes `icons/`, `ui/icon.h`, `ui/icon16.h`, `ui/icon256.h` and the pictures in `docs/` from it.
@@ -210,10 +214,9 @@ ui/       the GEM program: the window and its panes, the file lists, the transfe
 atari/    plat_tos.c: files, folders and time on GEMDOS
 common/   code shared with the other AERA programs (from AERA-Atari): the TOS runtime
           (start-up, system calls, a small C library, AES/VDI, TCP over STinG/STiK
-          or MiNTnet with a DNS client), the connection, TLS (tls.c; tls_none.c in
-          EFTPST.PRG), charsets, time zones, the menu bar, help, drag and drop,
-          BearSSL, the DSP RSA, bidi, dates, passwords, the root certificates,
-          build tools
+          or MiNTnet with a DNS client), the connection, TLS.OVL and its loader,
+          charsets, time zones, the menu bar, help, drag and drop, BearSSL, the
+          DSP RSA, bidi, dates, passwords, the root certificates, build tools
 gateway/  the Raspberry Pi gateways (eftpgate.py is EFTP's) and aera-gateway, their installer:
           a copy of AERA-Gateway's; change it there, then run tools/sync-gateway.sh
 tests/    unit, fuzz and integration tests, the Hatari test rig
@@ -246,7 +249,7 @@ make itest    # against pyftpdlib: logins, MLSD and LIST, files and folders both
 
 ```sh
 python3 tests/hatari/net_test.py /tmp/eftp-net Falcon              # a real FTP server; or ST-1, ST, TT
-python3 tests/hatari/secure_test.py /tmp/eftp-sec Falcon           # Falcon mode FTPS; SFTP via eftpgate
+python3 tests/hatari/secure_test.py /tmp/eftp-sec Falcon           # Direct FTPS; SFTP via eftpgate; no TLS.OVL
 python3 tests/hatari/esc_test.py /tmp/eftp-esc Falcon             # Esc and Undo cancel every dialog
 python3 tests/hatari/disk_audit.py /tmp/eftp-disk Falcon          # disk access against its budgets (6.5)
 python3 tests/hatari/clock_test.py /tmp/eftp-clock Falcon         # times right on a fast 200 Hz clock
@@ -255,8 +258,8 @@ python3 tests/hatari/field_test.py /tmp/eftp-field Falcon         # fields hold 
 python3 tests/hatari/screenshots.py /tmp/eftp-shots               # the pictures in docs/
 ```
 
-The machines are the family's (`common/tools/machines.py list`): `ST-1` (1 MB) and `ST` run the ST
-edition, `TT`, `Falcon` and `Falcon-4` `EFTP.PRG`, with EmuTOS 1.4, which `machines.py` fetches, or
+The machines are the family's (`common/tools/machines.py list`): `ST-1` (1 MB), `ST`, `TT`, `Falcon`
+and `Falcon-4`, all running `EFTP.PRG` with `TLS.OVL` next to it, with EmuTOS 1.4, which `machines.py` fetches, or
 with your own TOS 1.04 and 4.04 when they are in `~/.aera/tos` (`AERA_TOS=emutos` for EmuTOS's).
 `net_test.py` boots one, where EFTP connects from the
 Site Manager, downloads a folder, uploads one by dragging it, answers "already there" with Skip, and
@@ -269,9 +272,10 @@ emulator only, so never install it on a real Atari.
 upload, a folder of 20 files and a folder of 200 listed, and fails above the family's budget
 (guidelines 6.5): one open a file, writes of 8 KB or more, reads of 16 KB or more, no lookup a file,
 the dates right both ways, at most one Dfree a job.
-`secure_test.py` does the same against secure servers: FTPS in Falcon mode (RSA on the emulated DSP,
-every data connection resuming the TLS session) and SFTP through `eftpgate.py`, and checks the
-files' bytes and line ends.
+`secure_test.py` does the same against secure servers: FTPS in a Direct connection (TLS.OVL, RSA on
+the emulated DSP, every data connection resuming the TLS session) and SFTP through `eftpgate.py`,
+and checks the files' bytes and line ends; then, without `TLS.OVL`, that switching a Direct
+connection on says so in an alert and the log, and EFTP goes on.
 `font_test.py` chooses the first monospaced GDOS font in Options > Font and checks that both panes
 redraw in it, Hebrew file names too, that it is kept in `EFTP.INF` and that EFTP draws its folder
 whole in it when started again. It needs a GDOS: with `AERA_WITH_NVDI=1`, `machines.py` installs
@@ -296,7 +300,7 @@ It includes, under their own licences (compatible with the GPL):
 
 - [BearSSL](common/third_party/bearssl) by Thomas Pornin: MIT licence
   ([LICENSE.txt](common/third_party/bearssl/LICENSE.txt))
-- `CACERT.PEM`, the root certificates for Falcon mode, from Mozilla's CA
+- `CACERT.PEM`, the root certificates for a Direct connection, from Mozilla's CA
   list (Mozilla Public License 2.0)
 
 The gateway uses [paramiko](https://www.paramiko.org/) for SFTP (LGPL 2.1), installed on the Pi

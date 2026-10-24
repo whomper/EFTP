@@ -21,7 +21,7 @@ and quits:
     disk_audit.py WORKDIR [MACHINE] [JOB...]   (Xvfb, xdotool, pip install pyftpdlib)
 
 MACHINE is one of the family's (common/tools/machines.py list), Falcon by
-default; ST-1 and ST run EFTPST.PRG at about 2 KB/s, so a 1 MB job takes
+default; on ST-1 and ST EFTP.PRG runs at about 2 KB/s, so a 1 MB job takes
 minutes there.
 """
 import collections

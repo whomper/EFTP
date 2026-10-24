@@ -15,6 +15,7 @@
 #include "../src/plat.h"
 #include "util.h"
 #include "tls.h"
+#include "tlsovl.h"
 #include "crash.h"
 #include "help.h"
 #include "av.h"
@@ -103,7 +104,7 @@ static const MBAR_ITEM m_opts[] = {
 	{ "Font...", 0, C_FONT },
 	{ "Show hidden files", 0, C_HIDDEN },
 	{ "-", 0, 0 },
-	{ "Falcon mode (TLS)", 0, C_FALCON },
+	{ "Direct connection (TLS)", 0, C_FALCON },
 	{ "-", 0, 0 },
 	{ "Hebrew keyboard", "F10", C_HEBREW },
 	{ "Protocol log", 0, C_PLOG },
@@ -174,23 +175,27 @@ void menu_update(void)
 	menu_icheck(mb.tree, mbar_object(&mb, C_FALCON), opt.falcon);
 }
 
-/* ---------------- Falcon mode ----------------
- * FTPS with TLS on the Atari itself (BearSSL, RSA on the DSP), as in
- * EMail and ECal: a 68030 does a handshake in seconds, an 8 MHz ST
- * would take minutes. Off, FTPS goes through the Pi gateway. */
+/* ---------------- Direct connection ----------------
+ * FTPS with TLS on the Atari itself (TLS.OVL: BearSSL, RSA on the DSP),
+ * as in EMail and ECal: a 68030 does a handshake in seconds, an 8 MHz
+ * ST would take minutes. Off, FTPS goes through the Pi gateway. TLS.OVL
+ * is loaded as it is switched on, so what is wrong is said at once (the
+ * guidelines, 7.4). */
 int falcon_mode_set(int on)
 {
 	if (on) {
-		if (!tls_available) {
-			alert(1, "[3][This is the ST edition: Falcon|mode is in EFTP.PRG.][ OK ]");
+		char err[120];
+		if (get_cookie(0x5F435055L) < 20) {	/* _CPU */
+			alert(1, "[3][A Direct connection needs a|68020 or better (TT, Falcon):|this Atari is too slow for TLS.][ OK ]");
 			return 0;
 		}
-		if (get_cookie(0x5F435055L) < 20) {	/* _CPU */
-			alert(1, "[3][Falcon mode needs a 68020 or|better (Falcon, TT): this Atari|is too slow for TLS.][ OK ]");
+		if (!tls_ovl_load(err, sizeof(err))) {	/* missing, damaged, another version */
+			conn_log("TLS", " -- ", err, strlen(err));
+			alert(1, "[3][%s.][ OK ]", err);
 			return 0;
 		}
 		if (!pf_exists(conn_cacert)) {
-			alert(1, "[3][Falcon mode needs the root|certificates: put CACERT.PEM and|ROOTS.DAT next to EFTP.PRG.][ OK ]");
+			alert(1, "[3][A Direct connection needs the|root certificates: put CACERT.PEM|and ROOTS.DAT next to EFTP.PRG.][ OK ]");
 			return 0;
 		}
 	}
@@ -394,7 +399,7 @@ static void warn_plain(const char *keyfile)
 /* ---------------- connecting ---------------- */
 
 /* the way to a site: plain FTP straight to it; FTPS straight to it with
-   TLS on the Atari in Falcon mode; else FTPS and SFTP through the Pi
+   TLS on the Atari in a Direct connection; else FTPS and SFTP through the Pi
    gateway, which is told the server in the login
    ("sftp:user@host:port") */
 static FTP *open_site(SITE *s, char *err, int errlen)
@@ -427,11 +432,11 @@ int connect_site(SITE *s)
 		return 0;
 	}
 	if (site_via_gateway(s) && !opt.gate[0]) {
-		if (s->proto == PR_SFTP || !tls_available)
+		if (s->proto == PR_SFTP || get_cookie(0x5F435055L) < 20)	/* _CPU: no Direct connection */
 			alert(1, "[1][%s needs the Raspberry Pi gateway:|on the Pi, aera-gateway install ftp;|then type its address in|Settings > Secure.][ OK ]",
 			      proto_name(s->proto));
 		else
-			alert(1, "[1][FTPS needs Falcon mode (Options|menu, on a Falcon or TT) or the|Raspberry Pi gateway (Settings >|Secure).][ OK ]");
+			alert(1, "[1][FTPS needs a Direct connection|(Options menu, on a TT or Falcon)|or the Raspberry Pi gateway|(Settings > Secure).][ OK ]");
 		return 0;
 	}
 	if (site_via_gateway(s))
@@ -963,6 +968,8 @@ int main(void)
 	secret_warn = warn_plain;	/* before anything is saved */
 	pf_init();			/* one look at the directory a file */
 	store_init(dir);
+	if (get_cookie(0x5F435055L) < 20)	/* _CPU: a Direct connection needs a 68020 */
+		opt.falcon = 0;
 	theme_init();
 	font_apply();
 	hebrew_kbd = opt.hebrew;

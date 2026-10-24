@@ -63,8 +63,8 @@ typedef struct {
 	short hebfont;		/* where the font has its Hebrew letters: HEB_* */
 	char ldir[200];		/* the Atari folder shown last */
 	short sort;		/* 0 name, 1 size, 2 date; +8 reversed */
-	short falcon;		/* Falcon mode: FTPS with TLS on the Atari (and its DSP), no gateway */
-	short dsp;		/* Falcon mode may use the DSP (else the 68030 does it all) */
+	short falcon;		/* Direct connection (FALCON=): FTPS with TLS on the Atari (TLS.OVL, and its DSP), no gateway */
+	short dsp;		/* a Direct connection may use the DSP (else the 68030 does it all) */
 	char gate[64];		/* the Raspberry Pi gateway's address, "" = none */
 	unsigned short gateport;
 	char workdir[200];	/* where EFTP.PRG is */

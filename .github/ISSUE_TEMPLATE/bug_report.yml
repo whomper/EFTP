@@ -14,7 +14,7 @@ body:
     id: edition
     attributes:
       label: Which file
-      options: ["EFTP.PRG (Falcon/TT)", "EFTPST.PRG (ST/STE)", "the Pi gateway (eftpgate.py)"]
+      options: ["EFTP.PRG with a Direct connection (TT/Falcon)", "EFTP.PRG through the Pi gateway", "the Pi gateway itself (eftpgate.py)"]
     validations:
       required: true
   - type: input

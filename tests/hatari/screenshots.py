@@ -3,8 +3,8 @@
 # Copyright (C) 2026 AERA | Erez Yaary
 """The pictures in docs/: EFTP.PRG on a Falcon in 640x480 with 256
 colours (a folder coming down, one going up, one file on its way), the
-Site Manager on an SFTP site, Settings > Secure, and EFTPST.PRG on a
-1 MB ST with a monochrome monitor.
+Site Manager on an SFTP site, Settings > Secure, and the same program on
+a 1 MB ST with a monochrome monitor.
 
     screenshots.py WORKDIR     (Xvfb, xdotool, pip install pyftpdlib)
 
@@ -34,7 +34,7 @@ def keep(r, shot, name):
     shutil.copy(r.shot(shot), os.path.join(DOCS, name))
 
 
-# Falcon mode on, a Pi gateway, and an SFTP site besides the test server's
+# a Direct connection on, a Pi gateway, and an SFTP site besides the test server's
 SECURE = "FALCON=1\r\nGATE=192.168.1.20\r\nGATEPORT=2121\r\n"
 SFTP_SITE = ("[SITE]\r\nNAME=My web space\r\nHOST=sftp.example.org\r\nPROTOCOL=sftp\r\n"
              "ANONYMOUS=0\r\nUSER=erez\r\nREMOTEDIR=/var/www\r\nLOCALDIR=C:\\WEB\r\n")

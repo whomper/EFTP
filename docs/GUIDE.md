@@ -14,8 +14,8 @@ FTPS by the Falcon itself.
   MiNT, and a screen of at least 640×200 (ST medium); 640×400 (ST high)
   or the Falcon's 640×480 show more of each list
 - Free memory when EFTP starts (after your TCP/IP stack and
-  accessories): about 350 KB for `EFTPST.PRG` (it runs on a 1 MB ST
-  with STinG), about 500 KB for `EFTP.PRG` with Falcon mode. More
+  accessories): about 350 KB (it runs on a 1 MB ST with STinG), and
+  about 140 KB more for a Direct connection, which loads `TLS.OVL`. More
   memory makes downloads faster: it holds the file until it is all
   there (see [Moving files](#moving-files))
 - Under TOS, Atari's `FOLDR100.PRG` first in your `AUTO` folder,
@@ -28,22 +28,24 @@ FTPS by the Falcon itself.
 - A server: on the internet, on your NAS or router, or on a Linux
   computer at home. Plain FTP needs nothing else, on any Atari. For FTPS
   and SFTP servers, see [Secure servers](#secure-servers-ftps-and-sftp):
-  a Raspberry Pi gateway (any Atari), or Falcon mode for FTPS (a Falcon
-  or TT)
+  a Raspberry Pi gateway (any Atari), or a Direct connection for FTPS
+  (a TT or Falcon)
 
 ## Installing
 
 The files are in the latest release on EFTP's GitHub page
 (github.com/whomper/EFTP/releases), each on its own and all together in
-`EFTP-x.y.zip`. There are two editions, as with ECal:
+`EFTP-x.y.zip`. One program, `EFTP.PRG`, runs on every Atari:
 
 | Your Atari        | Copy                         | Secure servers                       |
 |-------------------|------------------------------|--------------------------------------|
-| Falcon, TT        | `EFTP.PRG`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (Falcon mode), SFTP through the Pi |
-| ST, STE, Mega ST  | `EFTPST.PRG`                 | FTPS and SFTP through the Pi         |
+| Falcon, TT        | `EFTP.PRG`, `TLS.OVL`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (a Direct connection), SFTP through the Pi |
+| ST, STE, Mega ST  | `EFTP.PRG`                   | FTPS and SFTP through the Pi         |
 
-`EFTPST.PRG` is the same program without TLS, about 110 KB smaller: rename it
-to `EFTP.PRG` if you like.
+`TLS.OVL` is the TLS for a Direct connection, the same file in every
+AERA program: EFTP loads it only when a Direct connection needs it, so
+an ST never does. If you used `EFTPST.PRG` before, delete it: its
+settings are `EFTP.PRG`'s.
 
 EFTP can live in any folder, on any drive: there is no folder it must
 be in, and none to make first. A folder of its own keeps its files
@@ -51,25 +53,26 @@ together, because EFTP keeps everything in the folder it is started
 from (from the desktop, the folder `EFTP.PRG` is in):
 
 ```
-EFTP.PRG      the program (or EFTPST.PRG)
+EFTP.PRG      the program
 EFTP.HYP      this guide, for EHypView or ST-Guide (the Help key opens it)
-CACERT.PEM    Falcon mode: the root certificates (copy them here)
-ROOTS.DAT     Falcon mode: the same, decoded ahead of time
+TLS.OVL       a Direct connection: the TLS, loaded when needed (TT, Falcon)
+CACERT.PEM    a Direct connection: the root certificates (copy them here)
+ROOTS.DAT     a Direct connection: the same, decoded ahead of time
 EFTP.INF      settings and sites (each setting has a note above it)
 EFTP.KEY      the key the passwords in EFTP.INF are encrypted with
 EFTP.LOG      protocol log, when switched on
 CRASH.LOG     what happened, if EFTP ever crashes
-SEED.DAT      Falcon mode: randomness kept for the next start
+SEED.DAT      a Direct connection: randomness kept for the next start
 ```
 
-You copy the program and the guide, and for Falcon mode the two
-certificate files; EFTP makes the others when it needs them.
+You copy the program and the guide, and for a Direct connection
+`TLS.OVL` and the two certificate files; EFTP makes the others when it needs them.
 `ROOTS.DAT` only saves time: without it, or when `CACERT.PEM` has
 changed, EFTP reads `CACERT.PEM` itself the first time (slower) and
 writes a new `ROOTS.DAT`.
 
-To update EFTP, copy the new release's `EFTP.PRG` (or `EFTPST.PRG`),
-`EFTP.HYP`, `CACERT.PEM` and `ROOTS.DAT` over the old ones. `EFTP.INF`
+To update EFTP, copy the new release's `EFTP.PRG`, `EFTP.HYP`, and on a
+TT or Falcon `TLS.OVL`, `CACERT.PEM` and `ROOTS.DAT`, over the old ones. `EFTP.INF`
 and `EFTP.KEY` stay as they are, and with them your settings, sites
 and passwords.
 
@@ -188,11 +191,13 @@ Falcon, TT:  Falcon (EFTP.PRG, TLS 1.2, RSA on the DSP) ------------------------
   changes. Everything else is as with FTP: resuming, dates, text files
   (the Pi turns their line ends for SFTP servers, which have no text
   mode), permissions.
-- **Falcon mode.** `EFTP.PRG` on a Falcon or TT speaks FTPS itself, TLS
-  1.2 with BearSSL, as EMail and ECal do. Switch it on with **Options >
-  Falcon mode (TLS)** or in Settings > Secure. It needs a 68020 or
-  better (a TT or Falcon) and `CACERT.PEM` next to `EFTP.PRG`, with
-  `ROOTS.DAT` to start faster. **Check certificates
+- **A Direct connection.** On a TT or Falcon EFTP speaks FTPS itself,
+  TLS 1.2 with BearSSL, as EMail and ECal do. Switch it on with
+  **Options > Direct connection (TLS)** or in Settings > Secure. It
+  needs a 68020 or better (a TT or Falcon), and `TLS.OVL` and
+  `CACERT.PEM` next to `EFTP.PRG`, with `ROOTS.DAT` to start faster;
+  EFTP loads `TLS.OVL` as you switch it on, and says so at once if it
+  is missing. **Check certificates
   on the DSP** lets the Falcon's DSP56001 do the RSA arithmetic, much
   faster than the 68030. Every list and file goes over its own
   encrypted connection; EFTP resumes the first connection's TLS session
@@ -205,7 +210,7 @@ status line says which: "Connected to ftp.example.org - TLS 1.2,
 ECDHE-RSA, ChaCha20-Poly1305", or "... through the Pi - SFTP", and the
 server's name in the toolbar shows it in its tooltip.
 
-In Falcon mode the 68030 decrypts every byte itself, so transfers are
+In a Direct connection the 68030 decrypts every byte itself, so transfers are
 slower than through the Pi. The clock must be right for certificates
 to check out.
 
@@ -390,9 +395,9 @@ Options > Settings (^,), in five parts:
 - **Connection**: the time zone, how long to wait for the server, how
   often to keep the line open, and a protocol log (`EFTP.LOG`, with the
   passwords left out)
-- **Secure**: Falcon mode (FTPS on this Atari) and the DSP, and the Pi
-  gateway's address and port (2121) for SFTP, and for FTPS without
-  Falcon mode
+- **Secure**: a Direct connection (TLS on this Atari) and the DSP, and
+  the Pi gateway's address and port (2121) for SFTP, and for FTPS
+  without a Direct connection
 
 Options > Font picks the font for the lists in the family's Font
 dialog: the font families on the left, the chosen one's styles and
@@ -404,7 +409,7 @@ font when it has none. If the Hebrew in a bitmap font shows as other
 letters, set HEBFONT= in EFTP.INF: 1 for fonts with ISO-8859-8
 Hebrew, 2 for DOS 862, 0 for the Atari's own places.
 
-**Options > Falcon mode (TLS)** switches Falcon mode on and off, the
+**Options > Direct connection (TLS)** switches it on and off, the
 same as the tick in Settings > Secure, and **Options > Protocol log**
 the log, the same as the tick in Settings > Connection.
 
@@ -465,15 +470,18 @@ Undo or the Stop button stops it.
   waits before it sends them again. With an MSS of 1460, a window of
   5840 (four packets) was the fastest on a Falcon with a NetUSBee:
   about 40 KB/s (Delay 20), against 14 with 32000 and 25 with 7300.
-- **Not enough memory**: EFTPST.PRG needs about 350 KB free when it
-  starts, EFTP.PRG about 500 KB for Falcon mode; on a 1 MB machine use
-  EFTPST.PRG, and leave out accessories you don't need. **"EFTP can't
+- **Not enough memory**: EFTP needs about 350 KB free when it starts,
+  and about 140 KB more for a Direct connection (`TLS.OVL`); on a 1 MB
+  machine leave out accessories you don't need. **"EFTP can't
   open its screen"** says the same of the VDI's memory, with how much
   was free: load fewer accessories, or add memory.
-- **"... needs the Raspberry Pi gateway"** or **"FTPS needs Falcon
-  mode or the Raspberry Pi gateway"**: the site is FTPS or SFTP; set up
-  the gateway (Settings > Secure), or switch on Falcon mode for FTPS.
-- **A certificate that "didn't check out"** (Falcon mode, or the Pi's
+- **"... needs the Raspberry Pi gateway"** or **"FTPS needs a Direct
+  connection or the Raspberry Pi gateway"**: the site is FTPS or SFTP;
+  set up the gateway (Settings > Secure), or switch on a Direct
+  connection for FTPS.
+- **"TLS.OVL is missing"**, **"damaged"** or **"doesn't suit this
+  program"**: copy `TLS.OVL` from EFTP's release next to `EFTP.PRG`.
+- **A certificate that "didn't check out"** (a Direct connection, or the Pi's
   log): the Atari's clock, or a server whose certificate is made by its
   own authority (a NAS): through the Pi, `--cafile` (AERA-Gateway's
   README).

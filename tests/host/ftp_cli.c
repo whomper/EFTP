@@ -14,7 +14,7 @@
  * EXISTS=n (store.h EX_*), SHORTEN=0/1, LOWER=0/1 in the environment
  * set those options; STOPAT=n stops a transfer after n bytes (Esc).
  * FTPS=1 (AUTH TLS) or 2 (implicit) with CACERT=roots.pem talks FTPS
- * with EFTP's own TLS (Falcon mode); SECURITY=1 prints what was agreed,
+ * with EFTP's own TLS (a Direct connection); SECURITY=1 prints what was agreed,
  * LOG=file writes the protocol log there.
  */
 #include <stdio.h>

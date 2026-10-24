@@ -71,10 +71,13 @@ def drive_c(work, inf_extra="", desk=None, prg=None):
         if not p.endswith("/"):
             with open(path, "wb") as f:
                 f.write(os.urandom(size))
-    # EFTP.PRG (Falcon mode, TLS) or EFTPST.PRG, the ST edition (prg, the
-    # machine's, or EFTP_PRG=EFTPST.PRG); either runs as C:\EFTP.PRG
+    # EFTP.PRG (prg, the machine's, or EFTP_PRG=), and TLS.OVL next to it
+    # for a Direct connection (EFTP_NO_OVL=1 leaves it out)
     prg = prg or os.environ.get("EFTP_PRG", "EFTP.PRG")
     shutil.copy(os.path.join(ROOT, "binary", prg), os.path.join(hd, "EFTP.PRG"))
+    ovl = os.path.join(ROOT, "binary", "TLS.OVL")
+    if os.path.exists(ovl) and not os.environ.get("EFTP_NO_OVL"):
+        shutil.copy(ovl, os.path.join(hd, "TLS.OVL"))
     # FAKESTNG.PRG, the family's (common/tools/fakesting), built if need be
     subprocess.run(["make", "-s", "-C", FAKESTING], check=True)
     shutil.copy(os.path.join(FAKESTING, "FAKESTNG.PRG"), os.path.join(hd, "AUTO"))
