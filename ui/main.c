@@ -23,6 +23,7 @@
 #include "dd.h"
 #include "aboutbox.h"
 #include "mbar.h"
+#include "dialog.h"
 #include "../src/version.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
@@ -968,6 +969,7 @@ int main(void)
 	secret_warn = warn_plain;	/* before anything is saved */
 	pf_init();			/* one look at the directory a file */
 	store_init(dir);
+	dlg_3d_on = opt.dialogs3d;	/* before the first dialog */
 	if (get_cookie(0x5F435055L) < 20)	/* _CPU: a Direct connection needs a 68020 */
 		opt.falcon = 0;
 	theme_init();

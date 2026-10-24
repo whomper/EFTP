@@ -154,6 +154,7 @@ void d_end(void)
 	tree[nobj - 1].ob_flags |= LASTOB;
 	for (i = 0; i < nobj; i++)
 		rsrc_obfix(tree, i);
+	dlg_3d(tree);		/* the AES's 3D look, where it has one */
 }
 
 /* ---------------- password fields ----------------
@@ -417,8 +418,8 @@ short d_do(short edit)
 
 static char s_zone[40], s_zlabel[42], s_xlabel[42], s_timeout[4], s_keep[4], s_text[40];
 static char s_gate[64], s_gport[6];
-static short s_on[11], s_exists;
-enum { T_TIMES, T_BEEP, T_SHORTEN, T_LOWER, T_COLOUR, T_HIDDEN, T_DIRS, T_LOG, T_HEB, T_FALCON, T_DSP };
+static short s_on[12], s_exists;
+enum { T_TIMES, T_BEEP, T_SHORTEN, T_LOWER, T_COLOUR, T_HIDDEN, T_DIRS, T_LOG, T_HEB, T_FALCON, T_DSP, T_3D };
 
 #define NTICK 12
 static short tick_box[NTICK], tick_lbl[NTICK], tick_var[NTICK], nticks;
@@ -667,6 +668,8 @@ static short settings_run(short pages_box)
 		r = form_loop(first_edit()) & 0x7fff;
 		for (k = 0; k < nticks; k++)
 			if (r == tick_box[k] || r == tick_lbl[k]) {
+				if (tree[tick_box[k]].ob_state & DISABLED)
+					break;
 				s_on[tick_var[k]] = !s_on[tick_var[k]];
 				tick_draw(k);
 				evnt_timer_(120);
@@ -715,6 +718,7 @@ static void settings_load(void)
 	s_on[T_SHORTEN] = opt.shorten;
 	s_on[T_LOWER] = opt.lower;
 	s_on[T_COLOUR] = opt.colour;
+	s_on[T_3D] = opt.dialogs3d;
 	s_on[T_HIDDEN] = opt.hidden;
 	s_on[T_DIRS] = opt.dirsfirst;
 	s_on[T_LOG] = opt.log;
@@ -752,13 +756,19 @@ static void part_names(short x, short y)
 
 static void part_look(short x, short y)
 {
+	short k;
 	rows_at(y);
 	d_tick(x, ROW(0), "Use colours", T_COLOUR);
 	d_add(G_STRING, 0, 0, (long)"on screens with 16 colours or more:", x + 3, ROW(1), 35, 1);
 	d_add(G_STRING, 0, 0, (long)"selection, folders, progress", x + 3, ROW(2), 28, 1);
-	d_tick(x, ROW(3), "Show hidden files", T_HIDDEN);
-	d_tick(x, ROW(4), "Folders above files", T_DIRS);
-	d_tick(x, ROW(5), "Start with the Hebrew keyboard", T_HEB);
+	k = d_tick(x, ROW(3), "3D dialogs", T_3D);
+	if (!dlg_3d_ok()) {	/* this AES draws none (TOS 1-3, EmuTOS) */
+		tree[tick_box[k]].ob_state |= DISABLED;
+		tree[tick_lbl[k]].ob_state |= DISABLED;
+	}
+	d_tick(x, ROW(4), "Show hidden files", T_HIDDEN);
+	d_tick(x, ROW(5), "Folders above files", T_DIRS);
+	d_tick(x, ROW(6), "Start with the Hebrew keyboard", T_HEB);
 }
 
 static void part_connection(short x, short y)
@@ -864,6 +874,8 @@ int dlg_settings(void)
 	opt.shorten = s_on[T_SHORTEN];
 	opt.lower = s_on[T_LOWER];
 	opt.colour = s_on[T_COLOUR];
+	opt.dialogs3d = s_on[T_3D];
+	dlg_3d_on = opt.dialogs3d;	/* the next dialog follows it */
 	opt.hidden = s_on[T_HIDDEN];
 	opt.dirsfirst = s_on[T_DIRS];
 	opt.log = s_on[T_LOG];
@@ -1367,8 +1379,10 @@ static SITE *sites_dialog(void)
 	b_up = d_add(G_BOXCHAR, TOUCHEXIT, 0, 0x01FF1100L, SLW + 2, 2, 2, 1);
 	b_down = d_add(G_BOXCHAR, TOUCHEXIT, 0, 0x02FF1100L, SLW + 2, 1 + SROWS, 2, 1);
 	b_new = d_button(2, SROWS + 3, 5, "New", EXIT);
-	b_copy = d_button(8, SROWS + 3, 6, "Copy", EXIT);
-	b_del = d_button(15, SROWS + 3, 5, "Del", EXIT);
+	/* half a character more between the buttons: the AES's 3D look
+	   draws them 3 pixels wider on each side */
+	b_copy = d_button((short)(8 | (4 << 8)), SROWS + 3, 6, "Copy", EXIT);
+	b_del = d_button((short)(15 | (8 << 8)), SROWS + 3, 5, "Del", EXIT);
 
 	x = SLW + 6;
 	d_text(x, 2, "Name:");
@@ -1392,8 +1406,8 @@ static SITE *sites_dialog(void)
 	tree[b_ldir].ob_flags |= TOUCHEXIT;
 	d_text(x, 14, "Files go:");
 	m_ext = d_add(G_BUTTON, SELECTABLE | RBUTTON, work[wsel].ascii == 0 ? SELECTED : 0, (long)"By type", x + 10, 14, 9, 1);
-	m_txt = d_add(G_BUTTON, SELECTABLE | RBUTTON, work[wsel].ascii == 1 ? SELECTED : 0, (long)"As text", x + 20, 14, 9, 1);
-	m_bin = d_add(G_BUTTON, SELECTABLE | RBUTTON, work[wsel].ascii == 2 ? SELECTED : 0, (long)"Binary", x + 30, 14, 9, 1);
+	m_txt = d_add(G_BUTTON, SELECTABLE | RBUTTON, work[wsel].ascii == 1 ? SELECTED : 0, (long)"As text", (short)((x + 20) | (4 << 8)), 14, 9, 1);
+	m_bin = d_add(G_BUTTON, SELECTABLE | RBUTTON, work[wsel].ascii == 2 ? SELECTED : 0, (long)"Binary", (short)((x + 30) | (8 << 8)), 14, 9, 1);
 	b_cancel = d_button(W - 36, SROWS + 7, 10, "Cancel", EXIT);
 	b_save = d_button(W - 24, SROWS + 7, 10, "Save", EXIT);
 	b_conn = d_button(W - 12, SROWS + 7, 10, "Connect", EXIT | DEFAULT);

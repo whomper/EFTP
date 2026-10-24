@@ -33,6 +33,7 @@ static void defaults(void)
 	opt.timeout = 60;
 	opt.keepalive = 60;
 	opt.colour = 1;
+	opt.dialogs3d = 1;
 	opt.dirsfirst = 1;
 	opt.exists = EX_ASK;
 	opt.times = 1;
@@ -132,6 +133,7 @@ static void set_opt(const char *k, const char *v)
 	else if (!strcmp(k, "log")) opt.log = n != 0;
 	else if (!strcmp(k, "hebrew")) opt.hebrew = n != 0;
 	else if (!strcmp(k, "colour") || !strcmp(k, "color")) opt.colour = n != 0;
+	else if (!strcmp(k, "dialogs3d")) opt.dialogs3d = n != 0;
 	else if (!strcmp(k, "hidden")) opt.hidden = n != 0;
 	else if (!strcmp(k, "dirsfirst")) opt.dirsfirst = n != 0;
 	else if (!strcmp(k, "exists")) opt.exists = n >= EX_ASK && n <= EX_SKIP ? n : EX_ASK;
@@ -372,6 +374,8 @@ int store_save_settings(void)
 	put_fmt(&b, "1 = start with the Hebrew keyboard (F10 switches)", "HEBREW", "%d", opt.hebrew);
 	put_fmt(&b, "1 = colours (selection, folders, progress) on screens with 16 or more",
 		"COLOUR", "%d", opt.colour);
+	put_fmt(&b, "1 = dialogs and alerts in 3D where the AES draws it (TOS 4, MagiC, N.AES, XaAES); 0 = flat",
+		"DIALOGS3D", "%d", opt.dialogs3d);
 	put_fmt(&b, "1 = show hidden files: names starting with a dot, the hidden attribute",
 		"HIDDEN", "%d", opt.hidden);
 	put_fmt(&b, "1 = folders above files in the lists", "DIRSFIRST", "%d", opt.dirsfirst);

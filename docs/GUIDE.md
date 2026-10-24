@@ -390,8 +390,9 @@ Options > Settings (^,), in five parts:
   as text
 - **Names**: shortening long names to 8+3, lower-case names going up
 - **Look**: colours (on screens with 16 colours or more: the selection,
-  the folders, the progress), hidden files, folders above files, the
-  Hebrew keyboard at start
+  the folders, the progress), 3D dialogs (where the AES draws them: TOS
+  4, MagiC, N.AES, XaAES; greyed elsewhere), hidden files, folders above
+  files, the Hebrew keyboard at start
 - **Connection**: the time zone, how long to wait for the server, how
   often to keep the line open, and a protocol log (`EFTP.LOG`, with the
   passwords left out)

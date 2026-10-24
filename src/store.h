@@ -49,6 +49,7 @@ typedef struct {
 	short log;		/* write EFTP.LOG */
 	short hebrew;		/* Hebrew keyboard on at start */
 	short colour;		/* colours, on screens with 16 or more */
+	short dialogs3d;	/* dialogs in the AES's 3D look, where it has one */
 	short hidden;		/* show hidden files (dot files, hidden attribute) */
 	short dirsfirst;	/* folders above files */
 	short exists;		/* EX_*: a file that is already there */
