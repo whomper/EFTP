@@ -63,6 +63,7 @@ EFTP.KEY      the key the passwords in EFTP.INF are encrypted with
 EFTP.LOG      protocol log, when switched on
 CRASH.LOG     what happened, if EFTP ever crashes
 SEED.DAT      a Direct connection: randomness kept for the next start
+SIGS.DAT      a Direct connection: certificate signatures already checked
 ```
 
 You copy the program and the guide, and for a Direct connection

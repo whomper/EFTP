@@ -281,6 +281,7 @@ int store_init(const char *workdir)
 	path_join(conn_cacert, sizeof(conn_cacert), workdir, "CACERT.PEM");
 	path_join(tls_roots_cache, sizeof(tls_roots_cache), workdir, "ROOTS.DAT");
 	path_join(tls_seed_path, sizeof(tls_seed_path), workdir, "SEED.DAT");
+	path_join(tls_sigs_path, sizeof(tls_sigs_path), workdir, "SIGS.DAT");	/* signatures already checked */
 	path_join(tls_ovl_path, sizeof(tls_ovl_path), workdir, "TLS.OVL");
 	buf = pf_load(inf_path, 0);
 	if (buf) {
