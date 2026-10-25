@@ -222,6 +222,7 @@ void date_str(CTIME t, int wall, char *out, int size);
 
 /* a Direct connection (dsp_ovl.c, TLS.OVL): RSA on the DSP when there is one */
 void falcon_dsp_init(void);
+void falcon_dsp_ec_init(void);		/* the elliptic curves on the DSP too, after it */
 int  falcon_mode_set(int on);	/* main.c: 0 and an alert when it can't be */
 const char *falcon_dsp_state(void);	/* "DSP" or "68030" */
 

@@ -894,6 +894,7 @@ int dlg_settings(void)
 	if (s_on[T_FALCON] != opt.falcon)
 		falcon_mode_set(s_on[T_FALCON]);	/* says why when it can't */
 	falcon_dsp_init();
+	falcon_dsp_ec_init();	/* the curves on the DSP too */
 	return 1;
 }
 
