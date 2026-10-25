@@ -23,10 +23,13 @@
 #define DMAX 80
 #define TMAX 24
 
-static OBJECT tree[DMAX];
+/* the tree being built, and its texts; a list over the settings is built
+   in the second pair while the settings' (which may be a window the AES
+   asks to draw again) stay as they are */
+static OBJECT tree_a[DMAX], tree_b[DMAX], *tree = tree_a;
 static void make_eyes(void);
 static short npw;
-static TEDINFO ted[TMAX];
+static TEDINFO ted_a[TMAX], ted_b[TMAX], *ted = ted_a;
 static char tmpl[TMAX][64], valid[TMAX][64];
 static short nobj, nted, last_child;
 
@@ -56,7 +59,7 @@ void d_begin(short w, short h)
 		lf_forget(tree);
 		nlf = 0;
 	}
-	memset(tree, 0, sizeof(tree));
+	memset(tree, 0, DMAX * sizeof(OBJECT));
 	nobj = 1;
 	nted = 0;
 	last_child = 0;
@@ -314,9 +317,7 @@ static PWFIELD *pw_of(short obj)
 
 static void draw_obj(short obj)
 {
-	short x, y;
-	objc_offset(tree, obj, &x, &y);
-	objc_draw(tree, obj, 0, x - 2, y - 2, tree[obj].ob_width + 4, tree[obj].ob_height + 4);
+	dlg_draw(tree, obj);
 }
 
 static short first_editable(void)
@@ -362,7 +363,7 @@ static short form_loop(short start)
 			else
 				objc_edit(tree, edit, 0, &idx, ED_INIT);
 		}
-		evnt_multi_(MU_KEYBD | MU_BUTTON, 2, 1, 1, 0, m, &e);
+		dlg_evnt(MU_KEYBD | MU_BUTTON, 2, 1, 1, 0, m, &e);	/* the closer: Esc */
 		if (e.which & MU_KEYBD) {
 			LFIELD *lf = edit ? lf_of(tree, edit) : 0;
 			short scan = KEY_SCAN(e.kreturn), ck = clip_key(e.kreturn);
@@ -411,18 +412,14 @@ static short form_loop(short start)
 	return next;
 }
 
+/* the dialog built, run: over the screen on TOS, in a window of the AES's
+   on MiNT and MagiC (the guidelines, 3.5; dlg_name before it names it) */
 short d_do(short edit)
 {
 	short x, y, w, h, r;
-	form_center(tree, &x, &y, &w, &h);
-	wind_update(BEG_UPDATE);
-	wind_update(3);			/* BEG_MCTRL: the dialog owns the mouse */
-	form_dial(FMD_START, x, y, w, h);
-	objc_draw(tree, 0, 8, x, y, w, h);
+	dlg_open(tree, &x, &y, &w, &h);
 	r = form_loop(edit) & 0x7fff;
-	form_dial(FMD_FINISH, x, y, w, h);
-	wind_update(2);
-	wind_update(END_UPDATE);
+	dlg_close();
 	tree[r].ob_state &= ~SELECTED;
 	npw = 0;
 	return r;
@@ -443,8 +440,7 @@ enum { T_TIMES, T_BEEP, T_SHORTEN, T_LOWER, T_COLOUR, T_HIDDEN, T_DIRS, T_LOG, T
 
 #define NTICK 12
 static short tick_box[NTICK], tick_lbl[NTICK], tick_var[NTICK], nticks;
-static short page_of[DMAX], npages, cur_page, page_tab[6];
-static GRECT page_area;
+static short page_of[DMAX], npages, cur_page, page_tab[6], page_box;
 
 static TEDINFO *d_ted(const char *text, short just, short color)
 {
@@ -480,11 +476,8 @@ static short d_tick(short x, short y, const char *label, short var)
 
 static void tick_draw(short k)
 {
-	OBJECT *o = &tree[tick_box[k]];
-	short x, y;
-	o->ob_spec = (long)(s_on[tick_var[k]] ? &tick_on_blk : &tick_off_blk);
-	objc_offset(tree, tick_box[k], &x, &y);
-	objc_draw(tree, 0, 8, x, y, o->ob_width, o->ob_height);
+	tree[tick_box[k]].ob_spec = (long)(s_on[tick_var[k]] ? &tick_on_blk : &tick_off_blk);
+	dlg_draw(tree, tick_box[k]);
 }
 
 /* a field in a thin frame */
@@ -551,14 +544,10 @@ static void show_page(short p, int draw)
 	for (i = 1; i <= npages; i++)
 		((TEDINFO *)tree[page_tab[i]].ob_spec)->te_color = i == p ? 0x1071 : 0x1180;
 	if (draw) {
-		short x, y, k;
-		for (k = 1; k <= npages; k++) {
-			objc_offset(tree, page_tab[k], &x, &y);
-			objc_draw(tree, 0, 8, x - 2, y - 2, tree[page_tab[k]].ob_width + 4,
-				  tree[page_tab[k]].ob_height + 4);
-		}
-		/* a framed field's frame lies a pixel or two outside it */
-		objc_draw(tree, 0, 8, page_area.x - 2, page_area.y - 2, page_area.w + 4, page_area.h + 4);
+		short k;
+		for (k = 1; k <= npages; k++)
+			dlg_draw(tree, page_tab[k]);
+		dlg_draw(tree, page_box);	/* with what lies a pixel or two outside it */
 	}
 }
 
@@ -606,8 +595,6 @@ static void exists_label(void)
 
 static short pick_w(const char *title, const char **items, short n, short lw);
 static short pick_from;		/* the row a picker starts on */
-static OBJECT keep_tree[DMAX];
-static TEDINFO keep_ted[TMAX];
 static short keep_page[DMAX], keep_n[4];
 static GRECT pick_area;		/* where the last picker was */
 
@@ -616,8 +603,6 @@ static GRECT pick_area;		/* where the last picker was */
 static short pick_over(const char *title, const char **items, short n, short lw, short sel)
 {
 	short i;
-	memcpy(&keep_tree, tree, sizeof(keep_tree));
-	memcpy(&keep_ted, ted, sizeof(keep_ted));
 	memcpy(&keep_page, page_of, sizeof(keep_page));
 	keep_n[0] = nobj;
 	keep_n[1] = nted;
@@ -625,11 +610,13 @@ static short pick_over(const char *title, const char **items, short n, short lw,
 	keep_n[3] = npw;
 	pick_from = sel;
 	nested = 1;			/* the settings' long fields stay */
+	tree = tree_b;
+	ted = ted_b;
 	i = pick_w(title, items, n, lw);
+	tree = tree_a;
+	ted = ted_a;
 	nested = 0;
 	pick_from = 0;
-	memcpy(tree, &keep_tree, sizeof(keep_tree));
-	memcpy(ted, &keep_ted, sizeof(keep_ted));
 	memcpy(page_of, &keep_page, sizeof(keep_page));
 	nobj = keep_n[0];
 	nted = keep_n[1];
@@ -676,14 +663,9 @@ static short zone_btn, exists_btn;
 static short settings_run(short pages_box)
 {
 	short x, y, w, h, r, k;
-	form_center(tree, &x, &y, &w, &h);
-	wind_update(BEG_UPDATE);
-	wind_update(3);
-	form_dial(FMD_START, x, y, w, h);
-	objc_offset(tree, pages_box, &page_area.x, &page_area.y);
-	page_area.w = tree[pages_box].ob_width;
-	page_area.h = tree[pages_box].ob_height;
-	objc_draw(tree, 0, 8, x, y, w, h);
+	page_box = pages_box;
+	dlg_name("Settings");
+	dlg_open(tree, &x, &y, &w, &h);
 	for (;;) {
 		r = form_loop(first_edit()) & 0x7fff;
 		for (k = 0; k < nticks; k++)
@@ -712,15 +694,16 @@ static short settings_run(short pages_box)
 				zone_pick();
 			else
 				exists_pick();
-			win_redraw_area(&pick_area);	/* what the list covered */
-			objc_draw(tree, 0, 8, x, y, w, h);
+			if (!dlg_in_window()) {
+				/* in windows the AES has them drawn again */
+				win_redraw_area(&pick_area);	/* what the list covered */
+				dlg_draw(tree, 0);
+			}
 			continue;
 		}
 		break;
 	}
-	form_dial(FMD_FINISH, x, y, w, h);
-	wind_update(2);
-	wind_update(END_UPDATE);
+	dlg_close();
 	tree[r].ob_state &= ~SELECTED;
 	return r;
 }
@@ -938,11 +921,8 @@ int dlg_exists(XITEM *x, long have, int *all)
 		tree[b_res].ob_state |= DISABLED;	/* nothing left to come */
 	{
 		short xx, y, w, h;
-		form_center(tree, &xx, &y, &w, &h);
-		wind_update(BEG_UPDATE);
-		wind_update(3);
-		form_dial(FMD_START, xx, y, w, h);
-		objc_draw(tree, 0, 8, xx, y, w, h);
+		dlg_name("Already there");
+		dlg_open(tree, &xx, &y, &w, &h);
 		for (;;) {
 			/* no button here does nothing: Esc and Undo give -1, and
 			   stop the transfer (the guidelines, 3.5 and 7.1) */
@@ -958,9 +938,7 @@ int dlg_exists(XITEM *x, long have, int *all)
 			}
 			break;
 		}
-		form_dial(FMD_FINISH, xx, y, w, h);
-		wind_update(2);
-		wind_update(END_UPDATE);
+		dlg_close();
 		if (r >= 0)
 			tree[r].ob_state &= ~SELECTED;
 	}
@@ -1015,16 +993,12 @@ int dlg_chmod(const char *name, int mode)
 	cancel = d_button(20, 10, 10, "Cancel", EXIT);
 	ok = d_button(32, 10, 10, "OK", EXIT | DEFAULT);
 	d_end();
-	form_center(tree, &x, &y, &w, &h);
-	wind_update(BEG_UPDATE);
-	wind_update(3);
-	form_dial(FMD_START, x, y, w, h);
-	objc_draw(tree, 0, 8, x, y, w, h);
+	dlg_name("Permissions");
+	dlg_open(tree, &x, &y, &w, &h);
 	for (;;) {
 		r = dlg_do(tree, 0, cancel) & 0x7fff;
 		for (k = 0; k < nticks; k++)
 			if (r == tick_box[k] || r == tick_lbl[k]) {
-				short ox, oy;
 				s_on[tick_var[k]] = !s_on[tick_var[k]];
 				tick_draw(k);
 				mode = 0;
@@ -1032,17 +1006,14 @@ int dlg_chmod(const char *name, int mode)
 					if (s_on[i])
 						mode |= 0400 >> i;
 				octal(mode, oct);
-				objc_offset(tree, f_oct, &ox, &oy);
-				objc_draw(tree, 0, 8, ox, oy, tree[f_oct].ob_width, tree[f_oct].ob_height);
+				dlg_draw(tree, f_oct);
 				evnt_timer_(120);
 				break;
 			}
 		if (k == nticks)
 			break;
 	}
-	form_dial(FMD_FINISH, x, y, w, h);
-	wind_update(2);
-	wind_update(END_UPDATE);
+	dlg_close();
 	tree[r].ob_state &= ~SELECTED;
 	if (r != ok)
 		return -1;
@@ -1073,6 +1044,7 @@ int dlg_ask(const char *title, const char *label, char *buf, short len, short ca
 	d_button((len + 6 > 40 ? len + 6 : 40) - 24, 6, 10, "Cancel", EXIT);
 	b_ok = d_button((len + 6 > 40 ? len + 6 : 40) - 12, 6, 10, "OK", EXIT | DEFAULT);
 	d_end();
+	dlg_name(title);
 	if (d_do(f) != b_ok || !field[0])
 		return 0;
 	str_copy(buf, field, cap + 1);
@@ -1092,7 +1064,7 @@ static short pick_w(const char *title, const char **items, short n, short lw)
 {
 	static char shown[PROWS][PW + 2], count[40];
 	short first = 0, cur = -1, row[PROWS], box, b_up, b_down, b_ok, b_cancel, f_count;
-	short x, y, w, h, bx, by, r, i, result = -1, tw = (short)strlen(title);
+	short x, y, w, h, r, i, result = -1, tw = (short)strlen(title);
 
 	if (pick_from > 0 && pick_from < n) {
 		cur = pick_from;
@@ -1150,21 +1122,16 @@ static short pick_w(const char *title, const char **items, short n, short lw)
 		tree[b_ok].ob_state = cur >= 0 ? 0 : DISABLED;
 		if (result == -1) {
 			/* first time round: open the dialog */
-			form_center(tree, &x, &y, &w, &h);
-			wind_update(BEG_UPDATE);
-			wind_update(3);
-			form_dial(FMD_START, x, y, w, h);
-			objc_draw(tree, 0, 8, x, y, w, h);
+			dlg_name(title);
+			dlg_open(tree, &x, &y, &w, &h);
 			result = -2;
 		} else {
 			/* only the list, the arrows, the count and OK change */
-			objc_offset(tree, box, &bx, &by);
-			objc_draw(tree, 0, 8, bx - 1, by - 1, tree[box].ob_width + 2, tree[box].ob_height + 2);
-			objc_draw(tree, b_up, 0, x, y, w, h);
-			objc_draw(tree, b_down, 0, x, y, w, h);
-			objc_offset(tree, f_count, &bx, &by);
-			objc_draw(tree, 0, 8, bx, by, tree[f_count].ob_width, tree[f_count].ob_height);
-			objc_draw(tree, b_ok, 0, x, y, w, h);
+			dlg_draw(tree, box);
+			dlg_draw(tree, b_up);
+			dlg_draw(tree, b_down);
+			dlg_draw(tree, f_count);
+			dlg_draw(tree, b_ok);
 		}
 		r = dlg_do(tree, 0, b_cancel);
 		{
@@ -1202,13 +1169,8 @@ static short pick_w(const char *title, const char **items, short n, short lw)
 				break;
 		}
 	}
-	form_dial(FMD_FINISH, x, y, w, h);
-	wind_update(2);
-	wind_update(END_UPDATE);
-	pick_area.x = x;
-	pick_area.y = y;
-	pick_area.w = w;
-	pick_area.h = h;
+	dlg_area(&pick_area.x, &pick_area.y, &pick_area.w, &pick_area.h);
+	dlg_close();
 	return result >= 0 ? result : -1;
 }
 
@@ -1251,6 +1213,7 @@ void dlg_keys(void)
 		d_text(3, 3 + i, lines[i]);
 	d_button(42, n + 4, 10, "OK", EXIT | DEFAULT);
 	d_end();
+	dlg_name("Keys");
 	d_do(0);
 }
 
@@ -1436,11 +1399,8 @@ static SITE *sites_dialog(void)
 	d_end();
 	(void)e_port; (void)e_user; (void)e_rdir; (void)e_ldir; (void)e_host; (void)list;
 
-	form_center(tree, &x, &y, &w, &h);
-	wind_update(BEG_UPDATE);
-	wind_update(3);
-	form_dial(FMD_START, x, y, w, h);
-	objc_draw(tree, 0, 8, x, y, w, h);
+	dlg_name("Sites");
+	dlg_open(tree, &x, &y, &w, &h);
 	for (;;) {
 		int dbl;
 		short changed = 0, k2;
@@ -1462,13 +1422,13 @@ static SITE *sites_dialog(void)
 			if (pick_folder(f_ldir, sizeof(f_ldir)))
 				lf_end(lf_of(tree, e_ldir));
 			win_redraw_area(0);
-			objc_draw(tree, 0, 8, x, y, w, h);
+			dlg_draw(tree, 0);
 			continue;
 		}
 		if (r == b_proto && nwork) {
 			tree[r].ob_state &= ~SELECTED;
 			work[wsel].proto = (short)proto_pick(b_proto, work[wsel].proto, f_port);
-			objc_draw(tree, 0, 8, x, y, w, h);
+			dlg_draw(tree, 0);
 			continue;
 		}
 		/* what the fields say goes into the site shown */
@@ -1546,11 +1506,9 @@ static SITE *sites_dialog(void)
 			tree[m_bin].ob_state = work[wsel].ascii == 2 ? SELECTED : 0;
 			tree[tick_box[f_anon]].ob_spec = (long)(s_on[0] ? &tick_on_blk : &tick_off_blk);
 		}
-		objc_draw(tree, 0, 8, x, y, w, h);
+		dlg_draw(tree, 0);
 	}
-	form_dial(FMD_FINISH, x, y, w, h);
-	wind_update(2);
-	wind_update(END_UPDATE);
+	dlg_close();
 	tree[r].ob_state &= ~SELECTED;
 	npw = 0;
 	if (r == b_cancel)
@@ -1620,11 +1578,8 @@ SITE *dlg_quick(void)
 	d_end();
 	{
 		short x, y, w, h;
-		form_center(tree, &x, &y, &w, &h);
-		wind_update(BEG_UPDATE);
-		wind_update(3);
-		form_dial(FMD_START, x, y, w, h);
-		objc_draw(tree, 0, 8, x, y, w, h);
+		dlg_name("Quick connect");
+		dlg_open(tree, &x, &y, &w, &h);
 		for (;;) {
 			r = form_loop(e_host) & 0x7fff;
 			if (r == tick_box[keep] || r == tick_lbl[keep]) {
@@ -1636,14 +1591,12 @@ SITE *dlg_quick(void)
 			if (r == b_proto) {
 				tree[r].ob_state &= ~SELECTED;
 				proto = (short)proto_pick(b_proto, proto, port);
-				objc_draw(tree, 0, 8, x, y, w, h);
+				dlg_draw(tree, 0);
 				continue;
 			}
 			break;
 		}
-		form_dial(FMD_FINISH, x, y, w, h);
-		wind_update(2);
-		wind_update(END_UPDATE);
+		dlg_close();
 		tree[r].ob_state &= ~SELECTED;
 		npw = 0;
 	}

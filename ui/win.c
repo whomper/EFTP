@@ -521,6 +521,23 @@ void win_redraw_area(GRECT *area)
 	main_redraw(area);
 }
 
+/* a WM_REDRAW for EFTP's window that came while a dialog window was open
+   (common's dlg_evnt, on MiNT and MagiC) */
+void win_redraw_msg(const short *msg)
+{
+	GRECT r;
+	if (msg[0] != WM_REDRAW || main_h <= 0 || msg[3] != main_h)
+		return;
+	r.x = msg[4];
+	r.y = msg[5];
+	r.w = msg[6];
+	r.h = msg[7];
+	if (main_iconified)
+		icon_window(&r);
+	else
+		main_redraw(&r);
+}
+
 void win_redraw_all(void)
 {
 	main_redraw(0);

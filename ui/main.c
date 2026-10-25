@@ -970,6 +970,8 @@ int main(void)
 	pf_init();			/* one look at the directory a file */
 	store_init(dir);
 	dlg_3d_on = opt.dialogs3d;	/* before the first dialog */
+	dlg_title = "EFTP";		/* dialog windows on MiNT and MagiC (3.5) */
+	dlg_redraw_hook = win_redraw_msg;	/* EFTP's window drawn while one is open */
 	if (get_cookie(0x5F435055L) < 20)	/* _CPU: a Direct connection needs a 68020 */
 		opt.falcon = 0;
 	theme_init();
