@@ -202,7 +202,6 @@ int falcon_mode_set(int on)
 	}
 	opt.falcon = (short)on;
 	falcon_dsp_init();
-	falcon_dsp_ec_init();	/* the curves on the DSP too */
 	return 1;
 }
 
@@ -981,7 +980,6 @@ int main(void)
 	set_logging();
 	net_init();
 	falcon_dsp_init();
-	falcon_dsp_ec_init();	/* the curves on the DSP too */
 	pf_idle = idle;
 	ftp_timeout = opt.timeout;
 
