@@ -457,10 +457,13 @@ static TEDINFO *d_ted(const char *text, short just, short color)
 	return t;
 }
 
-/* black band across the top, white title */
+/* black band across the top, white title; in a dialog window (MiNT,
+   MagiC) the window's title bar names it, and the band goes (dlg_band) */
+static short band;
+
 static void d_band(short w, const char *title)
 {
-	d_add(G_BOXTEXT, 0, 0, (long)d_ted(title, 0, 0x1071), 0, 0, w, 1);
+	band = d_add(G_BOXTEXT, 0, 0, (long)d_ted(title, 0, 0x1071), 0, 0, w, 1);
 }
 
 static short d_tick(short x, short y, const char *label, short var)
@@ -665,6 +668,7 @@ static short settings_run(short pages_box)
 	short x, y, w, h, r, k;
 	page_box = pages_box;
 	dlg_name("Settings");
+	dlg_band(band);
 	dlg_open(tree, &x, &y, &w, &h);
 	for (;;) {
 		r = form_loop(first_edit()) & 0x7fff;
@@ -994,6 +998,7 @@ int dlg_chmod(const char *name, int mode)
 	ok = d_button(32, 10, 10, "OK", EXIT | DEFAULT);
 	d_end();
 	dlg_name("Permissions");
+	dlg_band(band);
 	dlg_open(tree, &x, &y, &w, &h);
 	for (;;) {
 		r = dlg_do(tree, 0, cancel) & 0x7fff;
@@ -1400,6 +1405,7 @@ static SITE *sites_dialog(void)
 	(void)e_port; (void)e_user; (void)e_rdir; (void)e_ldir; (void)e_host; (void)list;
 
 	dlg_name("Sites");
+	dlg_band(band);
 	dlg_open(tree, &x, &y, &w, &h);
 	for (;;) {
 		int dbl;
@@ -1579,6 +1585,7 @@ SITE *dlg_quick(void)
 	{
 		short x, y, w, h;
 		dlg_name("Quick connect");
+		dlg_band(band);
 		dlg_open(tree, &x, &y, &w, &h);
 		for (;;) {
 			r = form_loop(e_host) & 0x7fff;
