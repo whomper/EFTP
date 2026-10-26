@@ -497,7 +497,11 @@ static void read_feat(FTP *f)
 static int connect_ctl(FTP *f, int sec, char *err, int errlen)
 {
 	int code;
-	f->c = conn_open("FTP", f->host, f->port, 2048, sec == FTP_IMPLICIT ? SEC_TLS : SEC_PLAIN, err, errlen);
+	/* explicit FTPS asks for STARTTLS: what TLS reads from the disk is
+	   read before the connection, not between AUTH TLS and the hello
+	   while the server waits (common's conn_open) */
+	f->c = conn_open("FTP", f->host, f->port, 2048,
+			 sec == FTP_IMPLICIT ? SEC_TLS : sec == FTP_EXPLICIT ? SEC_STARTTLS : SEC_PLAIN, err, errlen);
 	if (!f->c) {
 		watch("!", err);
 		return 0;
