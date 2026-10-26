@@ -973,9 +973,6 @@ int main(void)
 	short work_out[57], msg[8], d;
 	char dir[200];
 	AEVENT ev;
-#ifdef AES_PROFILE
-	u32 started = tos_ms();
-#endif
 
 	{
 		extern int mem_unaligned_ok;
@@ -1075,15 +1072,6 @@ int main(void)
 	if (store_lost_passwords)
 		alert(1, "[1][EFTP.KEY is missing or new: type the passwords again in File > Sites.][ OK ]");
 	evnt_set_m1(1, 0, 0, 1, 1);
-#ifdef AES_PROFILE
-	{
-		/* the start, to the first event call; the window is drawn in
-		   the WM_REDRAW that follows (the speed rig adds the two) */
-		char b[40];
-		snprintf(b, sizeof(b), "AESSTART %lu ms\n", (unsigned long)(tos_ms() - started));
-		nf_debug(b);
-	}
-#endif
 
 	while (!quit) {
 		short which, hovering;
@@ -1163,6 +1151,16 @@ int main(void)
 		status("Closing the connection...");
 		ftp_close(ftp);
 		ftp = 0;
+	}
+	{
+		/* where this machine kept the user waiting longest (the
+		   guidelines' Speed): the four longest stretches */
+		const char *w = aes_slowest();
+		if (*w) {
+			char note[200];
+			snprintf(note, sizeof(note), "the longest waits: %s", w);
+			conn_log("EFTP", " -- ", note, (long)strlen(note));
+		}
 	}
 	conn_log_flush();
 	str_copy(opt.ldir, ldir, sizeof(opt.ldir));

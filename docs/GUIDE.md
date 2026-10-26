@@ -396,7 +396,8 @@ Options > Settings (^,), in five parts:
   files, the Hebrew keyboard at start
 - **Connection**: the time zone, how long to wait for the server, how
   often to keep the line open, and a protocol log (`EFTP.LOG`, with the
-  passwords left out)
+  passwords left out; at quit it names the four longest waits, for the
+  author)
 - **Secure**: a Direct connection (TLS on this Atari) and the DSP, and
   the Pi gateway's address and port (2121) for SFTP, and for FTPS
   without a Direct connection

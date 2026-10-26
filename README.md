@@ -158,7 +158,7 @@ AERA-Gateway's for EFTP's tests; set the Pi up from AERA-Gateway itself, as abov
   server hangs up anyway.
 - Hidden files on request, folders above files, sort by name, size or date.
 - A protocol log (`EFTP.LOG`) with every line timed to the hundredth of a second and the passwords
-  left out.
+  left out; at quit it says where EFTP kept you waiting longest (the four longest stretches).
 - `EFTP.INF` in capitals, each setting with a note above it and an empty line after it, as EMail's.
 - The help: `EFTP.HYP` for EHypView or ST-Guide, opened by the Help key.
 
