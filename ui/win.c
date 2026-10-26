@@ -507,11 +507,16 @@ static void draw_main(GRECT *clip)
 		draw_divider(&r);
 }
 
+/* the window has had its first WM_REDRAW: until then nothing is drawn,
+   as the AES asks for the whole of it once it is open. The start drew
+   it bit by bit nine times first, 1 s of an ST's 1.7 (26 Oct 2026) */
+static short main_shown;
+
 /* redraw area of the window through its rectangle list */
 static void main_redraw(GRECT *area)
 {
 	GRECT r, a;
-	if (main_h <= 0)
+	if (main_h <= 0 || !main_shown)
 		return;
 	if (main_iconified) {	/* the icon, not the panes (area is the old window's) */
 		icon_window(0);
@@ -554,6 +559,7 @@ void win_redraw_msg(const short *msg)
 	GRECT r;
 	if (msg[0] != WM_REDRAW || main_h <= 0 || msg[3] != main_h)
 		return;
+	main_shown = 1;
 	r.x = msg[4];
 	r.y = msg[5];
 	r.w = msg[6];
@@ -680,6 +686,7 @@ void main_open(void)
 	}
 	main_h = wind_create(icon_kind(MAINKIND), desk_x, desk_y, desk_w, desk_h);
 	main_iconified = 0;
+	main_shown = 0;
 	if (main_h < 0) {
 		alert(1, "[3][No more windows available.][ OK ]");
 		return;
@@ -995,6 +1002,7 @@ void win_message(short *msg)
 		return;
 	switch (msg[0]) {
 	case WM_REDRAW:
+		main_shown = 1;
 		r.x = msg[4];
 		r.y = msg[5];
 		r.w = msg[6];
