@@ -433,8 +433,9 @@ static void progress(long done)
 {
 	if (cur >= 0 && cur < xn) {
 		xq[cur].done = done;
-		/* the screen a few times a second: drawing costs time too */
-		if (pf_ms() - last_tick > 300) {
+		/* the screen four times a second (the guidelines' Speed: at
+		   least every 250 ms); drawing costs time too */
+		if (pf_ms() - last_tick >= 250) {
 			last_tick = pf_ms();
 			changed(cur);
 		}
