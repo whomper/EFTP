@@ -142,10 +142,96 @@ static FENTRY *entry(SIDE *s, long row)
 	return i >= 0 && i < s->l.n ? &s->l.e[i] : 0;
 }
 
+/* What a pane showed before its folder was read again: the folder,
+   the first row and a number for each row in view, so that afterwards
+   only the rows that changed are drawn. The end of a transfer reads
+   both panes again, and an ST took 515 ms to draw them whole (26 Oct
+   2026). */
+#define SEEN 64
+typedef struct {
+	char dir[256];
+	long top;
+	short n, up, ok, valid;
+	unsigned long row[SEEN];
+} SEENROWS;
+static SEENROWS seen[2];
+static void redraw_row(SIDE *s, long row);
+
+static const char *side_dir(int side)
+{
+	return side == SIDE_LOCAL ? ldir : ftp ? ftp->cwd : "";
+}
+
+/* a row as drawn, in a number: its entry, selected, the cursor's frame */
+static unsigned long row_sig(SIDE *s, long i)
+{
+	FENTRY *e = entry(s, i);
+	unsigned long h = 5381;
+	const unsigned char *p;
+	int lit = e ? s->mark[i - s->up] : (i == s->cur && !s->nmarks);
+	h = (h << 5) + h + (unsigned long)(lit | (i == s->cur && s->w == win_focused() ? 2 : 0) | (e ? 0 : 4));
+	if (!e)
+		return h;
+	for (p = (const unsigned char *)e->disp; *p; p++)
+		h = (h << 5) + h + *p;
+	h = (h << 5) + h + (unsigned long)e->size;
+	h = (h << 5) + h + (unsigned long)e->mtime;
+	return (h << 5) + h + (unsigned long)(e->type | (e->hidden << 4) | (e->wall << 5));
+}
+
+static void remember(int side)
+{
+	SIDE *s = &sd[side];
+	SEENROWS *v = &seen[side];
+	long i, n = win_rows(s->w) + 1;
+	if (n > SEEN)
+		n = SEEN;
+	str_copy(v->dir, side_dir(side), sizeof(v->dir));
+	v->top = s->w->top;
+	v->up = s->up;
+	v->ok = s->ok;
+	v->n = 0;
+	for (i = 0; i < n && v->top + i < s->l.n + s->up; i++)
+		v->row[v->n++] = row_sig(s, v->top + i);
+	v->valid = 1;
+}
+
+/* the rows that changed since remember(), drawn: 0 when the pane must
+   be drawn whole (another folder, another first row...) */
+static int changed_rows(SIDE *s, int side)
+{
+	SEENROWS *v = &seen[side];
+	long i, n = win_rows(s->w) + 1, k;
+	if (!v->valid || v->top != s->w->top || v->up != s->up || v->ok != s->ok || n > SEEN ||
+	    strcmp(v->dir, side_dir(side)))
+		return 0;
+	v->valid = 0;
+	{
+		/* which rows differ; most of them (another folder, as a cd
+		   comes before its reading): the pane whole */
+		char diff[SEEN];
+		short nd = 0;
+		for (i = 0; i < n; i++) {
+			k = s->w->top + i;
+			diff[i] = k < s->l.n + s->up ? i >= v->n || row_sig(s, k) != v->row[i] : i < v->n;
+			nd += diff[i];
+		}
+		if (nd > n / 2)
+			return 0;
+		win_batch(1);
+		for (i = 0; i < n; i++)
+			if (diff[i])
+				redraw_row(s, s->w->top + i);
+		win_batch(0);
+	}
+	return 1;
+}
+
 /* after loading: the cursor on the entry named keep, else on top */
 static void loaded(SIDE *s, const char *keep)
 {
 	long i;
+	aes_profile_tag("folder shown");
 	reset_marks(s);		/* for the new list: the sort gives the screen turns */
 	flist_sort(&s->l);
 	reset_marks(s);		/* and again: what was drawn meanwhile isn't kept */
@@ -161,11 +247,15 @@ static void loaded(SIDE *s, const char *keep)
 		s->nmarks = 1;
 	}
 	s->w->total = s->l.n + s->up;
-	s->w->top = 0;
-	if (s->cur >= 0)
-		win_ensure_visible(s->w, s->cur);
+	{
+		/* the cursor in view, the screen not scrolled: what is there
+		   is the old list's */
+		long rows = win_rows(s->w);
+		s->w->top = s->cur >= rows ? s->cur - rows + 1 : 0;
+	}
 	win_sliders(s->w);
-	win_redraw(s->w, 0);
+	if (!changed_rows(s, side_of(s->w)))
+		win_redraw(s->w, 0);
 	files_titles();
 	toolbar_redraw();
 }
@@ -173,6 +263,10 @@ static void loaded(SIDE *s, const char *keep)
 static void local_load_keep(const char *keep)
 {
 	SIDE *s = &sd[SIDE_LOCAL];
+	if (pf_idle)
+		pf_idle();	/* a turn first: what came before (a transfer's end) was work too */
+	remember(SIDE_LOCAL);
+	aes_profile_tag("folder read");
 	flist_free(&s->l);
 	s->up = ldir[0] != 0;
 	s->ok = (char)local_list(ldir, &s->l, opt.hidden);
@@ -194,6 +288,10 @@ void local_load(void)
 static void remote_load_keep(const char *keep)
 {
 	SIDE *s = &sd[SIDE_REMOTE];
+	if (pf_idle)
+		pf_idle();	/* a turn first, as for this Atari's folder */
+	remember(SIDE_REMOTE);
+	aes_profile_tag("server folder read");
 	flist_free(&s->l);
 	s->up = 0;
 	s->ok = 0;
@@ -400,6 +498,7 @@ static void draw(WIN *w, GRECT *clip)
 	GRECT r;
 	columns(w, &c);
 	fill(clip, 0);
+	seen[side_of(w)].valid = 0;	/* drawn meanwhile: what remember() saw is gone */
 	if (strcmp(col_zone, opt.tzname)) {
 		short k;
 		for (k = 0; k < 2; k++)
@@ -529,6 +628,7 @@ static void select_only(SIDE *s, long row)
 	/* scrolled first: the rows that come in are drawn as they are now,
 	   the new cursor's among them; then the old row, and the new one if
 	   it was in view already */
+	win_batch(1);
 	{
 		long top = s->w->top;
 		win_ensure_visible(s->w, row);
@@ -542,6 +642,7 @@ static void select_only(SIDE *s, long row)
 	}
 	files_titles();
 	toolbar_redraw();
+	win_batch(0);
 }
 
 static void mark_click(SIDE *s, long row, short kstate)

@@ -435,7 +435,9 @@ void queue_run(void)
 	toolbar_redraw();
 	queue_changed(-1);
 	for (attempt = 0;; attempt++) {
+		aes_profile_tag("transfer");
 		ok = xfer_run(ftp, cur_site, &failed);
+		aes_profile_tag("transfers done");
 		idle_report();
 		if (ok || conn_stop || ftp_alive(ftp) || attempt >= 2)
 			break;

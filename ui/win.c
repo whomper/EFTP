@@ -533,9 +533,72 @@ static void draw_main(GRECT *clip)
 static short main_shown;
 
 /* redraw area of the window through its rectangle list */
+/* A user's action draws its rectangles in one go: from win_batch(1) to
+   win_batch(0) they are gathered (up to four, and those that overlap or
+   touch made one), then drawn in one pass over the AES's rectangle list,
+   the mouse hidden once. A line scrolled drew the bar's slider, the row
+   that came in and the old cursor's row each in its own pass. */
+#define NBATCH 4
+static short batching, nbatch;
+static GRECT batch[NBATCH];
+
+static void draw_areas(GRECT *a, short n)
+{
+	GRECT r;
+	short k;
+	wind_update(BEG_UPDATE);
+	graf_mouse(M_OFF, 0);
+	wind_get(main_h, WF_FIRSTXYWH, &r.x, &r.y, &r.w, &r.h);
+	while (r.w > 0 && r.h > 0) {
+		for (k = 0; k < n; k++) {
+			GRECT c = r;
+			if (intersect(&a[k], &c)) {
+				clip_on(&c);
+				draw_main(&c);
+			}
+		}
+		wind_get(main_h, WF_NEXTXYWH, &r.x, &r.y, &r.w, &r.h);
+	}
+	graf_mouse(M_ON, 0);
+	wind_update(END_UPDATE);
+}
+
+/* a and b, if they overlap or touch: their box in a */
+static int join(GRECT *a, const GRECT *b)
+{
+	short x0, y0, x1, y1;
+	if (b->x > a->x + a->w || a->x > b->x + b->w || b->y > a->y + a->h || a->y > b->y + b->h)
+		return 0;
+	x0 = a->x < b->x ? a->x : b->x;
+	y0 = a->y < b->y ? a->y : b->y;
+	x1 = a->x + a->w > b->x + b->w ? a->x + a->w : b->x + b->w;
+	y1 = a->y + a->h > b->y + b->h ? a->y + a->h : b->y + b->h;
+	a->x = x0;
+	a->y = y0;
+	a->w = x1 - x0;
+	a->h = y1 - y0;
+	return 1;
+}
+
+void win_batch(int on)
+{
+	if (on) {
+		batching++;
+		return;
+	}
+	if (batching && !--batching && nbatch) {
+		short n = nbatch;
+		nbatch = 0;
+		if (main_h > 0 && main_shown && !main_iconified)
+			draw_areas(batch, n);
+	}
+}
+
+/* redraw area of the window through its rectangle list */
 static void main_redraw(GRECT *area)
 {
-	GRECT r, a;
+	GRECT a;
+	short k;
 	if (main_h <= 0 || !main_shown)
 		return;
 	if (main_iconified) {	/* the icon, not the panes (area is the old window's) */
@@ -545,19 +608,26 @@ static void main_redraw(GRECT *area)
 	a = area ? *area : mwork;
 	if (!intersect(&mwork, &a))
 		return;
-	wind_update(BEG_UPDATE);
-	graf_mouse(M_OFF, 0);
-	wind_get(main_h, WF_FIRSTXYWH, &r.x, &r.y, &r.w, &r.h);
-	while (r.w > 0 && r.h > 0) {
-		GRECT c = r;
-		if (intersect(&a, &c)) {
-			clip_on(&c);
-			draw_main(&c);
+	if (batching) {
+		for (k = 0; k < nbatch; k++)
+			if (join(&batch[k], &a))
+				return;
+		if (nbatch < NBATCH) {
+			batch[nbatch++] = a;
+		} else if (!join(&batch[NBATCH - 1], &a)) {
+			GRECT *b = &batch[NBATCH - 1];	/* their box: more drawn, nothing missed */
+			b->w = (a.x + a.w > b->x + b->w ? a.x + a.w : b->x + b->w);
+			b->h = (a.y + a.h > b->y + b->h ? a.y + a.h : b->y + b->h);
+			if (a.x < b->x)
+				b->x = a.x;
+			if (a.y < b->y)
+				b->y = a.y;
+			b->w -= b->x;
+			b->h -= b->y;
 		}
-		wind_get(main_h, WF_NEXTXYWH, &r.x, &r.y, &r.w, &r.h);
+		return;
 	}
-	graf_mouse(M_ON, 0);
-	wind_update(END_UPDATE);
+	draw_areas(&a, 1);
 }
 
 void win_redraw(WIN *w, GRECT *area)
@@ -801,6 +871,11 @@ static void scroll_rows(WIN *w, long d)
 		win_redraw(w, &a);
 		return;
 	}
+	if (nbatch) {			/* what was gathered goes first: the copy moves it */
+		short m = nbatch;
+		nbatch = 0;
+		draw_areas(batch, m);
+	}
 	{
 		MFDB scr;
 		short p[8], h = (n - k) * lh;
@@ -845,6 +920,7 @@ void win_scroll_to(WIN *w, long top)
 	if (top == old)
 		return;
 	w->top = top;
+	scroll_rows(w, top - old);	/* first: what it gathers to draw goes with the bar's */
 	if (w == aes_pane) {
 		aes_sliders(0);
 	} else {
@@ -852,7 +928,6 @@ void win_scroll_to(WIN *w, long top)
 		GRECT m = pb_moved(&b, old);	/* the slider's old and new places */
 		main_redraw(&m);
 	}
-	scroll_rows(w, top - old);
 }
 
 void win_ensure_visible(WIN *w, long line)

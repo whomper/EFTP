@@ -58,6 +58,7 @@ void win_redraw_lines(WIN *w, long first, long n);
 void win_redraw_area(GRECT *area);		/* now, under a dialog that closed */
 void win_redraw_msg(const short *msg);		/* WM_REDRAW while a dialog window is open */
 void win_redraw_all(void);
+void win_batch(int on);				/* 1: gather the redraws; 0: draw them in one go */
 void win_sliders(WIN *w);
 void win_scroll_to(WIN *w, long top);
 void win_ensure_visible(WIN *w, long line);
