@@ -146,8 +146,9 @@ static FENTRY *entry(SIDE *s, long row)
 static void loaded(SIDE *s, const char *keep)
 {
 	long i;
+	reset_marks(s);		/* for the new list: the sort gives the screen turns */
 	flist_sort(&s->l);
-	reset_marks(s);
+	reset_marks(s);		/* and again: what was drawn meanwhile isn't kept */
 	s->cur = s->up ? 0 : (s->l.n ? 0 : -1);
 	if (keep && *keep)
 		for (i = 0; i < s->l.n; i++)

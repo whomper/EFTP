@@ -373,30 +373,68 @@ static int cmp_entry(const void *a, const void *b)
 	return (opt.sort & 8) ? -r : r;
 }
 
+/* a name's first four letters as strcasecmp compares them, in one
+   number: most comparisons of a sort end there, without strcasecmp
+   (names in a folder often share their start: 400 took a stock Falcon
+   150 ms of strcasecmp, 26 Oct 2026) */
+static unsigned long name_key(const char *s)
+{
+	unsigned long k = 0;
+	int i;
+	for (i = 0; i < 4; i++) {
+		unsigned char c = (unsigned char)*s;
+		if (c)
+			s++;
+		k = (k << 8) | (unsigned long)tolower(c);
+	}
+	return k;
+}
+
+/* cmp_entry for x and y, their keys known */
+static int cmp_keyed(const FENTRY *x, const FENTRY *y, unsigned long kx, unsigned long ky)
+{
+	int r = 0, by = opt.sort & 7;
+	if (opt.dirsfirst && (x->type == FE_DIR) != (y->type == FE_DIR))
+		return x->type == FE_DIR ? -1 : 1;
+	if (by == 1 && x->size != y->size)
+		r = x->size < y->size ? -1 : 1;
+	else if (by == 2 && x->mtime != y->mtime)
+		r = x->mtime < y->mtime ? -1 : 1;
+	if (!r)
+		r = kx != ky ? (kx < ky ? -1 : 1) : strcasecmp(x->disp, y->disp);
+	return (opt.sort & 8) ? -r : r;
+}
+
 /* a merge sort of the entries' places, then each entry moved once to
    its place: qsort's heap sort moved the 34-byte entries at every step
    and multiplied for each, 0.5 s for 400 entries on a stock Falcon (26
-   Oct 2026). Equal entries keep their order */
+   Oct 2026). Equal entries keep their order. Between its passes the
+   screen gets a turn every 40 ms (pf_idle): the entries don't move
+   until the end */
 void flist_sort(FLIST *l)
 {
 	long n = l->n, w, i, k, j;
 	unsigned short *a, *b, *t, *mem;
+	unsigned long *key, at = pf_ms();
 	if (n < 2)
 		return;
-	if (n > 65535L || !(mem = malloc((size_t)n * 4))) {
+	if (n > 65535L || !(mem = malloc((size_t)n * (sizeof(unsigned long) + 2 * sizeof(short))))) {
 		qsort(l->e, l->n, sizeof(FENTRY), cmp_entry);
 		return;
 	}
-	a = mem;
-	b = mem + n;
-	for (i = 0; i < n; i++)
+	key = (unsigned long *)mem;
+	a = (unsigned short *)(key + n);
+	b = a + n;
+	for (i = 0; i < n; i++) {
 		a[i] = (unsigned short)i;
+		key[i] = name_key(l->e[i].disp);
+	}
 	for (w = 1; w < n; w <<= 1) {
 		for (i = 0; i < n; i += w << 1) {
 			long m = i + w < n ? i + w : n, e = i + (w << 1) < n ? i + (w << 1) : n, p = i, q = m;
 			k = i;
 			while (p < m && q < e)
-				b[k++] = cmp_entry(&l->e[a[q]], &l->e[a[p]]) < 0 ? a[q++] : a[p++];
+				b[k++] = cmp_keyed(&l->e[a[q]], &l->e[a[p]], key[a[q]], key[a[p]]) < 0 ? a[q++] : a[p++];
 			while (p < m)
 				b[k++] = a[p++];
 			while (q < e)
@@ -405,6 +443,10 @@ void flist_sort(FLIST *l)
 		t = a;
 		a = b;
 		b = t;
+		if (pf_idle && pf_ms() - at >= 40) {
+			pf_idle();
+			at = pf_ms();
+		}
 	}
 	/* a[k]: the entry that goes to k; along each cycle of moves */
 	for (k = 0; k < n; k++) {
