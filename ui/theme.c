@@ -63,6 +63,7 @@ void theme_init(void)
 {
 	short i;
 	theme_exit();
+	bold_forget();		/* the titles kept were in the old colours */
 	colour = opt.colour && planes >= 4;
 	for (i = 0; i < NPEN; i++)
 		pen[i] = i == P_PANEL ? 0 : 1;	/* black and white */

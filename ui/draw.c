@@ -630,3 +630,113 @@ void draw_arrow(short x, short y, short w, short h, int dir, short color)
 	else
 		vec_arrow(x, y, w, h, dir, color);
 }
+
+/* ---------------- bold titles, kept ----------------
+ * Bold costs the VDI what text off a byte does (33 letters: 45 ms on an
+ * ST, 12 on a stock Falcon, against 5 and 3 plain), and the panes' and
+ * columns' titles are bold, on every whole redraw (about 70 ms of an
+ * ST's). The VDI can't draw into memory on a plain TOS, so a title is
+ * drawn once on the screen as before and, when the clip showed all of
+ * it, its box (letters and ground) is copied into ST RAM; the next time
+ * it is copied back, one vro_cpyfm. Kept by its text, pens and ground,
+ * the eight last; forgotten when the font or the colours change. */
+#define NBOLD 8
+typedef struct {
+	char s[48];
+	short n, flags, pen, bg, cw, ch, w, h, used;
+	MFDB mem;
+} BOLD;
+static BOLD bold[NBOLD];
+static short bold_clock;
+
+void bold_forget(void)
+{
+	short i;
+	for (i = 0; i < NBOLD; i++) {
+		if (bold[i].mem.fd_addr)
+			Mfree(bold[i].mem.fd_addr);
+		memset(&bold[i], 0, sizeof(bold[i]));
+	}
+}
+
+static void copy_box(MFDB *from, MFDB *to, short sx, short sy, short dx, short dy, short w, short h)
+{
+	short p[8];
+	p[0] = sx;
+	p[1] = sy;
+	p[2] = sx + w - 1;
+	p[3] = sy + h - 1;
+	p[4] = dx;
+	p[5] = dy;
+	p[6] = dx + w - 1;
+	p[7] = dy + h - 1;
+	vro_cpyfm(vdi_h, 3, p, from, to);	/* S_ONLY */
+}
+
+void bold_at(short x, short y, const char *s, short n, short cols, short flags, short bg)
+{
+	MFDB scr;
+	BOLD *b = 0;
+	short i, w, h = ch;
+	if (n > cols)
+		n = cols;
+	w = n * cw;
+	memset(&scr, 0, sizeof(scr));
+	if (n <= 0)
+		return;
+	if (n < (short)sizeof(b->s) && planes > 0)
+		for (i = 0; i < NBOLD; i++)
+			if (bold[i].mem.fd_addr && bold[i].n == n && bold[i].flags == flags &&
+			    bold[i].pen == text_pen && bold[i].bg == bg && bold[i].cw == cw && bold[i].ch == ch &&
+			    !memcmp(bold[i].s, s, n)) {
+				b = &bold[i];
+				break;
+			}
+	if (b) {
+		/* back from memory, as far as the clip goes */
+		short x0 = x > cur_clip.x ? x : cur_clip.x, y0 = y > cur_clip.y ? y : cur_clip.y;
+		short x1 = x + w < cur_clip.x + cur_clip.w ? x + w : cur_clip.x + cur_clip.w;
+		short y1 = y + h < cur_clip.y + cur_clip.h ? y + h : cur_clip.y + cur_clip.h;
+		b->used = ++bold_clock;
+		if (x1 > x0 && y1 > y0)
+			copy_box(&b->mem, &scr, x0 - x, y0 - y, x0, y0, x1 - x0, y1 - y0);
+		return;
+	}
+	text_at(x, y, s, n, cols, flags | TX_BOLD);
+	/* all of it shown: kept */
+	if (n >= (short)sizeof(b->s) || planes <= 0 || x < cur_clip.x || y < cur_clip.y ||
+	    x + w > cur_clip.x + cur_clip.w || y + h > cur_clip.y + cur_clip.h)
+		return;
+	b = &bold[0];
+	for (i = 1; i < NBOLD; i++)
+		if (bold[i].used < b->used)
+			b = &bold[i];
+	if (b->mem.fd_addr)
+		Mfree(b->mem.fd_addr);
+	memset(b, 0, sizeof(*b));
+	{
+		short words = (w + 15) >> 4;
+		long size = (long)words * 2 * h * planes;
+		void *m = Mxalloc(size, 0);
+		if ((long)m == -32L)		/* no Mxalloc (TOS 1): ST RAM is all there is */
+			m = Malloc(size);
+		if ((long)m <= 0)
+			return;
+		b->mem.fd_addr = m;
+		b->mem.fd_w = words * 16;
+		b->mem.fd_h = h;
+		b->mem.fd_wdwidth = words;
+		b->mem.fd_nplanes = planes;
+	}
+	copy_box(&scr, &b->mem, x, y, 0, 0, w, h);
+	memcpy(b->s, s, n);
+	b->n = n;
+	b->flags = flags;
+	b->pen = text_pen;
+	b->bg = bg;
+	b->cw = cw;
+	b->ch = ch;
+	b->w = w;
+	b->h = h;
+	b->used = ++bold_clock;
+}

@@ -180,6 +180,7 @@ static void take(fontsel *s)
 {
 	opt.font_id = s->id;
 	opt.font_pt = s->pt;
+	bold_forget();		/* the titles kept were in the old font */
 	font_apply();
 	store_save_settings();
 	win_relayout();

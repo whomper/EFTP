@@ -517,7 +517,7 @@ static void draw(WIN *w, GRECT *clip)
 			if (at[k] < 0)
 				continue;
 			n = (short)snprintf(lab, sizeof(lab), "%s%s", t[k], by == k ? (rev ? " \x02" : " \x01") : "");
-			text_at(x0 + at[k] * cw, w->work.y + 1, lab, n, n, TX_BOLD | TX_LTR);
+			bold_at(x0 + at[k] * cw, w->work.y + 1, lab, n, n, TX_LTR, 0);
 		}
 		text_pen = 1;
 		hline(w->work.x, w->work.x + w->work.w - 1, w->work.y + w->head_h - 2);

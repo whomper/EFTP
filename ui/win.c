@@ -460,7 +460,8 @@ static void draw_header(WIN *w)
 		tl = cols - 2;
 	if (il > cols - tl - 2)
 		il = cols - tl - 2;
-	text_at(text_x(h.x + 2), h.y + 2, w->title, tl, cols, TX_BOLD | TX_LTR | (dark ? TX_INVERSE : 0));
+	bold_at(text_x(h.x + 2), h.y + 2, w->title, tl, cols, TX_LTR | (dark ? TX_INVERSE : 0),
+		dark ? pen[P_HEAD] : pen[P_PANEL]);
 	if (il > 0) {
 		short ix = (h.x + w->box.w - (il + 1) * cw) & ~7;
 		if (dark || !colour)
@@ -761,6 +762,17 @@ static void save_main_place(void)
 	wind_get(main_h, WF_CURRXYWH, &opt.main_x, &opt.main_y, &opt.main_w, &opt.main_h);
 }
 
+/* the window's place with its work area on the 8-pixel grid (the
+   guidelines' Speed: text there is drawn a byte at a time), narrower by
+   what it moved if it would go past the screen's right edge */
+static void place8(short *x, short y, short *w, short h)
+{
+	short nx = wind_x8(icon_kind(MAINKIND), *x, y, *w, h);
+	if (nx > *x && nx + *w > desk_x + desk_w)
+		*w -= nx - *x;
+	*x = nx;
+}
+
 void main_open(void)
 {
 	short x = opt.main_x, y = opt.main_y, wd = opt.main_w, ht = opt.main_h;
@@ -785,6 +797,7 @@ void main_open(void)
 	}
 	wind_set_str(main_h, WF_NAME, " EFTP ");
 	wind_set_str(main_h, WF_INFO, main_info);
+	place8(&x, y, &wd, ht);
 	wind_open(main_h, x, y, wd, ht);
 	get_main_work();
 	save_main_place();
@@ -1165,6 +1178,7 @@ void win_message(short *msg)
 	case WM_UNICONIFY:
 		if (!main_iconified)
 			break;
+		place8(&msg[4], msg[5], &msg[6], msg[7]);
 		wind_set(main_h, WF_UNICONIFY, msg[4], msg[5], msg[6], msg[7]);
 		main_iconified = 0;
 		get_main_work();
@@ -1214,10 +1228,13 @@ void win_message(short *msg)
 			break;
 		wind_get(main_h, WF_CURRXYWH, &c.x, &c.y, &c.w, &c.h);
 		wind_get(main_h, WF_FULLXYWH, &f.x, &f.y, &f.w, &f.h);
-		if (c.x == f.x && c.y == f.y && c.w == f.w && c.h == f.h) {
+		/* full: as the AES has it, but for the move onto the grid */
+		if (c.x - f.x < 8 && f.x - c.x < 8 && c.y == f.y && c.w + 8 > f.w && c.h == f.h) {
 			wind_get(main_h, WF_PREVXYWH, &p.x, &p.y, &p.w, &p.h);
+			place8(&p.x, p.y, &p.w, p.h);
 			wind_set(main_h, WF_CURRXYWH, p.x, p.y, p.w, p.h);
 		} else {
+			place8(&f.x, f.y, &f.w, f.h);
 			wind_set(main_h, WF_CURRXYWH, f.x, f.y, f.w, f.h);
 		}
 		get_main_work();
@@ -1236,6 +1253,7 @@ void win_message(short *msg)
 			msg[6] = 50 * cw;
 		if (msg[7] < 16 * ch)
 			msg[7] = 16 * ch;
+		place8(&msg[4], msg[5], &msg[6], msg[7]);
 		wind_set(main_h, WF_CURRXYWH, msg[4], msg[5], msg[6], msg[7]);
 		get_main_work();
 		save_main_place();

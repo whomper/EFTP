@@ -95,6 +95,8 @@ extern short text_pen;		/* the colour of text (theme.h pens); set, draw, set bac
 	do { text_pen = (p); text_at(x, y, s, n, cols, fl); text_pen = 1; } while (0)
 void clip_on(GRECT *r);
 void clip_off(void);
+void bold_at(short x, short y, const char *s, short n, short cols, short flags, short bg);	/* bold, kept */
+void bold_forget(void);			/* the font or colours changed */
 void *st_ram(long n);		/* a bitmap's room in ST RAM, for the blitter (n <= 512) */
 void text_at(short x, short y, const char *s, long n, short cols, short flags);
 void hline(short x1, short x2, short y);
