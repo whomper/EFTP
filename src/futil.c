@@ -7,6 +7,13 @@
  * guidelines, 2.3): a reset or a full disk in the middle leaves the old
  * file as it was. pf_load() finds a NAME.IN$ whose renaming was cut
  * short and takes it.
+ *
+ * A program that saves big files sets pf_save_turn (declared in its
+ * plat.h: extern void (*pf_save_turn)(void);): pf_save then writes
+ * PF_SAVE_PIECE bytes at a time and calls it between pieces, a turn for
+ * GEM while the file is open (EUpdate: 210 KB took a stock Falcon's disk
+ * over a second in one write). Never in an accessory: its files must not
+ * stay open across an event call (the guidelines, 2.2).
  */
 #include <stdlib.h>
 #include <string.h>
@@ -87,15 +94,30 @@ char *pf_load(const char *path, long *len)
 	return buf;
 }
 
+#define PF_SAVE_PIECE 32768L
+
+void (*pf_save_turn)(void);
+
 static int write_file(const char *path, const void *data, long len)
 {
 	int h = pf_open(path, PF_WRITE);
-	long r;
+	const char *p = data;
+	long done = 0, n, r = 0;
 	if (h < 0)
 		return h;
-	r = pf_write(h, data, len);
+	while (done < len) {
+		n = len - done;
+		if (pf_save_turn && n > PF_SAVE_PIECE)
+			n = PF_SAVE_PIECE;
+		r = pf_write(h, p + done, n);
+		if (r != n)
+			break;
+		done += n;
+		if (pf_save_turn && done < len)
+			pf_save_turn();
+	}
 	pf_close(h);
-	return r == len ? 0 : -1;
+	return done == len ? 0 : -1;
 }
 
 int pf_save(const char *path, const void *data, long len)
