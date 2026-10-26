@@ -172,6 +172,7 @@ short menu_tnormal(OBJECT *tree, short title, short normal);
 short menu_register(short apid, const char *name);
 short rsrc_obfix(OBJECT *tree, short obj);
 void  rsrc_obfix_all(OBJECT *tree, short n);	/* objects 0..n-1, no AES call each */
+short wind_x8(short kind, short x, short y, short w, short h);	/* border x: work x on 8 */
 short form_alert(short def, const char *str);
 short rsrc_load(const char *name);
 short aes_version(void);
