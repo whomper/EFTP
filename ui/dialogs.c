@@ -170,13 +170,29 @@ short d_check(short x, short y, const char *s, short on)
 	return d_add(G_BUTTON, SELECTABLE, on ? SELECTED : 0, (long)s, x, y, (short)strlen(s) + 2, 1);
 }
 
+/* what rsrc_obfix makes of a place or a size: characters in the low
+   byte, pixels in the high one (above 128 back from it). Done here, not
+   by the AES: a call for each object cost an ST 1.4 ms, 210 ms of the
+   Settings dialog's 540 (26 Oct 2026) */
+static short obfix(short v, short unit)
+{
+	short off = (short)(((unsigned short)v >> 8) & 0xff);
+	if (off > 128)
+		off -= 256;
+	return (short)((v & 0xff) * unit + off);
+}
+
 void d_end(void)
 {
 	short i;
 	tree[last_child].ob_next = 0;
 	tree[nobj - 1].ob_flags |= LASTOB;
-	for (i = 0; i < nobj; i++)
-		rsrc_obfix(tree, i);
+	for (i = 0; i < nobj; i++) {
+		tree[i].ob_x = obfix(tree[i].ob_x, gl_wchar);
+		tree[i].ob_y = obfix(tree[i].ob_y, gl_hchar);
+		tree[i].ob_width = obfix(tree[i].ob_width, gl_wchar);
+		tree[i].ob_height = obfix(tree[i].ob_height, gl_hchar);
+	}
 	dlg_3d(tree);		/* the AES's 3D look, where it has one */
 }
 
