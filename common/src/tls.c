@@ -449,6 +449,10 @@ static void add_anchor(const unsigned char *der, size_t len)
 #define CACHE_MAGIC "MAILROOTS1"
 #define CACHE_MAGIC2 "MAILROOTS2"
 
+/* BearSSL's PEM decoder takes a stock Falcon some 330 ms a KB (EUpdate's
+   family_test, 26 Oct 2026): a turn for GEM every 128 bytes */
+#define PEM_SLICE 128
+
 /* CACERT.PEM is read in pieces this big when the memory is there (the
    guidelines, 6.5: 186 KB in 6 reads, not 47), else in 4 KB ones */
 #define BIG_PIECE (32L * 1024)
@@ -721,8 +725,8 @@ int tls_load_anchors(const char *path, char *err, int errlen)
 		tls_note("Reading the root certificates (only this once, it takes a while)...");
 	/* read in pieces: the whole list is about 190 KB, more than a
 	   1 MB Falcon wants to hold at once next to the program. 32 KB
-	   pieces where the memory is there (6.5), decoded 1 KB at a time
-	   with a turn for GEM every 40 ms (record_turn) */
+	   pieces where the memory is there (6.5), decoded PEM_SLICE bytes
+	   at a time with a turn for GEM every 40 ms (record_turn) */
 	if (!tls_read_at && (h = pf_open(path, PF_READ)) < 0) {
 		snprintf(err, errlen, "no root certificates: can't open %s", path);
 		return 0;
@@ -738,12 +742,12 @@ int tls_load_anchors(const char *path, char *err, int errlen)
 		off += got;
 		while (pos < got) {
 			long n = got - pos;
-			if (pos - slice >= 1024) {
+			if (pos - slice >= PEM_SLICE) {
 				slice = pos;
 				record_turn();
 			}
-			if (n > slice + 1024 - pos)
-				n = slice + 1024 - pos;
+			if (n > slice + PEM_SLICE - pos)
+				n = slice + PEM_SLICE - pos;
 			pos += (long)br_pem_decoder_push(&pc, chunk + pos, (size_t)n);
 			switch (br_pem_decoder_event(&pc)) {
 			case BR_PEM_BEGIN_OBJ:
