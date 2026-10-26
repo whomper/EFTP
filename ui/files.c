@@ -175,6 +175,7 @@ static void local_load_keep(const char *keep)
 	flist_free(&s->l);
 	s->up = ldir[0] != 0;
 	s->ok = (char)local_list(ldir, &s->l, opt.hidden);
+	conn_stop = 0;		/* an Esc while it read (it gives GEM turns) stops nothing later */
 	if (ldir[0] && (free_stale || free_drive != ldir[0])) {
 		free_bytes = pf_free(ldir[0] - 'A');
 		free_drive = ldir[0];

@@ -294,12 +294,17 @@ void remote_name(const char *atari, char *out, int size, int utf8)
 typedef struct {
 	FLIST *l;
 	int hidden;
+	unsigned long t;	/* the screen's last turn */
 } LCTX;
 
 static int add_local(const char *name, long size, const PFTIME *t, int flags, void *ud)
 {
 	LCTX *c = ud;
 	FENTRY *e;
+	if (pf_idle && pf_ms() - c->t >= 40) {
+		pf_idle();
+		c->t = pf_ms();
+	}
 	if ((flags & PF_HIDDEN) && !c->hidden)
 		return 0;
 	e = flist_add(c->l, name, name);
@@ -335,9 +340,20 @@ int local_list(const char *dir, FLIST *out, int hidden)
 			}
 		return 1;
 	}
-	c.l = out;
-	c.hidden = hidden;
-	return pf_dir(dir, add_local, &c) >= 0;
+	/* into a list of its own, given to out at the end: the screen gets
+	   a turn every 40 ms (a folder can take a disk seconds), and out
+	   stays empty while it is drawn */
+	{
+		FLIST l;
+		int r;
+		flist_init(&l);
+		c.l = &l;
+		c.hidden = hidden;
+		c.t = pf_ms();
+		r = pf_dir(dir, add_local, &c) >= 0;
+		*out = l;
+		return r;
+	}
 }
 
 /* ---------------- sorting ---------------- */
@@ -357,10 +373,55 @@ static int cmp_entry(const void *a, const void *b)
 	return (opt.sort & 8) ? -r : r;
 }
 
+/* a merge sort of the entries' places, then each entry moved once to
+   its place: qsort's heap sort moved the 34-byte entries at every step
+   and multiplied for each, 0.5 s for 400 entries on a stock Falcon (26
+   Oct 2026). Equal entries keep their order */
 void flist_sort(FLIST *l)
 {
-	if (l->n > 1)
+	long n = l->n, w, i, k, j;
+	unsigned short *a, *b, *t, *mem;
+	if (n < 2)
+		return;
+	if (n > 65535L || !(mem = malloc((size_t)n * 4))) {
 		qsort(l->e, l->n, sizeof(FENTRY), cmp_entry);
+		return;
+	}
+	a = mem;
+	b = mem + n;
+	for (i = 0; i < n; i++)
+		a[i] = (unsigned short)i;
+	for (w = 1; w < n; w <<= 1) {
+		for (i = 0; i < n; i += w << 1) {
+			long m = i + w < n ? i + w : n, e = i + (w << 1) < n ? i + (w << 1) : n, p = i, q = m;
+			k = i;
+			while (p < m && q < e)
+				b[k++] = cmp_entry(&l->e[a[q]], &l->e[a[p]]) < 0 ? a[q++] : a[p++];
+			while (p < m)
+				b[k++] = a[p++];
+			while (q < e)
+				b[k++] = a[q++];
+		}
+		t = a;
+		a = b;
+		b = t;
+	}
+	/* a[k]: the entry that goes to k; along each cycle of moves */
+	for (k = 0; k < n; k++) {
+		FENTRY keep;
+		if (a[k] == k)
+			continue;
+		keep = l->e[k];
+		for (j = k; a[j] != k; ) {
+			long from = a[j];
+			l->e[j] = l->e[from];
+			a[j] = (unsigned short)j;
+			j = from;
+		}
+		l->e[j] = keep;
+		a[j] = (unsigned short)j;
+	}
+	free(mem);
 }
 
 /* ---------------- running ---------------- */

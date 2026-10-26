@@ -210,6 +210,30 @@ static void test_sort(void)
 	CHECKS(l.e[1].name, "beta.txt");
 	CHECKS(l.e[2].name, "zeta.txt");
 	flist_free(&l);
+
+	/* many: in order, and equal ones as they came (the size breaks ties
+	   between equal names here only by their first order) */
+	{
+		long i, ok = 1;
+		unsigned long seed = 7;
+		char nm[16];
+		flist_init(&l);
+		for (i = 0; i < 1000; i++) {
+			seed = seed * 1103515245L + 12345;
+			snprintf(nm, sizeof(nm), "f%03lu", (seed >> 8) % 300);
+			e = flist_add(&l, nm, 0);
+			e->size = i;
+		}
+		opt.sort = 0;
+		flist_sort(&l);
+		for (i = 1; i < l.n; i++) {
+			int c = strcasecmp(l.e[i - 1].disp, l.e[i].disp);
+			if (c > 0 || (!c && l.e[i - 1].size > l.e[i].size))
+				ok = 0;
+		}
+		CHECK(ok && l.n == 1000);
+		flist_free(&l);
+	}
 }
 
 int main(void)
