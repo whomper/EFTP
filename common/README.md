@@ -241,6 +241,10 @@ against plain C under qemu-m68k, as 68000 and 68030 code.
 size through a 32 KB window, with a turn for GEM between pieces; `tests/inflate` checks it against
 `inflate_raw` and zlib (every level and strategy, stored blocks after compressed ones). `str_istr`
 looks for the needle's first letter before comparing the rest (`tests/istr`).
+`src/ctime.c` divides with one `divu.w` where a quotient fits in 16 bits (the days of 1970 to
+2149, a day's minutes, a 400-year cycle's parts), not libgcc's long division (`tests/ctime`, also as
+68000 code). `pf_wopen`, `pf_wwrite` and `pf_wclose` save a file a piece at a time, as `pf_save`
+does in one (`tests/futil`).
 
 ## People from EContact (17 Oct 2026)
 

@@ -154,6 +154,35 @@ int main(void)
 		writes = turns = 0;
 		check(pf_save(at("BIG.DAT"), big, 32768) == 0 && writes == 1 && turns == 0,
 		      "  32 KB exactly: one write, no turn");
+		/* a piece at a time: NAME.IN$ until pf_wclose; a turn each 32 KB */
+		put("BIG.DAT", "old");
+		writes = turns = 0;
+		{
+			int h = pf_wopen(at("BIG.DAT")), ok = h >= 0;
+			for (i = 0; ok && i < n; i += 1000)
+				ok = pf_wwrite(h, big + i, n - i < 1000 ? n - i : 1000) >= 0;
+			check(ok && holds("BIG.DAT", "old") && pf_size(at("BIG.DA$")) == n,
+			      "pf_wwrite: the pieces in BIG.DA$, the old file as it was");
+			check(turns == 3, "  a turn each 32 KB written");
+			check(pf_wclose(h, at("BIG.DAT"), 1) == 0 && pf_size(at("BIG.DA$")) < 0, "pf_wclose: renamed over it");
+		}
+		back = pf_load(at("BIG.DAT"), &got);
+		check(back && got == n && memcmp(back, big, n) == 0, "  and the file is whole");
+		free(back);
+		{
+			int h = pf_wopen(at("BIG.DAT"));
+			check(h >= 0 && pf_wwrite(h, "half", 4) == 4 && pf_wclose(h, at("BIG.DAT"), 0) == 0 &&
+			      pf_size(at("BIG.DA$")) < 0 && pf_size(at("BIG.DAT")) == n,
+			      "pf_wclose without keep: BIG.DA$ gone, the old file as it was");
+		}
+		no_rename = 1;
+		{
+			int h = pf_wopen(at("BIG.DAT"));
+			check(h >= 0 && pf_wwrite(h, "new", 3) == 3 && pf_wclose(h, at("BIG.DAT"), 1) != 0,
+			      "  renaming refused: an error");
+			no_rename = 0;
+			check(holds("BIG.DAT", "new") && pf_size(at("BIG.DA$")) < 0, "  and the next pf_load takes BIG.DA$");
+		}
 		pf_save_turn = 0;
 		free(big);
 		unlink(at("BIG.DAT"));

@@ -42,8 +42,8 @@ static short aes_raw(short op, short nin, short nout, short nain, short naout)
    waits, not only the emulator.
    Built with -DAES_PROFILE (or -DAES_PROFILE=ms), each stretch of
    AES_PROFILE ms or more (50 when no number is given) also goes to the
-   emulator's console (NatFeats) as "AESGAP <ms> ms <tag>" (the tag as the
-   app last set it); tests/aesgap.py reads them.
+   emulator's console (NatFeats) as "AESGAP <ms> ms <tag>" (the tag the
+   app set since the event, else the event's); tests/aesgap.py reads them.
    Under plain TOS the AES hands the processor to the other programs in
    calls that do no work of their own (appl_write, appl_find, graf_mkstate,
    wind_update: EContact saw ECal's whole turn of 160 ms run inside its
@@ -166,16 +166,19 @@ static short aes(short op, short nin, short nout, short nain, short naout)
 		g = g > other ? g - other : 0;
 		if (g > gap_max)
 			gap_max = g;
-		keep_slow(g, tagged ? gap_tag : ev_tag);
+		/* the app's tag when it set one since the event, else the event's
+		   own: a tag left from background work is not this stretch's */
+		const char *tag = tagged ? gap_tag : ev_tag;
+		keep_slow(g, tag);
 #ifdef AES_PROFILE
 		{
 			char b[96];
 			if (g >= AES_PROFILE) {
-				snprintf(b, sizeof(b), "AESGAP %lu ms %s\n", (unsigned long)g, gap_tag);
+				snprintf(b, sizeof(b), "AESGAP %lu ms %s\n", (unsigned long)g, tag);
 				nf_debug(b);
 			}
 			if (other >= AES_PROFILE) {
-				snprintf(b, sizeof(b), "AESOTHER %lu ms %s\n", (unsigned long)other, gap_tag);
+				snprintf(b, sizeof(b), "AESOTHER %lu ms %s\n", (unsigned long)other, tag);
 				nf_debug(b);
 			}
 		}
@@ -289,6 +292,32 @@ short rsrc_obfix(OBJECT *tree, short obj)
 	aintin[0] = obj;
 	addrin[0] = tree;
 	return aes(114, 1, 1, 1, 0);
+}
+
+/* what rsrc_obfix makes of a place or a size: characters in the low
+   byte, pixels in the high one (above 128 back from it) */
+static short obfix(short v, short unit)
+{
+	short off = (short)(((unsigned short)v >> 8) & 0xff);
+	if (off > 128)
+		off -= 256;
+	return (short)((v & 0xff) * unit + off);
+}
+
+/* rsrc_obfix for objects 0 to n - 1, done here: an AES call an object
+   cost TOS 1.04 1.4 ms, 210 ms of EFTP's Settings on an ST (26 Oct 2026) */
+void rsrc_obfix_all(OBJECT *tree, short n)
+{
+	static short wc, hc;
+	short i, d;
+	if (!wc)
+		graf_handle(&wc, &hc, &d, &d);
+	for (i = 0; i < n; i++) {
+		tree[i].ob_x = obfix(tree[i].ob_x, wc);
+		tree[i].ob_y = obfix(tree[i].ob_y, hc);
+		tree[i].ob_width = obfix(tree[i].ob_width, wc);
+		tree[i].ob_height = obfix(tree[i].ob_height, hc);
+	}
 }
 
 short wind_find(short x, short y)

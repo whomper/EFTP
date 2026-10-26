@@ -807,11 +807,9 @@ static short tr_text(short x, short y, const char *s)
 
 static void tr_end(void)
 {
-	short i;
 	fs_tree[last_child].ob_next = 0;
 	fs_tree[nobj - 1].ob_flags |= LASTOB;
-	for (i = 0; i < nobj; i++)
-		rsrc_obfix(fs_tree, i);
+	rsrc_obfix_all(fs_tree, nobj);
 	dlg_3d(fs_tree);
 }
 

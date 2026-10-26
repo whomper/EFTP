@@ -14,6 +14,11 @@
  * GEM while the file is open (EUpdate: 210 KB took a stock Falcon's disk
  * over a second in one write). Never in an accessory: its files must not
  * stay open across an event call (the guidelines, 2.2).
+ *
+ * pf_wopen, pf_wwrite and pf_wclose are pf_save a piece at a time, for a
+ * file made as it comes (EUpdate: a member unpacked as it is read): the
+ * pieces go to NAME.IN$, and pf_wclose renames it over NAME, or removes
+ * it when the file is given up. pf_wwrite takes pf_save_turn every 32 KB.
  */
 #include <stdlib.h>
 #include <string.h>
@@ -131,4 +136,51 @@ int pf_save(const char *path, const void *data, long len)
 	/* no room for both, or a drive that doesn't rename: as before */
 	pf_remove(tmp);
 	return write_file(path, data, len);
+}
+
+static long since_turn;
+
+int pf_wopen(const char *path)
+{
+	char tmp[260];
+	if (!tmp_name(path, tmp, sizeof(tmp)))
+		return -1;
+	since_turn = 0;
+	return pf_open(tmp, PF_WRITE);	/* never NAME itself: the old one stays */
+}
+
+long pf_wwrite(int h, const void *data, long len)
+{
+	const char *p = data;
+	long done = 0, n;
+	while (done < len) {
+		n = len - done;
+		if (pf_save_turn && n > PF_SAVE_PIECE - since_turn)
+			n = PF_SAVE_PIECE - since_turn;
+		if (pf_write(h, p + done, n) != n)
+			return -1;
+		done += n;
+		since_turn += n;
+		if (since_turn >= PF_SAVE_PIECE) {
+			since_turn = 0;
+			if (pf_save_turn)
+				pf_save_turn();
+		}
+	}
+	return done;
+}
+
+int pf_wclose(int h, const char *path, int keep)
+{
+	char tmp[260];
+	pf_close(h);
+	if (!tmp_name(path, tmp, sizeof(tmp)))
+		return -1;
+	if (!keep) {
+		pf_remove(tmp);
+		return 0;
+	}
+	pf_remove(path);		/* TOS doesn't rename over a file */
+	/* a drive that doesn't rename leaves NAME.IN$, which pf_load takes */
+	return pf_rename(tmp, path) == 0 ? 0 : -1;
 }
