@@ -263,8 +263,6 @@ static void loaded(SIDE *s, const char *keep)
 static void local_load_keep(const char *keep)
 {
 	SIDE *s = &sd[SIDE_LOCAL];
-	if (pf_idle)
-		pf_idle();	/* a turn first: what came before (a transfer's end) was work too */
 	remember(SIDE_LOCAL);
 	aes_profile_tag("folder read");
 	flist_free(&s->l);
@@ -288,8 +286,6 @@ void local_load(void)
 static void remote_load_keep(const char *keep)
 {
 	SIDE *s = &sd[SIDE_REMOTE];
-	if (pf_idle)
-		pf_idle();	/* a turn first, as for this Atari's folder */
 	remember(SIDE_REMOTE);
 	aes_profile_tag("server folder read");
 	flist_free(&s->l);

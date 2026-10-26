@@ -480,7 +480,10 @@ void queue_run(void)
 		if (opt.beep && ms > 30000UL)
 			bell();
 	}
-	/* the lists show what came and went */
+	/* the lists show what came and went; a screen turn first, as the
+	   end of the transfers was work too */
+	if (pf_idle)
+		pf_idle();
 	if (down || xfer_count(XS_DONE))
 		files_refresh(SIDE_LOCAL);
 	if (ftp && check_line() && (up || !ok))
