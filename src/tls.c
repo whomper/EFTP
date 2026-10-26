@@ -385,7 +385,15 @@ static void add_anchor(const unsigned char *der, size_t len)
 	if (!dn.p)
 		return;
 	br_x509_decoder_init(&dc, grow_add, &dn);
-	br_x509_decoder_push(&dc, der, len);
+	/* in pieces with turns between: BearSSL's decoder takes a stock
+	   Falcon some 0.5 s a certificate */
+	while (len > 0) {
+		size_t n = len < 256 ? len : 256;
+		br_x509_decoder_push(&dc, der, n);
+		der += n;
+		len -= n;
+		record_turn();
+	}
 	pk = br_x509_decoder_get_pkey(&dc);
 	if (!pk || !dn.p) {
 		free(dn.p);
@@ -455,23 +463,31 @@ static unsigned long file_sum(const char *path, long *size)
 	char small[4096], *chunk;
 	unsigned long h = 2166136261UL;		/* FNV-1a */
 	long got, n;
-	int f = pf_open(path, PF_READ);
+	int f = -1;
 	*size = -1;
-	if (f < 0)
+	/* read at offsets where the app says so (an accessory: no file open
+	   across the turns below, the guidelines 2.2) */
+	if (!tls_read_at && (f = pf_open(path, PF_READ)) < 0)
 		return 0;
 	*size = 0;
 	chunk = piece_buf(small, &n);
-	while ((got = pf_read(f, chunk, n)) > 0) {
+	while ((got = tls_read_at ? tls_read_at(path, *size, chunk, n) : pf_read(f, chunk, n)) > 0) {
 		long i;
 		for (i = 0; i < got; i++) {
 			/* times the FNV prime 2^24 + 403 in shifts: the 68000 has
 			   no 32-bit multiply */
 			h ^= (unsigned char)chunk[i];
 			h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+			if ((i & 4095) == 4095)
+				record_turn();	/* CACERT.PEM is 186 KB: 1.2 s on a stock Falcon */
 		}
 		*size += got;
+		record_turn();
 	}
-	pf_close(f);
+	if (tls_read_at && got < 0 && !*size)
+		*size = -1;			/* not there */
+	if (f >= 0)
+		pf_close(f);
 	if (chunk != small)
 		free(chunk);
 	return h & 0xffffffffUL;
@@ -703,8 +719,8 @@ int tls_load_anchors(const char *path, char *err, int errlen)
 		tls_note("Reading the root certificates (only this once, it takes a while)...");
 	/* read in pieces: the whole list is about 190 KB, more than a
 	   1 MB Falcon wants to hold at once next to the program. 32 KB
-	   pieces where the memory is there (6.5), decoded 4 KB at a time
-	   with pf_idle between (2.2's 50 ms) */
+	   pieces where the memory is there (6.5), decoded 1 KB at a time
+	   with a turn for GEM every 40 ms (record_turn) */
 	if (!tls_read_at && (h = pf_open(path, PF_READ)) < 0) {
 		snprintf(err, errlen, "no root certificates: can't open %s", path);
 		return 0;
@@ -720,13 +736,12 @@ int tls_load_anchors(const char *path, char *err, int errlen)
 		off += got;
 		while (pos < got) {
 			long n = got - pos;
-			if (pos - slice >= 4096) {
+			if (pos - slice >= 1024) {
 				slice = pos;
-				if (pf_idle)
-					pf_idle();
+				record_turn();
 			}
-			if (n > slice + 4096 - pos)
-				n = slice + 4096 - pos;
+			if (n > slice + 1024 - pos)
+				n = slice + 1024 - pos;
 			pos += (long)br_pem_decoder_push(&pc, chunk + pos, (size_t)n);
 			switch (br_pem_decoder_event(&pc)) {
 			case BR_PEM_BEGIN_OBJ:
