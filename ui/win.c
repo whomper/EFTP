@@ -900,6 +900,10 @@ static void scroll_rows(WIN *w, long d)
 		p[5] = a.y + (d > 0 ? 0 : k * lh);
 		p[7] = p[5] + h - 1;
 		graf_mouse(M_OFF, 0);
+		/* TOS's copy keeps to the VDI's clip (1.04 and 4.04), which is
+		   whatever was drawn last: during a transfer the running row
+		   or its bar, so the rows above stayed as they were */
+		clip_on(&a);
 		vro_cpyfm(vdi_h, 3, p, &scr, &scr);	/* S_ONLY */
 		graf_mouse(M_ON, 0);
 	}
