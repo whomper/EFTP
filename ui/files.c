@@ -525,13 +525,20 @@ static void select_only(SIDE *s, long row)
 		s->mark[row - s->up] = 1;
 		s->nmarks = 1;
 	}
-	if (many) {
-		win_redraw(s->w, 0);
-	} else {
-		redraw_row(s, old);
-		redraw_row(s, row);
+	/* scrolled first: the rows that come in are drawn as they are now,
+	   the new cursor's among them; then the old row, and the new one if
+	   it was in view already */
+	{
+		long top = s->w->top;
+		win_ensure_visible(s->w, row);
+		if (many) {
+			win_redraw(s->w, 0);
+		} else {
+			redraw_row(s, old);
+			if (s->w->top == top)
+				redraw_row(s, row);
+		}
 	}
-	win_ensure_visible(s->w, row);
 	files_titles();
 	toolbar_redraw();
 }

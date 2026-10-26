@@ -595,20 +595,22 @@ void win_redraw_all(void)
 	main_redraw(0);
 }
 
+/* rows first.. of w, as far as they are in the pane: a row below it is
+   none of the pane's (drawing it drew what lies there) */
 void win_redraw_lines(WIN *w, long first, long n)
 {
 	GRECT a;
-	long y = (first - w->top) * w->line_h;
+	long y = (first - w->top) * w->line_h, rows_h = w->work.h - w->head_h;
 	if (y < 0) {
 		n += y / w->line_h;
 		y = 0;
 	}
-	if (n <= 0)
+	if (n <= 0 || y >= rows_h)
 		return;
 	a.x = w->work.x;
 	a.y = w->work.y + w->head_h + (short)y;
 	a.w = w->work.w;
-	a.h = (short)(n * w->line_h);
+	a.h = (short)(n * w->line_h > rows_h - y ? rows_h - y : n * w->line_h);
 	win_redraw(w, &a);
 }
 
