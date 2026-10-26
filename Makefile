@@ -49,6 +49,13 @@ ATARI   := libc tos plat_tos net_tos sting gem tls_ovl crash bigbuf
 UI      := main draw win files queue dialogs popup font fontsel about theme dsp_ovl help av alert dialog field mbar aboutbox iconify clip clipedit dd panebar
 
 OBJDIR  := build
+# make PROFILE=20 build/prof/EFTP.PRG: the speed rig's build
+# (tests/hatari/speed.py), which reports each stretch of 20 ms or more
+# between event calls to Hatari's console (common/atari/gem.c, AESGAP)
+ifdef PROFILE
+OBJDIR  := build/prof
+CFLAGS  += -DAES_PROFILE=$(PROFILE)
+endif
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/crash_s.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE) $(ATARI) $(UI)))
 OBJS    := $(OBJS0)
@@ -59,6 +66,8 @@ HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
 all: binary/EFTP.PRG binary/TLS.OVL binary/ROOTS.DAT
 
 binary/EFTP.PRG: $(OBJDIR)/eftp.elf common/tools/elf2tos.py | binary
+	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
+build/prof/EFTP.PRG: $(OBJDIR)/eftp.elf common/tools/elf2tos.py
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
 # the family's TLS.OVL, as it comes with common/: copied, never built here
 binary/TLS.OVL: common/tlsovl/TLS.OVL | binary

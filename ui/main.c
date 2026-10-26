@@ -701,6 +701,43 @@ void ui_command(short cmd)
 
 /* ---------------- events ---------------- */
 
+#ifdef AES_PROFILE
+/* the speed rig's F9: what v_gtext costs this machine's VDI, each way
+   EFTP could call it, to Hatari's console */
+static void text_bench(void)
+{
+	static const char t[] = "DOC167.TXT          3 KB 26.10.26";
+	static const char *const name[] = { "trans x+2 clip", "trans x+0 clip", "repl x+2 clip",
+		"repl x+0 clip", "repl x+0 noclip", "trans x+0 noclip", "trans light", "trans bold" };
+	short k, i, clip[4];
+	char b[80];
+	wind_update(BEG_UPDATE);
+	graf_mouse(M_OFF, 0);
+	clip[0] = 0;
+	clip[1] = 0;
+	clip[2] = scr_w - 1;
+	clip[3] = scr_h - 1;
+	for (k = 0; k < 8; k++) {
+		u32 t0;
+		vs_clip(vdi_h, k != 4 && k != 5, clip);
+		vswr_mode(vdi_h, k >= 2 && k <= 4 ? 1 : 2);
+		vst_effects(vdi_h, k == 6 ? 2 : k == 7 ? 1 : 0);
+		vst_color(vdi_h, 1);
+		t0 = tos_ms();
+		for (i = 0; i < 40; i++)
+			v_gtext_n(vdi_h, 8 * cw + (k == 0 || k == 2 ? 2 : 0), 6 * ch + k * ch, t, sizeof(t) - 1);
+		snprintf(b, sizeof(b), "TEXTBENCH %s: %lu us a call of %d letters\n", name[k],
+			 (unsigned long)(tos_ms() - t0) * 25, (int)sizeof(t) - 1);
+		nf_debug(b);
+	}
+	vst_effects(vdi_h, 0);
+	vs_clip(vdi_h, 0, clip);
+	graf_mouse(M_ON, 0);
+	wind_update(END_UPDATE);
+	win_redraw_all();
+}
+#endif
+
 static int shortcut(short kstate, short key)
 {
 	short scan = KEY_SCAN(key);
@@ -711,6 +748,12 @@ static int shortcut(short kstate, short key)
 	}
 	if (crash_test(scan))		/* test builds only: F1-F5 crash on purpose */
 		return 1;
+#ifdef AES_PROFILE
+	if (scan == 0x43) {		/* F9 */
+		text_bench();
+		return 1;
+	}
+#endif
 	if (scan == 0x62) {		/* Help */
 		help_key_pressed();
 		return 1;
@@ -908,6 +951,9 @@ int main(void)
 	short work_out[57], msg[8], d;
 	char dir[200];
 	AEVENT ev;
+#ifdef AES_PROFILE
+	u32 started = tos_ms();
+#endif
 
 	{
 		extern int mem_unaligned_ok;
@@ -1007,6 +1053,15 @@ int main(void)
 	if (store_lost_passwords)
 		alert(1, "[1][EFTP.KEY is missing or new: type the passwords again in File > Sites.][ OK ]");
 	evnt_set_m1(1, 0, 0, 1, 1);
+#ifdef AES_PROFILE
+	{
+		/* the start, to the first event call; the window is drawn in
+		   the WM_REDRAW that follows (the speed rig adds the two) */
+		char b[40];
+		snprintf(b, sizeof(b), "AESSTART %lu ms\n", (unsigned long)(tos_ms() - started));
+		nf_debug(b);
+	}
+#endif
 
 	while (!quit) {
 		short which, hovering;
@@ -1019,6 +1074,9 @@ int main(void)
 		   clicks counted up to two */
 		which = evnt_multi_(MU_MESAG | MU_KEYBD | MU_BUTTON | MU_TIMER | MU_M1, 0x102, 3, 0,
 				    wait, msg, &ev);
+		aes_profile_tag((which & MU_MESAG) ? (msg[0] == WM_REDRAW ? "redraw" : msg[0] == MN_SELECTED ?
+				"menu" : "message") : (which & MU_KEYBD) ? "key" : (which & MU_BUTTON) ? "click" :
+				(which & MU_M1) ? "hover" : "timer");
 		if (which & (MU_M1 | MU_KEYBD | MU_BUTTON | MU_MESAG)) {
 			short k;
 			if ((which & MU_M1) && !main_iconified) {

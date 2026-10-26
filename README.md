@@ -255,6 +255,7 @@ python3 tests/hatari/disk_audit.py /tmp/eftp-disk Falcon          # disk access 
 python3 tests/hatari/clock_test.py /tmp/eftp-clock Falcon         # times right on a fast 200 Hz clock
 python3 tests/hatari/font_test.py /tmp/eftp-font Falcon:16         # a GDOS font chosen, kept, drawn
 python3 tests/hatari/field_test.py /tmp/eftp-field Falcon         # fields hold more than they show
+python3 tests/hatari/speed.py /tmp/eftp-speed ST:mono             # each action's longest stretch
 python3 tests/hatari/screenshots.py /tmp/eftp-shots               # the pictures in docs/
 ```
 
@@ -284,6 +285,11 @@ NVDI on the Falcon from your own copy (see its notes); without one it says so an
 a password of 60 and a server folder, edited with ClrHome, Delete and Shift+Right, ^C ^V ^X;
 then renames a server file to a name longer than its field. It checks `EFTP.INF`, the server's
 login and folder, the clipboard and the new name (guidelines 5.4).
+`speed.py` runs EFTP built with `make PROFILE=20`, which reports to Hatari's console every stretch
+of 20 ms or more between its event calls. It starts EFTP, clicks and moves along a list, opens and
+closes Settings, opens a folder of 300 files and a server's folder of 400, scrolls, resizes the
+window and downloads a file. It prints each action's longest stretch against the guidelines' times
+("Speed": `ST:mono`, `ST:med` and `Falcon-4:16` are its machines) and fails when one is over.
 
 ## Licence
 
