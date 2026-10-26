@@ -724,35 +724,37 @@ void ui_command(short cmd)
 /* ---------------- events ---------------- */
 
 #ifdef AES_PROFILE
-/* the speed rig's F9: what v_gtext costs this machine's VDI, each way
-   EFTP could call it, to Hatari's console */
+/* the speed rig's F9: what v_gtext costs this machine's VDI under each
+   clip, to Hatari's console. A clip's edges from the text's (on a byte,
+   33 letters wide, a cell high): left, right, top, bottom; 99 none, 98
+   the whole screen */
 static void text_bench(void)
 {
 	static const char t[] = "DOC167.TXT          3 KB 26.10.26";
-	static const char *const name[] = { "trans x+2 clip", "trans x+0 clip", "repl x+2 clip",
-		"repl x+0 clip", "repl x+0 noclip", "trans x+0 noclip", "trans light", "trans bold" };
-	short k, i, clip[4];
-	char b[80];
+	static const short edge[][4] = { { 99, 0, 0, 0 }, { 98, 0, 0, 0 }, { 0, 0, 0, 0 },
+		{ 0, 2, 0, 2 }, { -8, 8, -4, 1 }, { -8, 1, -4, 4 }, { -8, 2, -4, 2 }, { -2, 0, -2, 0 } };
+	short k, i, clip[4], x0 = 8 * cw, x1 = x0 + 33 * cw;
+	char b[100];
 	wind_update(BEG_UPDATE);
 	graf_mouse(M_OFF, 0);
-	clip[0] = 0;
-	clip[1] = 0;
-	clip[2] = scr_w - 1;
-	clip[3] = scr_h - 1;
-	for (k = 0; k < 8; k++) {
+	vswr_mode(vdi_h, 2);
+	vst_color(vdi_h, 1);
+	for (k = 0; k < (short)(sizeof(edge) / sizeof(edge[0])); k++) {
 		u32 t0;
-		vs_clip(vdi_h, k != 4 && k != 5, clip);
-		vswr_mode(vdi_h, k >= 2 && k <= 4 ? 1 : 2);
-		vst_effects(vdi_h, k == 6 ? 2 : k == 7 ? 1 : 0);
-		vst_color(vdi_h, 1);
+		short y = 3 * ch + k * (ch + 10);
+		clip[0] = edge[k][0] >= 98 ? 0 : x0 + edge[k][0];
+		clip[1] = edge[k][0] >= 98 ? 0 : y + edge[k][2];
+		clip[2] = edge[k][0] >= 98 ? scr_w - 1 : x1 + edge[k][1] - 1;
+		clip[3] = edge[k][0] >= 98 ? scr_h - 1 : y + ch + edge[k][3] - 1;
+		vs_clip(vdi_h, edge[k][0] != 99, clip);
 		t0 = tos_ms();
 		for (i = 0; i < 40; i++)
-			v_gtext_n(vdi_h, 8 * cw + (k == 0 || k == 2 ? 2 : 0), 6 * ch + k * ch, t, sizeof(t) - 1);
-		snprintf(b, sizeof(b), "TEXTBENCH %s: %lu us a call of %d letters\n", name[k],
+			v_gtext_n(vdi_h, x0, y, t, sizeof(t) - 1);
+		snprintf(b, sizeof(b), "TEXTBENCH clip %d %d %d %d: %lu us a call of %d letters\n",
+			 edge[k][0], edge[k][1], edge[k][2], edge[k][3],
 			 (unsigned long)(tos_ms() - t0) * 25, (int)sizeof(t) - 1);
 		nf_debug(b);
 	}
-	vst_effects(vdi_h, 0);
 	vs_clip(vdi_h, 0, clip);
 	graf_mouse(M_ON, 0);
 	wind_update(END_UPDATE);

@@ -23,6 +23,7 @@
 #include "ui.h"
 #include "../src/plat.h"
 #include "fontsel.h"
+#include "text.h"
 
 static short gdos_fonts = -1;	/* loaded on vdi_h: vst_load_fonts' count */
 
@@ -106,6 +107,7 @@ static int set_font(short id, short pt)
 	vst_alignment(vdi_h, 0, 5);
 	cur_id = id;
 	cur_pt = pt;
+	text_font(vdi_h, id, cw, ch);
 	probe_hebrew(id);
 	return 1;
 }
@@ -117,6 +119,7 @@ void font_reselect(void)
 	set_font(cur_id, cur_pt);
 	cw = keep_cw;
 	ch = keep_ch;
+	text_font(vdi_h, cur_id, cw, ch);
 }
 
 void font_apply(void)
@@ -136,6 +139,7 @@ static void use_sys(void)
 	set_font(1, gl_hchar >= 16 ? 16 : 8);
 	cw = gl_wchar;
 	ch = gl_hchar;
+	text_font(vdi_h, 1, cw, ch);
 }
 
 /* dialogs, popups and the About box keep the system font (gemui.h, for

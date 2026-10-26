@@ -9,11 +9,14 @@
 #include "ui.h"
 #include "theme.h"
 #include "bidi.h"
+#include "text.h"
 
 short text_pen = 1;		/* the colour of text that isn't inverted */
 
 static GRECT cur_clip;		/* the VDI's clip now: blits keep to it themselves */
 
+/* the clip through common's text.c, which draws text inside it with the
+   clip off (the guidelines' Speed, "Text through text_n") */
 void clip_on(GRECT *r)
 {
 	short pxy[4];
@@ -22,7 +25,7 @@ void clip_on(GRECT *r)
 	pxy[1] = r->y;
 	pxy[2] = r->x + r->w - 1;
 	pxy[3] = r->y + r->h - 1;
-	vs_clip(vdi_h, 1, pxy);
+	text_clip(vdi_h, pxy);
 }
 
 /* Bitmaps the VDI copies to the screen must be in ST RAM: a blitter
@@ -44,13 +47,10 @@ void *st_ram(long n)
 /* no clipping: the whole screen (the shared popup and About box) */
 void clip_off(void)
 {
-	short pxy[4] = { 0, 0, 0, 0 };
 	cur_clip.x = cur_clip.y = 0;
 	cur_clip.w = scr_w;
 	cur_clip.h = scr_h;
-	pxy[2] = scr_w - 1;
-	pxy[3] = scr_h - 1;
-	vs_clip(vdi_h, 0, pxy);
+	text_noclip(vdi_h);
 }
 
 void fill(GRECT *r, short color)
@@ -135,7 +135,7 @@ static void runs_at(short x, short y, const char *s, short n)
 		while (j < n && is_heb((unsigned char)s[j]) == heb && j - i < 120)
 			j++;
 		if (!heb) {
-			v_gtext_n(vdi_h, x + i * cw, y, s + i, j - i);
+			text_n(vdi_h, x + i * cw, y, s + i, j - i);
 		} else if (heb_mode == HM_UNICODE) {
 			unsigned short w[120];
 			short k;
@@ -168,7 +168,6 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 {
 	char vis[BIDI_MAX];
 	const char *out = s;
-	short i;
 	if (cols <= 0)
 		return;
 	if (n > cols)
@@ -206,14 +205,16 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 	   away with a fill, as the effect does */
 	vswr_mode(vdi_h, 2);
 	vst_color(vdi_h, (flags & TX_INVERSE) ? 0 : (flags & TX_LIGHT) && colour ? pen[P_DIM] : text_pen);
-	if (flags & TX_BOLD)
+	if (flags & TX_BOLD) {
+		/* TOS's bold is a dot wider than its cells: never with the clip
+		   off, as text_n may draw it */
+		short i;
 		vst_effects(vdi_h, 1);
-	for (i = 0; i < n; i += 120) {
-		short k = n - i > 120 ? 120 : (short)(n - i);
-		v_gtext_n(vdi_h, x + i * cw, y, out + i, k);
-	}
-	if (flags & TX_BOLD)
+		for (i = 0; i < n; i += 120)
+			v_gtext_n(vdi_h, x + i * cw, y, out + i, n - i > 120 ? 120 : (short)(n - i));
 		vst_effects(vdi_h, 0);
+	} else
+		text_n(vdi_h, x, y, out, n);
 	if ((flags & TX_LIGHT) && !colour) {
 		short p[4];
 		p[0] = x;
