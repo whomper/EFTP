@@ -756,36 +756,81 @@ WIN *win_at(short mx, short my)
 
 /* ---------------- scrolling ---------------- */
 
+/* the pane's rows moved by d (up when d > 0): what stays on the screen
+   is moved there (vro_cpyfm) and only the rows that come in are drawn,
+   when the window is on top and nothing covers the pane; else it is
+   drawn whole. A line scrolled on an ST took 470 ms drawn whole (26 Oct
+   2026) */
+static void scroll_rows(WIN *w, long d)
+{
+	GRECT a = w->work, f, in;
+	short lh = w->line_h ? w->line_h : ch, n = (short)win_rows(w), k;
+	a.y += w->head_h;
+	a.h -= w->head_h;
+	k = (short)(d < 0 ? -d : d);
+	if (k >= n || main_iconified || main_h <= 0 || !main_shown) {
+		win_redraw(w, &a);
+		return;
+	}
+	wind_update(BEG_UPDATE);
+	wind_get(main_h, WF_FIRSTXYWH, &f.x, &f.y, &f.w, &f.h);
+	if (f.x > a.x || f.y > a.y || f.x + f.w < a.x + a.w || f.y + f.h < a.y + a.h) {
+		wind_update(END_UPDATE);
+		win_redraw(w, &a);
+		return;
+	}
+	{
+		MFDB scr;
+		short p[8], h = (n - k) * lh;
+		memset(&scr, 0, sizeof(scr));
+		p[0] = p[4] = a.x;
+		p[2] = p[6] = a.x + a.w - 1;
+		p[1] = a.y + (d > 0 ? k * lh : 0);
+		p[3] = p[1] + h - 1;
+		p[5] = a.y + (d > 0 ? 0 : k * lh);
+		p[7] = p[5] + h - 1;
+		graf_mouse(M_OFF, 0);
+		vro_cpyfm(vdi_h, 3, p, &scr, &scr);	/* S_ONLY */
+		graf_mouse(M_ON, 0);
+	}
+	wind_update(END_UPDATE);
+	/* what came in: the rows at the end it moved from, and below the
+	   last whole row (a row cut in half there is a different one now) */
+	in = a;
+	if (d > 0) {
+		in.y = a.y + (n - k) * lh;
+		in.h = a.y + a.h - in.y;
+		win_redraw(w, &in);
+	} else {
+		in.h = k * lh;
+		win_redraw(w, &in);
+		in.y = a.y + n * lh;
+		in.h = a.y + a.h - in.y;
+		if (in.h > 0)
+			win_redraw(w, &in);
+	}
+}
+
 void win_scroll_to(WIN *w, long top)
 {
-	long rows = win_rows(w), max = w->total - rows;
+	long rows = win_rows(w), max = w->total - rows, old = w->top;
 	if (max < 0)
 		max = 0;
 	if (top > max)
 		top = max;
 	if (top < 0)
 		top = 0;
-	if (top == w->top)
+	if (top == old)
 		return;
-	{
-		PANEBAR b;
-		GRECT m;
-		long old = w->top;
-		w->top = top;
-		if (w == aes_pane) {
-			aes_sliders(0);
-		} else {
-			b = bar_of(w);
-			m = pb_moved(&b, old);	/* the slider's old and new places */
-			main_redraw(&m);
-		}
+	w->top = top;
+	if (w == aes_pane) {
+		aes_sliders(0);
+	} else {
+		PANEBAR b = bar_of(w);
+		GRECT m = pb_moved(&b, old);	/* the slider's old and new places */
+		main_redraw(&m);
 	}
-	{
-		GRECT a = w->work;
-		a.y += w->head_h;
-		a.h -= w->head_h;
-		win_redraw(w, &a);
-	}
+	scroll_rows(w, top - old);
 }
 
 void win_ensure_visible(WIN *w, long line)
