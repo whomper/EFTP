@@ -177,6 +177,8 @@ typedef struct {
 	size_t len, cap, at[XT_MAX + 1];
 	int err;			/* while it was kept: too long, the leaf undecodable */
 	br_x509_decoder_context dc;	/* the first certificate's key */
+	br_ssl_engine_context *eng;	/* its transcript's hashes */
+	const br_hash_class *held[6];	/* held back while the chain comes */
 } XTIME;
 
 struct TLS {
@@ -1198,6 +1200,114 @@ static void step(const char *fmt, ...)
 	tls_log(msg);
 }
 
+/* BearSSL's hashes, by id (br_md5_ID 1 to br_sha512_ID 6) */
+static const br_hash_class *const all_hash[6] = {
+	&br_md5_vtable, &br_sha1_vtable, &br_sha224_vtable,
+	&br_sha256_vtable, &br_sha384_vtable, &br_sha512_vtable
+};
+
+/* the hash a certificate's signature is made with, from its
+   signatureAlgorithm (after the TBS part): RSA's or ECDSA's; 0 for any
+   other, or bytes that don't parse */
+static int der_len(const unsigned char *d, size_t n, size_t *at, size_t *len)
+{
+	size_t i = *at + 1, l;
+	if (i >= n)
+		return 0;
+	l = d[i++];
+	if (l & 0x80) {
+		int k = l & 0x7f;
+		if (k < 1 || k > 3 || i + k > n)
+			return 0;
+		for (l = 0; k > 0; k--)
+			l = (l << 8) | d[i++];
+	}
+	if (l > n - i)
+		return 0;
+	*at = i;
+	*len = l;
+	return 1;
+}
+
+static int cert_hash(const unsigned char *d, size_t n)
+{
+	static const unsigned char rsa[8] = { 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01 };
+	static const unsigned char ec[6] = { 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04 };
+	size_t at = 0, len;
+	const unsigned char *o;
+	if (n < 2 || d[0] != 0x30 || !der_len(d, n, &at, &len))	/* Certificate */
+		return 0;
+	if (d[at] != 0x30 || !der_len(d, n, &at, &len))		/* tbsCertificate */
+		return 0;
+	at += len;
+	if (at >= n || d[at] != 0x30 || !der_len(d, n, &at, &len))	/* signatureAlgorithm */
+		return 0;
+	if (at >= n || d[at] != 0x06 || !der_len(d, n, &at, &len))	/* its OID */
+		return 0;
+	o = d + at;
+	if (len == 9 && !memcmp(o, rsa, 8))
+		switch (o[8]) {
+		case 5: return br_sha1_ID;
+		case 14: return br_sha224_ID;
+		case 11: return br_sha256_ID;
+		case 12: return br_sha384_ID;
+		case 13: return br_sha512_ID;
+		}
+	if (len == 7 && !memcmp(o, ec, 6) && o[6] == 1)
+		return br_sha1_ID;
+	if (len == 8 && !memcmp(o, ec, 6) && o[6] == 3 && o[7] >= 1 && o[7] <= 4)
+		return br_sha224_ID + o[7] - 1;
+	return 0;
+}
+
+/* the chain's bytes go into the handshake's transcript with every hash
+   the engine has: 425 ms for GitHub's 2.4 KB on a stock Falcon (SHA-384
+   148, SHA-256 49, SHA-1 19). Only the PRF's hash is used in TLS 1.2
+   (the Finished messages); the others are held back while the chain
+   comes and given back for what follows (the server's key exchange is
+   signed with any of them, hashed on its own) */
+static int prf_hash(const br_ssl_engine_context *e)
+{
+	switch (e->session.cipher_suite) {
+	case BR_TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384:
+	case BR_TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:
+	case BR_TLS_RSA_WITH_AES_256_GCM_SHA384:
+	case BR_TLS_ECDH_RSA_WITH_AES_256_GCM_SHA384:
+	case BR_TLS_ECDH_ECDSA_WITH_AES_256_GCM_SHA384:
+	case BR_TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384:
+	case BR_TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384:
+	case BR_TLS_ECDH_RSA_WITH_AES_256_CBC_SHA384:
+	case BR_TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA384:
+		return br_sha384_ID;
+	}
+	return br_sha256_ID;
+}
+
+static void hold_hashes(XTIME *x)
+{
+	int id, prf;
+	if (!x->eng || x->eng->session.version != BR_TLS12)
+		return;
+	prf = prf_hash(x->eng);
+	for (id = br_md5_ID; id <= br_sha512_ID; id++) {
+		const br_hash_class *h = br_multihash_getimpl(&x->eng->mhash, id);
+		if (id != prf && h) {
+			x->held[id - 1] = h;
+			br_ssl_engine_set_hash(x->eng, id, 0);
+		}
+	}
+}
+
+static void give_back_hashes(XTIME *x)
+{
+	int id;
+	for (id = br_md5_ID; id <= br_sha512_ID; id++)
+		if (x->held[id - 1]) {
+			br_ssl_engine_set_hash(x->eng, id, x->held[id - 1]);
+			x->held[id - 1] = 0;
+		}
+}
+
 #define XT(ctx) ((XTIME *)(void *)(ctx))
 #define XIN(ctx) (&XT(ctx)->in->vtable)
 #define XBEGIN(ctx) unsigned long xt_t = pf_ms()
@@ -1213,6 +1323,7 @@ static void xt_start_chain(const br_x509_class **ctx, const char *server_name)
 	x->certs = 0;
 	x->bytes = 0;
 	x->busy = 0;
+	hold_hashes(x);
 }
 
 static void xt_start_cert(const br_x509_class **ctx, uint32_t length)
@@ -1250,8 +1361,14 @@ static void xt_append(const br_x509_class **ctx, const unsigned char *buf, size_
 		memcpy(x->der + x->len, buf, len);
 		x->len += len;
 	}
-	if (x->certs == 1)
-		br_x509_decoder_push(&x->dc, buf, len);
+	if (x->certs == 1)		/* the leaf's key: BearSSL's decoder is slow, so in pieces */
+		while (len > 0) {
+			size_t n = len < 256 ? len : 256;
+			br_x509_decoder_push(&x->dc, buf, n);
+			buf += n;
+			len -= n;
+			record_turn();
+		}
 	XEND(ctx);
 }
 
@@ -1265,6 +1382,7 @@ static void xt_end_cert(const br_x509_class **ctx)
 static unsigned xt_end_chain(const br_x509_class **ctx)
 {
 	XTIME *x = XT(ctx);
+	give_back_hashes(x);
 	if (!x->certs)
 		return BR_ERR_X509_EMPTY_CHAIN;
 	if (!x->err)
@@ -1305,17 +1423,28 @@ static int xt_check(XTIME *x, unsigned need)
 	const br_x509_pkey *pk;
 	unsigned usages = 0, r;
 	int i;
+	size_t k;
 	unsigned long t0 = pf_ms();
 	if (x->err)
 		return x->err;
 	(*in)->start_chain(in, x->name);
 	for (i = 0; i < x->certs; i++) {
 		size_t n = x->at[i + 1] - x->at[i];
+		int id, h = cert_hash(x->der + x->at[i], n);
+		/* its TBS part hashed only with the hash its signature needs
+		   (all six took 200 ms a certificate on a stock Falcon) */
+		for (id = br_md5_ID; id <= br_sha512_ID; id++)
+			br_x509_minimal_set_hash(x->in, id, !h || h == id ? all_hash[id - 1] : 0);
 		(*in)->start_cert(in, (uint32_t)n);
-		(*in)->append(in, x->der + x->at[i], n);
+		for (k = 0; k < n; k += 256) {	/* in pieces, as add_anchor's */
+			(*in)->append(in, x->der + x->at[i] + k, n - k < 256 ? n - k : 256);
+			record_turn();
+		}
 		(*in)->end_cert(in);
 		record_turn();		/* each certificate's signature checked */
 	}
+	for (i = br_md5_ID; i <= br_sha512_ID; i++)
+		br_x509_minimal_set_hash(x->in, i, all_hash[i - 1]);
 	r = (*in)->end_chain(in);
 	pk = r ? 0 : (*in)->get_pkey(in, &usages);
 	if (!r && !same_key(pk, br_x509_decoder_get_pkey(&x->dc)))
@@ -1478,6 +1607,7 @@ TLS *tls_start(int sock, const char *host, int flags, int *retry, char *err, int
 	br_ssl_engine_set_buffer(&t->cc.eng, t->iobuf, sizeof(t->iobuf), 0);
 	t->xt.vtable = &xt_vtable;
 	t->xt.in = &t->xc;
+	t->xt.eng = &t->cc.eng;
 	br_ssl_engine_set_x509(&t->cc.eng, &t->xt.vtable);
 	t0 = pf_ms();
 	get_seed(seed);
@@ -1588,7 +1718,10 @@ TLS *tls_start(int sock, const char *host, int flags, int *retry, char *err, int
 		kx = (s == BR_TLS_RSA_WITH_AES_128_GCM_SHA256 || s == BR_TLS_RSA_WITH_AES_128_CBC_SHA256 ||
 		      s == BR_TLS_RSA_WITH_AES_128_CBC_SHA) ? "RSA" :
 		     ((s & 0xff00) == 0xcc00 ? (s == BR_TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256 ? "ECDHE-RSA" : "ECDHE-ECDSA") :
-		      ((s >= 0xc023 && s <= 0xc02c && !(s & 1)) || s == BR_TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA ? "ECDHE-ECDSA" : "ECDHE-RSA"));
+		      (s == BR_TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 || s == BR_TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 ||
+		       s == BR_TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256 || s == BR_TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384 ||
+		       s == BR_TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA || s == BR_TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA ?
+		       "ECDHE-ECDSA" : "ECDHE-RSA"));
 		ciph = (s & 0xff00) == 0xcc00 ? "ChaCha20-Poly1305" :
 		       (s == BR_TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384 || s == BR_TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384) ? "AES-256-GCM" :
 		       (s == BR_TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 || s == BR_TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256 ||
