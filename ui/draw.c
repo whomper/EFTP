@@ -12,9 +12,12 @@
 
 short text_pen = 1;		/* the colour of text that isn't inverted */
 
+static GRECT cur_clip;		/* the VDI's clip now: blits keep to it themselves */
+
 void clip_on(GRECT *r)
 {
 	short pxy[4];
+	cur_clip = *r;
 	pxy[0] = r->x;
 	pxy[1] = r->y;
 	pxy[2] = r->x + r->w - 1;
@@ -42,6 +45,9 @@ void *st_ram(long n)
 void clip_off(void)
 {
 	short pxy[4] = { 0, 0, 0, 0 };
+	cur_clip.x = cur_clip.y = 0;
+	cur_clip.w = scr_w;
+	cur_clip.h = scr_h;
 	pxy[2] = scr_w - 1;
 	pxy[3] = scr_h - 1;
 	vs_clip(vdi_h, 0, pxy);
@@ -287,7 +293,7 @@ static void cell(short x, short y, GRECT *r, short wide)
 
 /* a folder: amber with a tab, as on every modern desktop; in black and
    white an outline, white on the selection bar */
-void draw_folder(short x, short y, short inverse)
+static void vec_folder(short x, short y, short inverse)
 {
 	GRECT r, tab, body;
 	short ink = inverse && !colour ? 0 : 1;
@@ -317,7 +323,7 @@ void draw_folder(short x, short y, short inverse)
 }
 
 /* a page with its corner turned down, drawn lightly */
-void draw_file(short x, short y, short inverse)
+static void vec_file(short x, short y, short inverse)
 {
 	GRECT r;
 	short ink = inverse ? (colour ? 0 : 0) : colour ? pen[P_DIM] : 1, k;
@@ -331,7 +337,7 @@ void draw_file(short x, short y, short inverse)
 }
 
 /* a drive: a box with a slot and a green light */
-void draw_drive(short x, short y, short inverse)
+static void vec_drive(short x, short y, short inverse)
 {
 	GRECT r, led;
 	short ink = inverse && !colour ? 0 : 1;
@@ -350,7 +356,7 @@ void draw_drive(short x, short y, short inverse)
 }
 
 /* a solid arrow in the box: a head and a shaft (ECal's toolbar arrows) */
-void draw_arrow(short x, short y, short w, short h, int dir, short color)
+static void vec_arrow(short x, short y, short w, short h, int dir, short color)
 {
 	short c, half, len, head, sh;
 	if (dir >= 2) {			/* left, right */
@@ -380,4 +386,247 @@ void draw_arrow(short x, short y, short w, short h, int dir, short color)
 			line_col(cx - k, y0 + d, cx + k, y0 + d, color);
 		}
 	}
+}
+
+/* ---------------- the pictures as stamps ----------------
+ * Each picture is made once into masks of a bit a pixel, one for each
+ * pen it uses, and copied to the screen with vrt_cpyfm, a call a pen:
+ * drawn with lines it was a VDI call a line (a file 5, an arrow one a
+ * column), 52 ms of an ST's whole-window redraw (26 Oct 2026). The
+ * masks are made by the same sums the lines above draw, pixel for
+ * pixel; they live in ST RAM, where the VDI can copy from. Made again
+ * when the font's cell changes; a cell too big for them (wider than 16,
+ * taller than 32) is drawn with lines, as before. */
+#define MW 2			/* words a row: 32 pixels */
+#define MH 32
+typedef unsigned short MASK[MH][MW];
+enum { M_FFILL, M_FOUT, M_FEDGE, M_FILE, M_DFILL, M_DLINES, M_DLED, M_NAMED };
+#define NARROW 6
+static MASK *masks;		/* M_NAMED, then NARROW arrows */
+static MASK mask_fallback[M_NAMED + NARROW];
+static short made_cw, made_ch;
+static struct { short w, h, dir; } arrow_of[NARROW];
+static short narrows;
+
+static void m_px(MASK *m, short x, short y)
+{
+	if (x >= 0 && x < MW * 16 && y >= 0 && y < MH)
+		(*m)[y][x >> 4] |= (unsigned short)(0x8000u >> (x & 15));
+}
+
+static void m_line(MASK *m, short x1, short y1, short x2, short y2)
+{
+	short dx = x2 > x1 ? x2 - x1 : x1 - x2, dy = y2 > y1 ? y2 - y1 : y1 - y2;
+	short sx = x2 > x1 ? 1 : -1, sy = y2 > y1 ? 1 : -1, err = dx - dy;
+	for (;;) {
+		m_px(m, x1, y1);
+		if (x1 == x2 && y1 == y2)
+			break;
+		if (2 * err > -dy) {
+			err -= dy;
+			x1 += sx;
+		}
+		if (2 * err < dx) {
+			err += dx;
+			y1 += sy;
+		}
+	}
+}
+
+static void m_fill(MASK *m, const GRECT *r)
+{
+	short x, y;
+	for (y = r->y; y < r->y + r->h; y++)
+		for (x = r->x; x < r->x + r->w; x++)
+			m_px(m, x, y);
+}
+
+static void m_frame(MASK *m, const GRECT *r)
+{
+	m_line(m, r->x, r->y, r->x + r->w - 1, r->y);
+	m_line(m, r->x + r->w - 1, r->y, r->x + r->w - 1, r->y + r->h - 1);
+	m_line(m, r->x + r->w - 1, r->y + r->h - 1, r->x, r->y + r->h - 1);
+	m_line(m, r->x, r->y + r->h - 1, r->x, r->y);
+}
+
+/* the masks for this cell: 0 when it's too big for them */
+static int masks_ready(void)
+{
+	GRECT r, tab, body, led;
+	short k;
+	if (cw > 16 || ch > MH)
+		return 0;
+	if (!masks) {
+		void *p = Mxalloc(sizeof(mask_fallback), 0);
+		masks = (long)p > 0 ? p : mask_fallback;
+	}
+	if (made_cw == cw && made_ch == ch)
+		return 1;
+	memset(masks, 0, sizeof(mask_fallback));
+	narrows = 0;
+	/* a folder at 0,0 (vec_folder's sums) */
+	cell(0, 0, &r, 1);
+	tab = r;
+	tab.w = r.w / 2;
+	tab.h = r.h >= 8 ? 2 : 1;
+	body = r;
+	body.y += tab.h;
+	body.h -= tab.h;
+	m_fill(&masks[M_FFILL], &tab);
+	m_fill(&masks[M_FFILL], &body);
+	m_frame(&masks[M_FOUT], &body);
+	m_line(&masks[M_FOUT], tab.x, tab.y, tab.x + tab.w - 1, tab.y);
+	m_line(&masks[M_FOUT], tab.x, tab.y, tab.x, body.y);
+	m_line(&masks[M_FOUT], tab.x + tab.w - 1, tab.y, tab.x + tab.w - 1, body.y);
+	if (body.h >= 6)
+		m_line(&masks[M_FEDGE], body.x + 1, body.y + 2, body.x + body.w - 2, body.y + 2);
+	/* a file */
+	cell(0, 0, &r, 0);
+	k = r.h >= 8 ? 3 : 2;
+	m_line(&masks[M_FILE], r.x, r.y, r.x + r.w - 1 - k, r.y);
+	m_line(&masks[M_FILE], r.x + r.w - 1 - k, r.y, r.x + r.w - 1, r.y + k);
+	m_line(&masks[M_FILE], r.x + r.w - 1, r.y + k, r.x + r.w - 1, r.y + r.h - 1);
+	m_line(&masks[M_FILE], r.x + r.w - 1, r.y + r.h - 1, r.x, r.y + r.h - 1);
+	m_line(&masks[M_FILE], r.x, r.y + r.h - 1, r.x, r.y);
+	/* a drive */
+	cell(0, 0, &r, 1);
+	r.y += r.h / 4;
+	r.h -= r.h / 4;
+	m_fill(&masks[M_DFILL], &r);
+	m_frame(&masks[M_DLINES], &r);
+	m_line(&masks[M_DLINES], r.x + 2, r.y + r.h / 2, r.x + r.w / 2, r.y + r.h / 2);
+	led.w = 2;
+	led.h = r.h >= 6 ? 2 : 1;
+	led.x = r.x + r.w - 4;
+	led.y = r.y + r.h / 2 - led.h / 2;
+	m_fill(&masks[M_DLED], &led);
+	made_cw = cw;
+	made_ch = ch;
+	return 1;
+}
+
+/* mask m at x, y in color: its set pixels, within the clip */
+static void stamp(MASK *m, short x, short y, short color)
+{
+	MFDB src, dst;
+	short p[8], col[2], x0 = x, y0 = y, x1 = x + MW * 16, y1 = y + MH;
+	if (x0 < cur_clip.x)
+		x0 = cur_clip.x;
+	if (y0 < cur_clip.y)
+		y0 = cur_clip.y;
+	if (x1 > cur_clip.x + cur_clip.w)
+		x1 = cur_clip.x + cur_clip.w;
+	if (y1 > cur_clip.y + cur_clip.h)
+		y1 = cur_clip.y + cur_clip.h;
+	if (x1 <= x0 || y1 <= y0)
+		return;
+	memset(&src, 0, sizeof(src));
+	memset(&dst, 0, sizeof(dst));
+	src.fd_addr = m;
+	src.fd_w = MW * 16;
+	src.fd_h = MH;
+	src.fd_wdwidth = MW;
+	src.fd_nplanes = 1;
+	p[0] = x0 - x;
+	p[1] = y0 - y;
+	p[2] = x1 - 1 - x;
+	p[3] = y1 - 1 - y;
+	p[4] = x0;
+	p[5] = y0;
+	p[6] = x1 - 1;
+	p[7] = y1 - 1;
+	col[0] = color;
+	col[1] = 0;
+	vrt_cpyfm(vdi_h, 2, p, &src, &dst, col);	/* MD_TRANS */
+}
+
+void draw_folder(short x, short y, short inverse)
+{
+	short ink = inverse && !colour ? 0 : 1;
+	if (!masks_ready()) {
+		vec_folder(x, y, inverse);
+		return;
+	}
+	if (colour) {
+		stamp(&masks[M_FFILL], x, y, pen[P_FOLDER]);
+		stamp(&masks[M_FOUT], x, y, pen[P_TEXT]);
+		stamp(&masks[M_FEDGE], x, y, pen[P_TEXT]);
+	} else {
+		stamp(&masks[M_FFILL], x, y, ink);
+		stamp(&masks[M_FEDGE], x, y, !ink);
+	}
+}
+
+void draw_file(short x, short y, short inverse)
+{
+	if (!masks_ready()) {
+		vec_file(x, y, inverse);
+		return;
+	}
+	stamp(&masks[M_FILE], x, y, inverse ? 0 : colour ? pen[P_DIM] : 1);
+}
+
+void draw_drive(short x, short y, short inverse)
+{
+	short ink = inverse && !colour ? 0 : 1;
+	if (!masks_ready()) {
+		vec_drive(x, y, inverse);
+		return;
+	}
+	if (colour)
+		stamp(&masks[M_DFILL], x, y, pen[P_PANEL]);
+	stamp(&masks[M_DLINES], x, y, ink);
+	stamp(&masks[M_DLED], x, y, colour ? pen[P_DOWN] : ink);
+}
+
+/* an arrow's mask: vec_arrow's columns or rows, at 0,0 */
+static MASK *arrow_mask(short w, short h, int dir)
+{
+	MASK *m;
+	short i, c, half, len, head, sh;
+	for (i = 0; i < narrows; i++)
+		if (arrow_of[i].w == w && arrow_of[i].h == h && arrow_of[i].dir == dir)
+			return &masks[M_NAMED + i];
+	if (narrows == NARROW || w > MW * 16 || h > MH)
+		return 0;
+	m = &masks[M_NAMED + narrows];
+	arrow_of[narrows].w = w;
+	arrow_of[narrows].h = h;
+	arrow_of[narrows].dir = (short)dir;
+	narrows++;
+	if (dir >= 2) {
+		short cy = h / 2, x0 = dir == 3 ? w - 1 : 0;
+		len = w;
+		half = h / 2 - 1;
+		if (half < 2)
+			half = 2;
+		head = len / 2;
+		sh = half / 3 > 0 ? half / 3 : 1;
+		for (c = 0; c < len; c++) {
+			short d = dir == 3 ? -c : c, k = c < head ? (short)((long)half * c / head) : sh;
+			m_line(m, x0 + d, cy - k, x0 + d, cy + k);
+		}
+	} else {
+		short cx = w / 2, y0 = dir == 1 ? h - 1 : 0;
+		len = h;
+		half = w / 2 - 1;
+		if (half < 2)
+			half = 2;
+		head = len / 2;
+		sh = half / 3 > 0 ? half / 3 : 1;
+		for (c = 0; c < len; c++) {
+			short d = dir == 1 ? -c : c, k = c < head ? (short)((long)half * c / head) : sh;
+			m_line(m, cx - k, y0 + d, cx + k, y0 + d);
+		}
+	}
+	return m;
+}
+
+void draw_arrow(short x, short y, short w, short h, int dir, short color)
+{
+	MASK *m = masks_ready() ? arrow_mask(w, h, dir) : 0;
+	if (m)
+		stamp(m, x, y, color);
+	else
+		vec_arrow(x, y, w, h, dir, color);
 }
