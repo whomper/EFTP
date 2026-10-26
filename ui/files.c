@@ -310,7 +310,7 @@ typedef struct {
 
 static void columns(WIN *w, COLS *c)
 {
-	short cols = w->work.w / cw;
+	short cols = win_cols(w);
 	c->icon = 0;
 	c->name = 3;
 	c->dw = cols >= 50 ? 14 : cols >= 34 ? 8 : 0;	/* "13.10.26 18:56", or the date */
@@ -394,7 +394,7 @@ static void draw(WIN *w, GRECT *clip)
 	SIDE *s = &sd[side_of(w)];
 	COLS c;
 	long i, end;
-	short x0 = w->work.x + 2, by = (opt.sort & 7), rev = (opt.sort & 8) != 0;
+	short x0 = win_x0(w), by = (opt.sort & 7), rev = (opt.sort & 8) != 0;
 	GRECT r;
 	columns(w, &c);
 	fill(clip, 0);
@@ -786,7 +786,7 @@ static int drag(SIDE *s, int side, short mx, short my)
 static void sort_click(WIN *w, short mx)
 {
 	COLS c;
-	short col = (mx - w->work.x - 2) / cw, by = 0;
+	short col = (mx - win_x0(w)) / cw, by = 0;
 	columns(w, &c);
 	if (c.date >= 0 && col >= c.date)
 		by = 2;

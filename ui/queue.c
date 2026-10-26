@@ -201,7 +201,7 @@ static short percent(long done, long size)
 static void draw_log(WIN *w, GRECT *clip)
 {
 	long i, end;
-	short x0 = w->work.x + 2, cols = w->work.w / cw - 1;
+	short x0 = win_x0(w), cols = win_cols(w) - 1;
 	if (!log_n) {
 		text_at(x0 + cw, w->work.y + w->head_h + ch / 2, "Nothing said yet.", 17, cols, TX_LIGHT);
 		return;
@@ -224,7 +224,7 @@ static void draw_log(WIN *w, GRECT *clip)
 static void draw(WIN *w, GRECT *clip)
 {
 	long i, end;
-	short x0 = w->work.x + 2, cols = w->work.w / cw - 1, nw, sx;
+	short x0 = win_x0(w), cols = win_cols(w) - 1, nw, sx;
 	GRECT r;
 	fill(clip, 0);
 	if (show_log) {
@@ -383,7 +383,7 @@ void queue_changed(long i)
 			/* progress: only the bar and the numbers, so the name
 			   doesn't flicker */
 			GRECT a;
-			a.x = w_queue.work.x + 2 + state_col * cw;
+			a.x = win_x0(&w_queue) + state_col * cw;
 			a.y = w_queue.work.y + w_queue.head_h + (short)((i - w_queue.top) * w_queue.line_h);
 			a.w = w_queue.work.x + w_queue.work.w - a.x;
 			a.h = w_queue.line_h;

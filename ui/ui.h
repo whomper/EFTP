@@ -63,6 +63,9 @@ void win_scroll_to(WIN *w, long top);
 void win_ensure_visible(WIN *w, long line);
 long win_rows(WIN *w);				/* whole lines that fit */
 void win_clip_rows(WIN *w, const GRECT *clip, long *first, long *end);
+short text_x(short x);				/* text there is fast */
+short win_x0(WIN *w);				/* a pane's text, from */
+short win_cols(WIN *w);				/* and its width */
 void win_message(short *msg);			/* WM_* handling */
 WIN *win_focused(void);				/* the pane with the keyboard */
 int  win_is_top(void);				/* the window is in front */

@@ -66,6 +66,26 @@ long win_rows(WIN *w)
 	return r > 0 ? r : 1;
 }
 
+/* where text starts at or after x: on a multiple of 8, where TOS draws
+   the system font's letters a byte at a time. Two pixels on, a line of
+   33 letters took an ST 32 ms instead of 5 (TOS 1.04), a stock Falcon
+   8 instead of 3 (TOS 4.04; 26 Oct 2026) */
+short text_x(short x)
+{
+	return (x + 7) & ~7;
+}
+
+/* a pane's text: where it starts, and how many letters fit */
+short win_x0(WIN *w)
+{
+	return text_x(w->work.x + 2);
+}
+
+short win_cols(WIN *w)
+{
+	return (w->work.x + w->work.w - win_x0(w)) / cw;
+}
+
 /* the rows of w that clip touches: from *first to before *end. A pane
    draws only those: a row's redraw drew every row of the pane, clipped
    by the VDI, 180 ms a pane on an ST (26 Oct 2026) */
@@ -117,7 +137,7 @@ static void tool_layout(void)
 	r_tool = mwork;
 	r_tool.h = th;
 	narrow = mwork.w < 72 * cw;
-	x = mwork.x + 4;
+	x = text_x(mwork.x + 4);
 	for (i = B_CONNECT; i <= B_DOWN; i++) {
 		short arrow = (i == B_UP || i == B_DOWN) ? 2 : 0;
 		bw = ((short)strlen(label(i)) + 2 + arrow) * cw;
@@ -127,14 +147,14 @@ static void tool_layout(void)
 		but[i].y = mwork.y + 3;
 		but[i].w = bw;
 		but[i].h = ch + 2;
-		x += bw + (i == B_CONNECT || i == B_DOWN ? cw : 2);
+		x = text_x(x + bw + (i == B_CONNECT || i == B_DOWN ? cw : 2));
 	}
 	bw = 6 * cw;
-	but[B_STOP].x = mwork.x + mwork.w - 4 - bw;
+	but[B_STOP].x = (mwork.x + mwork.w - 4 - bw) & ~7;
 	but[B_STOP].y = mwork.y + 3;
 	but[B_STOP].w = bw;
 	but[B_STOP].h = ch + 2;
-	r_name.x = x + cw;
+	r_name.x = text_x(x + cw);
 	r_name.y = mwork.y + 4;
 	r_name.h = ch;
 	r_name.w = but[B_STOP].x - cw - r_name.x;
@@ -154,7 +174,7 @@ static void draw_button(int i)
 			   !on ? (colour ? pen[P_DIM] : 1) : colour ? pen[i == B_UP ? P_UP : P_DOWN] : 1);
 		tx = r.x + cw * 3;
 	} else {
-		tx = r.x + (r.w - n * cw) / 2;
+		tx = (r.x + (r.w - n * cw) / 2) & ~7;
 	}
 	if (i == B_STOP && on && colour)
 		text_pen_at(pen[P_ERR], tx, r.y + 1, l, n, n, TX_LTR);
@@ -440,13 +460,13 @@ static void draw_header(WIN *w)
 		tl = cols - 2;
 	if (il > cols - tl - 2)
 		il = cols - tl - 2;
-	text_at(h.x + cw / 2, h.y + 2, w->title, tl, cols, TX_BOLD | TX_LTR | (dark ? TX_INVERSE : 0));
+	text_at(text_x(h.x + 2), h.y + 2, w->title, tl, cols, TX_BOLD | TX_LTR | (dark ? TX_INVERSE : 0));
 	if (il > 0) {
+		short ix = (h.x + w->box.w - (il + 1) * cw) & ~7;
 		if (dark || !colour)
-			text_at(h.x + w->box.w - (il + 1) * cw, h.y + 2, w->info, il, il,
-				TX_LTR | (dark ? TX_INVERSE : TX_LIGHT));
+			text_at(ix, h.y + 2, w->info, il, il, TX_LTR | (dark ? TX_INVERSE : TX_LIGHT));
 		else
-			text_pen_at(pen[P_DIM], h.x + w->box.w - (il + 1) * cw, h.y + 2, w->info, il, il, TX_LTR);
+			text_pen_at(pen[P_DIM], ix, h.y + 2, w->info, il, il, TX_LTR);
 	}
 	hline(h.x, h.x + h.w - 1, h.y + h.h - 1);
 }

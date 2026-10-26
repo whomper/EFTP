@@ -110,6 +110,8 @@ with the evidence.
   `make PROFILE=20 build/prof/EFTP.PRG` and prints each action's longest
   stretch between event calls, on `ST:mono`, `ST:med` and `Falcon-4:16`
   (`EFTP_PROF_PRG=` runs an earlier such build, for before and after).
+  Text goes on multiples of 8 (`text_x()`, `win_x0()`): TOS draws the
+  system font 6 times as fast there.
 - The small C library has no `%o` or floating point: format octal by hand
   and keep `double` out (it pulls in libgcc code that needs a GOT).
 - Memory is short on a 1 MB ST with STinG: keep big buffers out of BSS and
