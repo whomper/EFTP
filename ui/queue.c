@@ -198,15 +198,16 @@ static short percent(long done, long size)
 	return (short)(done * 100 / size);
 }
 
-static void draw_log(WIN *w)
+static void draw_log(WIN *w, GRECT *clip)
 {
-	long i, rows = win_rows(w) + 1;
+	long i, end;
 	short x0 = w->work.x + 2, cols = w->work.w / cw - 1;
 	if (!log_n) {
 		text_at(x0 + cw, w->work.y + w->head_h + ch / 2, "Nothing said yet.", 17, cols, TX_LIGHT);
 		return;
 	}
-	for (i = w->top; i < log_n && i < w->top + rows; i++) {
+	win_clip_rows(w, clip, &i, &end);
+	for (; i < log_n && i < end; i++) {
 		const char *l = log_line(i);
 		short y = w->work.y + w->head_h + (short)((i - w->top) * ch), p = 1, fl = TX_LTR;
 		if (l[0] == '>')
@@ -222,12 +223,12 @@ static void draw_log(WIN *w)
 
 static void draw(WIN *w, GRECT *clip)
 {
-	long i, rows = win_rows(w) + 1;
+	long i, end;
 	short x0 = w->work.x + 2, cols = w->work.w / cw - 1, nw, sx;
 	GRECT r;
 	fill(clip, 0);
 	if (show_log) {
-		draw_log(w);
+		draw_log(w, clip);
 		return;
 	}
 	if (!xn) {
@@ -247,7 +248,8 @@ static void draw(WIN *w, GRECT *clip)
 		nw = 12;
 	sx = 3 + nw + 1;		/* the state */
 	state_col = sx;
-	for (i = w->top; i < xn && i < w->top + rows; i++) {
+	win_clip_rows(w, clip, &i, &end);
+	for (; i < xn && i < end; i++) {
 		XITEM *x = &xq[i];
 		short y = w->work.y + w->head_h + (short)((i - w->top) * ch), lit = i == qsel;
 		short fl = lit ? TX_INVERSE : 0, up = x->dir == XD_UP, rest = cols - sx;

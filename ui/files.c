@@ -27,10 +27,13 @@ static long free_bytes = -1;
 static char free_drive;
 static short free_stale = 1;
 
+#define COLW 24			/* see cols_of() */
+
 typedef struct {
 	WIN *w;
 	FLIST l;
 	char *mark;		/* one per entry: selected */
+	char *col;		/* COLW per entry: its size and date as shown, or 0 */
 	long nmarks;
 	long cur;		/* the row with the cursor */
 	long anchor;		/* where a Control+click range starts */
@@ -126,6 +129,8 @@ static void reset_marks(SIDE *s)
 {
 	free(s->mark);
 	s->mark = calloc(s->l.n ? s->l.n : 1, 1);
+	free(s->col);
+	s->col = calloc(s->l.n ? s->l.n : 1, COLW);
 	s->nmarks = 0;
 	s->anchor = -1;
 }
@@ -367,18 +372,42 @@ void date_str(CTIME t, int wall, char *out, int size)
 	snprintf(out, size, "%02d.%02d.%02d %02d:%02d", d.day, d.mon, d.year % 100, d.hour, d.min);
 }
 
+/* a row's size and date as shown, made the first time the row is drawn
+   and kept until the folder is read again or the time zone changes: an
+   ST took 7 ms a row to make them (26 Oct 2026). The size at 0, the date
+   at 8, and the last byte says they are made */
+static char col_zone[40];
+
+static const char *cols_of(SIDE *s, long k, FENTRY *e, char *tmp)
+{
+	char *c = s->col ? s->col + (k << 4) + (k << 3) : tmp;
+	if (!c[COLW - 1]) {
+		size_str(e->type == FE_DIR ? -1 : e->size, c, 8);
+		date_str(e->mtime, e->wall, c + 8, 15);
+		c[COLW - 1] = 1;
+	}
+	return c;
+}
+
 static void draw(WIN *w, GRECT *clip)
 {
 	SIDE *s = &sd[side_of(w)];
 	COLS c;
-	long i, rows = win_rows(w) + 1;
+	long i, end;
 	short x0 = w->work.x + 2, by = (opt.sort & 7), rev = (opt.sort & 8) != 0;
 	GRECT r;
 	columns(w, &c);
 	fill(clip, 0);
+	if (strcmp(col_zone, opt.tzname)) {
+		short k;
+		for (k = 0; k < 2; k++)
+			if (sd[k].col)
+				memset(sd[k].col, 0, (sd[k].l.n ? sd[k].l.n : 1) * COLW);
+		str_copy(col_zone, opt.tzname, sizeof(col_zone));
+	}
 
 	/* the column titles; the one sorted by with its direction */
-	{
+	if (clip->y < w->work.y + w->head_h) {
 		static const char *const t[3] = { "Name", "Size", "Date" };
 		short at[3], k;
 		at[0] = c.name;
@@ -408,12 +437,14 @@ static void draw(WIN *w, GRECT *clip)
 				w->work.w / cw - 2, k ? TX_LIGHT : 0);
 		return;
 	}
-	for (i = w->top; i < s->l.n + s->up && i < w->top + rows; i++) {
+	win_clip_rows(w, clip, &i, &end);
+	for (; i < s->l.n + s->up && i < end; i++) {
 		FENTRY *e = entry(s, i);
-		short y = w->work.y + w->head_h + (short)((i - w->top) * ch);
+		short y = w->work.y + w->head_h + (short)(i - w->top) * ch;
 		int lit = e ? s->mark[i - s->up] : (i == s->cur && !s->nmarks);
 		short fl = lit ? TX_INVERSE : 0;
-		char t[24];
+		char tmp[COLW];
+		const char *t;
 		if (lit) {
 			r.x = w->work.x;
 			r.y = y;
@@ -446,18 +477,24 @@ static void draw(WIN *w, GRECT *clip)
 			short n;
 			if (e->hidden && !lit)
 				nf |= TX_LIGHT;
-			n = (short)snprintf(nm, sizeof(nm), "%s%s", e->disp, e->type == FE_LINK ? " \x03" : "");
-			text_at(x0 + c.name * cw, y, nm, n, c.nw, nf);
+			const char *d = e->disp;
+			if (e->type == FE_LINK) {
+				str_copy(nm, e->disp, sizeof(nm) - 2);
+				strcat(nm, " \x03");
+				d = nm;
+			}
+			n = (short)strlen(d);
+			text_at(x0 + c.name * cw, y, d, n, c.nw, nf);
 		}
 		text_pen = lit ? 1 : pen[P_DIM];
-		if (c.size >= 0 && e->type != FE_DIR) {
-			size_str(e->size, t, sizeof(t));
-			text_at(x0 + (c.size + 7 - (short)strlen(t)) * cw, y, t, strlen(t), 7, fl | TX_LTR);
+		tmp[COLW - 1] = 0;
+		t = cols_of(s, i - s->up, e, tmp);
+		if (c.size >= 0 && t[0]) {
+			short n = (short)strlen(t);
+			text_at(x0 + (c.size + 7 - n) * cw, y, t, n, 7, fl | TX_LTR);
 		}
-		if (c.date >= 0) {
-			date_str(e->mtime, e->wall, t, sizeof(t));
-			text_at(x0 + c.date * cw, y, t, strlen(t), c.dw, fl | TX_LTR);
-		}
+		if (c.date >= 0 && t[8])
+			text_at(x0 + c.date * cw, y, t + 8, strlen(t + 8), c.dw, fl | TX_LTR);
 		text_pen = 1;
 	}
 }

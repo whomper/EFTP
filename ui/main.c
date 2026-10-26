@@ -131,11 +131,33 @@ static const MBAR_TITLE bar[] = {
 
 static MBAR mb;
 
+/* the menu entries' objects, found once; and the AES asked only for a
+   change: menu_update runs after every key and click, and its searches
+   of the bar alone took an ST 30 ms of a click (26 Oct 2026) */
+static short obj_of(short cmd)
+{
+	static short o[C_KEYS + 1], known;
+	if (!known) {
+		short c;
+		for (c = 0; c <= C_KEYS; c++)
+			o[c] = mbar_object(&mb, c);
+		known = 1;
+	}
+	return cmd >= 0 && cmd <= C_KEYS ? o[cmd] : -1;
+}
+
 static void enable(short cmd, int on)
 {
-	short i = mbar_object(&mb, cmd);
-	if (i >= 0)
+	short i = obj_of(cmd);
+	if (i >= 0 && !(mb.tree[i].ob_state & DISABLED) != !!on)
 		menu_ienable(mb.tree, i, on ? 1 : 0);
+}
+
+static void check(short cmd, int on)
+{
+	short i = obj_of(cmd);
+	if (i >= 0 && !(mb.tree[i].ob_state & CHECKED) != !on)
+		menu_icheck(mb.tree, i, on ? 1 : 0);
 }
 
 static int focus_side(void)
@@ -169,11 +191,11 @@ void menu_update(void)
 	enable(C_RETRY, xfer_count(XS_FAIL) + xfer_count(XS_STOP) > 0);
 	enable(C_CLEARDONE, xfer_count(XS_DONE) + xfer_count(XS_SKIP) > 0);
 	enable(C_CLEARALL, xn > 0);
-	menu_icheck(mb.tree, mbar_object(&mb, C_HIDDEN), opt.hidden);
-	menu_icheck(mb.tree, mbar_object(&mb, C_LOG), show_log);
-	menu_icheck(mb.tree, mbar_object(&mb, C_HEBREW), hebrew_kbd);
-	menu_icheck(mb.tree, mbar_object(&mb, C_PLOG), opt.log);
-	menu_icheck(mb.tree, mbar_object(&mb, C_FALCON), opt.falcon);
+	check(C_HIDDEN, opt.hidden);
+	check(C_LOG, show_log);
+	check(C_HEBREW, hebrew_kbd);
+	check(C_PLOG, opt.log);
+	check(C_FALCON, opt.falcon);
 }
 
 /* ---------------- Direct connection ----------------

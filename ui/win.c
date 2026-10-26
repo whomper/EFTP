@@ -66,6 +66,17 @@ long win_rows(WIN *w)
 	return r > 0 ? r : 1;
 }
 
+/* the rows of w that clip touches: from *first to before *end. A pane
+   draws only those: a row's redraw drew every row of the pane, clipped
+   by the VDI, 180 ms a pane on an ST (26 Oct 2026) */
+void win_clip_rows(WIN *w, const GRECT *clip, long *first, long *end)
+{
+	short y0 = w->work.y + w->head_h, lh = w->line_h ? w->line_h : ch;
+	short a = clip->y - y0, b = clip->y + clip->h - y0;
+	*first = w->top + (a > 0 ? a / lh : 0);
+	*end = w->top + (b > 0 ? (b + lh - 1) / lh : 0);
+}
+
 static short header_h(void)
 {
 	return ch + 4;
@@ -151,12 +162,27 @@ static void draw_button(int i)
 		text_at(tx, r.y + 1, l, n, n, TX_LTR | (on ? 0 : TX_LIGHT));
 }
 
+/* what the toolbar shows, to draw it again only when that changes: it
+   was asked for after every click on a row */
+static short tool_seen = -1;
+static const void *tool_site;
+
+static short tool_state(void)
+{
+	short i, k = (ftp != 0) | (narrow << 1);
+	for (i = 0; i < NBUT; i++)
+		k |= enabled(i) ? 4 << i : 0;
+	return k;
+}
+
 static void draw_toolbar(GRECT *clip)
 {
 	GRECT r = r_tool;
 	int i;
 	if (!intersect(clip, &r))
 		return;
+	tool_seen = tool_state();
+	tool_site = cur_site;
 	fill(&r, 0);
 	for (i = 0; i < NBUT; i++)
 		draw_button(i);
@@ -193,7 +219,7 @@ static void main_redraw(GRECT *area);
 
 void toolbar_redraw(void)
 {
-	if (main_h > 0)
+	if (main_h > 0 && (tool_state() != tool_seen || cur_site != tool_site))
 		main_redraw(&r_tool);
 }
 
