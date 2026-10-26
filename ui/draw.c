@@ -193,15 +193,34 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 		out = vis;
 		heb_font_map(vis, n, opt.hebfont);
 	}
+	/* light text without the VDI's light effect, which costs what text
+	   off a multiple of 8 does (33 letters: 33 ms on an ST, 5 plain; 8
+	   and 3 on a stock Falcon, 26 Oct 2026): in colour the dim pen; in
+	   black and white the text plain, then every other dot of it taken
+	   away with a fill, as the effect does */
 	vswr_mode(vdi_h, 2);
-	vst_color(vdi_h, (flags & TX_INVERSE) ? 0 : text_pen);
-	vst_effects(vdi_h, (flags & TX_BOLD) ? 1 : (flags & TX_LIGHT) ? 2 : 0);
+	vst_color(vdi_h, (flags & TX_INVERSE) ? 0 : (flags & TX_LIGHT) && colour ? pen[P_DIM] : text_pen);
+	if (flags & TX_BOLD)
+		vst_effects(vdi_h, 1);
 	for (i = 0; i < n; i += 120) {
 		short k = n - i > 120 ? 120 : (short)(n - i);
 		v_gtext_n(vdi_h, x + i * cw, y, out + i, k);
 	}
-	if (flags & (TX_BOLD | TX_LIGHT))
+	if (flags & TX_BOLD)
 		vst_effects(vdi_h, 0);
+	if ((flags & TX_LIGHT) && !colour) {
+		short p[4];
+		p[0] = x;
+		p[1] = y;
+		p[2] = x + (short)n * cw - 1;
+		p[3] = y + ch - 1;
+		vsf_interior(vdi_h, 2);		/* a pattern: every other dot */
+		vsf_style(vdi_h, 4);
+		vsf_color(vdi_h, (flags & TX_INVERSE) ? 1 : 0);
+		vsf_perimeter(vdi_h, 0);
+		v_bar(vdi_h, p);
+		vsf_interior(vdi_h, 1);
+	}
 }
 
 long wrap_text(const char *s, long n, short width, long *breaks, long max)
