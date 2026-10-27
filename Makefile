@@ -203,11 +203,15 @@ REPLAYSRC   := common/tests/fuzz/fuzz_net.c common/tests/fuzz/replay.c
 $(OBJDIR)/replay_%: tests/fuzz/fuzz_%.c $(HOSTSRC) $(HDRS) $(HOSTLIB) $(REPLAYSRC) | $(OBJDIR)
 	$(HOSTCC) $(REPLAYFLAGS) -o $@ $< $(HOSTSRC) $(REPLAYSRC) $(HOSTLIB)
 
-test: $(OBJDIR)/unit $(addprefix $(OBJDIR)/replay_,$(FUZZERS))
+# make test also looks for word and long accesses at an odd offset from
+# the stack in EFTP.PRG's code: a 68000's address error (the guidelines,
+# The machines; common's oddaccess.py)
+test: $(OBJDIR)/unit $(addprefix $(OBJDIR)/replay_,$(FUZZERS)) $(OBJDIR)/eftp.elf
 	$(OBJDIR)/unit
 	@for f in $(FUZZERS); do \
 	  $(OBJDIR)/replay_$$f tests/fuzz/seeds/$$f $$(ls -d tests/fuzz/found/$$f 2>/dev/null) || exit 1; \
 	done
+	python3 common/tools/oddaccess.py $(OBJDIR)/eftp.elf
 
 itest: $(OBJDIR)/ftp-cli
 	python3 tests/integration.py
