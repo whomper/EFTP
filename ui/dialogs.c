@@ -120,7 +120,8 @@ short d_text(short x, short y, const char *s)
 	return d_add(G_STRING, 0, 0, (long)s, x, y, (short)strlen(s), 1);
 }
 
-/* an editable field showing len characters of buf (buf holds len+1) */
+/* an editable field showing len characters of buf (buf holds len+1), in
+   a thin frame */
 short d_edit(short x, short y, char *buf, short len, char kind)
 {
 	TEDINFO *t = &ted[nted];
@@ -139,11 +140,11 @@ short d_edit(short x, short y, char *buf, short len, char kind)
 	t->te_font = 3;
 	t->te_just = 0;
 	t->te_color = 0x1180;
-	t->te_thickness = 0;
+	t->te_thickness = -1;		/* every field in a thin frame (5.7) */
 	t->te_txtlen = len + 1;
 	t->te_tmplen = len + 1;
 	nted++;
-	return d_add(G_FTEXT, EDITABLE, 0, (long)t, x, y, len, 1);
+	return d_add(G_FBOXTEXT, EDITABLE, 0, (long)t, x, y, len, 1);
 }
 
 /* a field showing len characters of buf, which holds cap (cap + 1 bytes)
@@ -566,18 +567,22 @@ static short first_edit(void)
 	return 0;
 }
 
-/* a choice button's text: the name, and the system font's down arrow
-   at the right */
-static void choice_label(char *out, short w, const char *name, const char *right)
+/* a choice button's text: the name, and at the right the system font's
+   down arrow for a pop-up menu (list 0), or "..." for a long list in a
+   dialog of its own (the guidelines, 5.7: an arrow promises a pop-up) */
+static void choice_label(char *out, short w, const char *name, const char *right, int list)
 {
-	short n = (short)strlen(name), o = (short)strlen(right);
+	short n = (short)strlen(name), o = (short)strlen(right), e = list ? 3 : 1;
 	memset(out, ' ', w);
 	out[w] = 0;
-	if (n > w - 4 - o)
-		n = (short)(w - 4 - o);
+	if (n > w - 3 - e - o)
+		n = (short)(w - 3 - e - o);
 	memcpy(out + 1, name, n);
-	memcpy(out + w - 2 - o, right, o);
-	out[w - 1] = 2;
+	memcpy(out + w - 1 - e - o, right, o);
+	if (list)
+		memcpy(out + w - 3, "...", 3);
+	else
+		out[w - 1] = 2;
 }
 
 static void zone_label(void)
@@ -587,7 +592,7 @@ static void zone_label(void)
 	if (!z)
 		z = tz_utc();
 	tz_label(z, zone_utc_now(), off, sizeof(off));
-	choice_label(s_zlabel, 28, z->name, off);
+	choice_label(s_zlabel, 28, z->name, off, 1);
 }
 
 static const char *const exists_names[5] = {
@@ -596,7 +601,7 @@ static const char *const exists_names[5] = {
 
 static void exists_label(void)
 {
-	choice_label(s_xlabel, 28, exists_names[s_exists], "");
+	choice_label(s_xlabel, 28, exists_names[s_exists], "", 0);
 }
 
 static short pick_w(const char *title, const char **items, short n, short lw);
@@ -655,9 +660,18 @@ static void zone_pick(void)
 	zone_label();
 }
 
-static void exists_pick(void)
+/* the pop-up menu over the button, the choice it shows ticked (5.7) */
+static void exists_pick(short btn)
 {
-	short i = pick_over("When a file is already there", (const char **)exists_names, 5, 30, s_exists);
+	char lab[5][32];
+	const char *items[5];
+	short bx, by, i;
+	for (i = 0; i < 5; i++) {
+		snprintf(lab[i], sizeof(lab[i]), "%c %s", i == s_exists ? '\x08' : ' ', exists_names[i]);
+		items[i] = lab[i];
+	}
+	objc_offset(tree, btn, &bx, &by);
+	i = popup(bx, by, items, 5);
 	if (i >= 0)
 		s_exists = i;
 	exists_label();
@@ -694,18 +708,23 @@ static short settings_run(short pages_box)
 				show_page(k, 1);
 			continue;
 		}
-		if (r == zone_btn || r == exists_btn) {
+		if (r == zone_btn) {
 			/* the list over the settings, then the settings again */
 			tree[r].ob_state &= ~SELECTED;
-			if (r == zone_btn)
-				zone_pick();
-			else
-				exists_pick();
+			zone_pick();
 			if (!dlg_in_window()) {
 				/* in windows the AES has them drawn again */
 				win_redraw_area(&pick_area);	/* what the list covered */
 				dlg_draw(tree, 0);
 			}
+			continue;
+		}
+		if (r == exists_btn) {
+			tree[r].ob_state &= ~SELECTED;
+			exists_pick(r);
+			if (!popup_put_back && !dlg_in_window())
+				dlg_draw(tree, 0);	/* what the menu covered */
+			dlg_draw(tree, r);
 			continue;
 		}
 		break;
@@ -1244,7 +1263,7 @@ static unsigned short proto_port(int proto)
 
 static void proto_label(int proto)
 {
-	choice_label(f_plabel, 21, proto_name(proto), "");
+	choice_label(f_plabel, 21, proto_name(proto), "", 0);
 }
 
 /* the list under the button; the port follows when it was the usual one */
@@ -1258,7 +1277,7 @@ static int proto_pick(short btn, short proto, char *port)
 		items[i] = lab[i];
 	}
 	objc_offset(tree, btn, &bx, &by);
-	i = popup(bx, by + tree[btn].ob_height, items, 4);
+	i = popup(bx, by, items, 4);		/* over the button (5.7) */
 	if (i < 0 || i == proto)
 		return proto;
 	if (!port[0] || atoi(port) == proto_port(proto))
