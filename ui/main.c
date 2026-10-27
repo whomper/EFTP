@@ -1003,6 +1003,7 @@ int main(void)
 	if (ap_id < 0)
 		return 1;
 	notify_init("EFTP    ");	/* BGEM.NG's notifications (4.5) */
+	notify_ask();			/* sends nothing until BGEM.NG answers */
 	notify_clicked = notify_show;
 	vdi_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
 	cw = gl_wchar;

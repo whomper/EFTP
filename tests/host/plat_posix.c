@@ -227,12 +227,6 @@ const char *pf_getenv(const char *name)
 	return getenv(name);
 }
 
-void pf_memory(char *where, int wsize, char *avail, int asize)
-{
-	snprintf(where, wsize, "Running on the host");
-	snprintf(avail, asize, "%s", "");
-}
-
 unsigned long pf_ms(void)
 {
 	struct timespec ts;

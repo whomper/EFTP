@@ -77,9 +77,6 @@ void pf_now(PFTIME *t);		/* local wall clock */
 /* a variable from the program's environment (TZ under MiNT or MagiC),
    or NULL */
 const char *pf_getenv(const char *name);
-/* the memory EFTP runs in, for the About box: where ("Running in TT
-   RAM", "Program in ST RAM, data in TT RAM") and what is free */
-void pf_memory(char *where, int wsize, char *avail, int asize);
 unsigned long pf_ms(void);	/* monotonic milliseconds (5 ms steps on TOS) */
 /* "" when the clock pf_ms() counts runs true, else what was measured
    and done about it, for the log */
