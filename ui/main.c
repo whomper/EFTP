@@ -24,6 +24,7 @@
 #include "aboutbox.h"
 #include "mbar.h"
 #include "dialog.h"
+#include "notify.h"
 #include "../src/version.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
@@ -284,6 +285,17 @@ void set_hebrew_kbd(short on)
 	status(on ? "Hebrew keyboard (F10 switches back)" : "");
 }
 
+/* a notification's Show (only one is sent: the transfers done) */
+static void notify_show(short id, short button)
+{
+	(void)id;
+#ifdef AES_PROFILE
+	nf_debug(button == 1 ? "NOTIFY Show\n" : "NOTIFY other\n");
+#endif
+	if (button == 1)
+		win_show();
+}
+
 /* ---------------- staying alive during a transfer ----------------
  * A transfer runs in one go, but the screen stays alive: pf_idle (while
  * waiting for the network) and every progress update come here, where
@@ -292,6 +304,8 @@ static unsigned long esc_quiet_until;	/* keys_flush(); 0: none */
 
 static void handle_poll_event(short which, short *msg, AEVENT *ev)
 {
+	if ((which & MU_MESAG) && notify_message(msg))
+		which &= ~MU_MESAG;	/* BGEM.NG's */
 	if (which & MU_MESAG) {
 		switch (msg[0]) {
 		case WM_REDRAW:
@@ -777,6 +791,10 @@ static int shortcut(short kstate, short key)
 		text_bench();
 		return 1;
 	}
+	if (scan == 0x42) {		/* F8: the notification transfers send */
+		nf_debug(notify_send("Transfers done", "F8: a test", "Show", 1) ? "NOTIFY sent\n" : "NOTIFY none\n");
+		return 1;
+	}
 #endif
 	if (scan == 0x62) {		/* Help */
 		help_key_pressed();
@@ -984,6 +1002,8 @@ int main(void)
 	ap_id = appl_init();
 	if (ap_id < 0)
 		return 1;
+	notify_init("EFTP    ");	/* BGEM.NG's notifications (4.5) */
+	notify_clicked = notify_show;
 	vdi_h = graf_handle(&gl_wchar, &gl_hchar, &d, &d);
 	cw = gl_wchar;
 	ch = gl_hchar;
@@ -1102,6 +1122,8 @@ int main(void)
 		} else if (hovering && pf_ms() - hover_at >= 700UL) {
 			tip_show();
 		}
+		if ((which & MU_MESAG) && notify_message(msg))
+			which &= ~MU_MESAG;	/* BGEM.NG's */
 		if (which & MU_MESAG) {
 			const char *va;
 			switch (msg[0]) {

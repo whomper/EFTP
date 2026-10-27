@@ -68,6 +68,8 @@ short text_x(short x);				/* text there is fast */
 short win_x0(WIN *w);				/* a pane's text, from */
 short win_cols(WIN *w);				/* and its width */
 void win_message(short *msg);			/* WM_* handling */
+void win_show(void);				/* in front, from its icon too */
+int win_hidden(void);				/* behind another, or iconified */
 WIN *win_focused(void);				/* the pane with the keyboard */
 int  win_is_top(void);				/* the window is in front */
 int  win_mouse(short mx, short my, short button, short clicks, short kstate);

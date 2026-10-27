@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ui.h"
+#include "notify.h"
 #include "theme.h"
 #include "util.h"
 #include "charset.h"
@@ -479,6 +480,10 @@ void queue_run(void)
 			 failed ? "  - some failed" : "");
 		if (opt.beep && ms > 30000UL)
 			bell();
+		/* a long job done while the window was behind another or an
+		   icon: a notification, where BGEM.NG runs (the guidelines, 4.5) */
+		if (ms > 30000UL && win_hidden())
+			notify_send("Transfers done", m, "Show", 1);
 	}
 	/* the lists show what came and went; a screen turn first, as the
 	   end of the transfers was work too */

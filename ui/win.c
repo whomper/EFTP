@@ -762,6 +762,35 @@ static void save_main_place(void)
 	wind_get(main_h, WF_CURRXYWH, &opt.main_x, &opt.main_y, &opt.main_w, &opt.main_h);
 }
 
+/* the window in front, from its icon too (a notification's Show) */
+void win_show(void)
+{
+	if (main_h <= 0)
+		return;
+	if (main_iconified) {
+		short msg[8];
+		msg[0] = WM_UNICONIFY;
+		msg[3] = main_h;
+		msg[4] = opt.main_x;
+		msg[5] = opt.main_y;
+		msg[6] = opt.main_w;
+		msg[7] = opt.main_h;
+		win_message(msg);
+	}
+	wind_set(main_h, WF_TOP, 0, 0, 0, 0);
+}
+
+/* 1 when EFTP's window is behind another or iconified: news then goes as
+   a notification (the guidelines, 4.5) */
+int win_hidden(void)
+{
+	short top, d;
+	if (main_h <= 0 || main_iconified)
+		return main_h > 0;
+	wind_get(0, WF_TOP, &top, &d, &d, &d);
+	return top != main_h;
+}
+
 /* the window's place with its work area on the 8-pixel grid (the
    guidelines' Speed: text there is drawn a byte at a time), narrower by
    what it moved if it would go past the screen's right edge */
