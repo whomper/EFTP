@@ -793,7 +793,8 @@ static int shortcut(short kstate, short key)
 		case 0x25: cmd = C_SITES; break;	/* K */
 		case 0x20: cmd = C_DISCONNECT; break;	/* D */
 		case 0x10: cmd = C_QUIT; break;		/* Q */
-		case 0x11: cmd = C_QUIT; break;		/* W: closes the one window */
+		case 0x16: cmd = C_QUIT; break;		/* U: closes the one window */
+		/* ^W, the next window of EFTP's own: with one, nothing (3.1) */
 		case 0x14: cmd = C_TRANSFER; break;	/* T */
 		case 0x31: cmd = C_NEWFOLDER; break;	/* N */
 		case 0x12: cmd = C_RENAME; break;	/* E */

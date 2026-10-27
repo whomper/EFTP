@@ -1211,7 +1211,7 @@ void dlg_keys(void)
 		"^L  server messages        F10 Hebrew keyboard",
 		"^,  Settings",
 		"During a transfer: Esc or Stop ends it",
-		"^W, ^Q  quit               Help  the user guide",
+		"^U, ^Q  quit               Help  the user guide",
 		"The file keys act on the pane with the keyboard"
 	};
 	short i, n = (short)(sizeof(lines) / sizeof(lines[0]));
