@@ -186,9 +186,12 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 	if (heb_mode != HM_MAP && has_heb(out, n)) {
 		vswr_mode(vdi_h, 2);
 		vst_color(vdi_h, (flags & TX_INVERSE) ? 0 : text_pen);
-		vst_effects(vdi_h, (flags & TX_BOLD) ? 1 : (flags & TX_LIGHT) ? 2 : 0);
+		if (flags & TX_LIGHT)
+			vst_effects(vdi_h, 2);
 		runs_at(x, y, out, (short)n);
-		if (flags & (TX_BOLD | TX_LIGHT))
+		if (flags & TX_BOLD)
+			runs_at(x + 1, y, out, (short)n);	/* struck again, as below */
+		if (flags & TX_LIGHT)
 			vst_effects(vdi_h, 0);
 		return;
 	}
@@ -205,16 +208,15 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 	   away with a fill, as the effect does */
 	vswr_mode(vdi_h, 2);
 	vst_color(vdi_h, (flags & TX_INVERSE) ? 0 : (flags & TX_LIGHT) && colour ? pen[P_DIM] : text_pen);
+	/* bold: the plain run struck again a pixel to the right, the pixels
+	   TOS's bold gives; never vst_effects, as NVDI's widens each letter
+	   by a pixel or more and the run drawn next covers the last ones
+	   (EHypView under NVDI, "On the Falcon itsel"; the guidelines' Speed) */
+	text_n(vdi_h, x, y, out, n);
 	if (flags & TX_BOLD) {
-		/* TOS's bold is a dot wider than its cells: never with the clip
-		   off, as text_n may draw it */
-		short i;
-		vst_effects(vdi_h, 1);
-		for (i = 0; i < n; i += 120)
-			v_gtext_n(vdi_h, x + i * cw, y, out + i, n - i > 120 ? 120 : (short)(n - i));
-		vst_effects(vdi_h, 0);
-	} else
-		text_n(vdi_h, x, y, out, n);
+		text_bold_strike(vdi_h, x, y, out, n);
+		vswr_mode(vdi_h, 2);
+	}
 	if ((flags & TX_LIGHT) && !colour) {
 		short p[4];
 		p[0] = x;
