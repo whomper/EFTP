@@ -327,9 +327,10 @@ static short first_editable(void)
 	return 0;
 }
 
-/* what Esc and Undo press (the guidelines, 3.5): Cancel, else the only
-   button that ends the dialog (OK in a box that only says something); 0
-   when neither is there, and then they do nothing */
+/* what Undo presses, and Esc where no field has the cursor (the
+   guidelines, 3.5): Cancel, else the only button that ends the dialog
+   (OK in a box that only says something); 0 when neither is there, and
+   then they do nothing */
 static short esc_button(void)
 {
 	short i, exits = 0, last = 0;
@@ -344,9 +345,10 @@ static short esc_button(void)
 	return exits == 1 ? last : 0;
 }
 
-/* form_do, with password fields, the clipboard (^C ^X ^V), and Esc and
-   Undo for Cancel (the AERA guidelines, 3.5): never anything that acts,
-   and never clearing the field the cursor is in, as form_do's Esc does */
+/* form_do, with password fields and the clipboard (^C ^X ^V). Undo is
+   Cancel, and so is Esc where no text field has the cursor; in a field
+   Esc empties it, as form_do's does (the guidelines, 3.5; a tester,
+   Erez 27 Oct 2026). ^[ is Esc */
 static short form_loop(short start)
 {
 	short next = start ? start : first_editable(), edit = 0, idx = 0, cont = 1;
@@ -361,11 +363,14 @@ static short form_loop(short start)
 			else
 				objc_edit(tree, edit, 0, &idx, ED_INIT);
 		}
-		dlg_evnt(MU_KEYBD | MU_BUTTON, 2, 1, 1, 0, m, &e);	/* the closer: Esc */
+		dlg_evnt(MU_KEYBD | MU_BUTTON, 2, 1, 1, 0, m, &e);	/* the closer: Undo */
 		if (e.which & MU_KEYBD) {
 			LFIELD *lf = edit ? lf_of(tree, edit) : 0;
-			short scan = KEY_SCAN(e.kreturn), ck = clip_key(e.kreturn);
-			if (scan == 0x01 || scan == 0x61) {	/* Esc, Undo */
+			short ck;
+			if (dlg_esc(e.kreturn) && !dlg_undo(e.kreturn))
+				e.kreturn = 0x011b;	/* ^[ too: the key objc_edit empties a field on */
+			ck = clip_key(e.kreturn);
+			if (dlg_cancel_key(e.kreturn, edit > 0)) {
 				if (esc_button()) {
 					next = esc_button();	/* as if it were clicked */
 					cont = 0;

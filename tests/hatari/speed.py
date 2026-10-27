@@ -178,7 +178,7 @@ try:
     r.shot("2-settings")
     measure("a letter typed in a field", 50, lambda: (r.type("ab", pace=0.6 * SLOW), r.key(K["BACKSPACE"]),
                                                       time.sleep(0.6 * SLOW), r.key(K["BACKSPACE"])))
-    measure("Settings closed (Esc), window uncovered", 300, lambda: r.key(K["ESC"]))
+    measure("Settings closed (Undo), window uncovered", 300, lambda: r.key(0x61))   # Esc empties a field (3.5)
 
     # C:\MANY: 300 files
     measure("to a folder by its letter (m)", 50, lambda: r.type("m"))

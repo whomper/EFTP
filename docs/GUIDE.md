@@ -437,13 +437,14 @@ F10 switches to the Israeli keyboard for typing Hebrew names.
 | ^C ^X ^V       | in a dialog: copy, cut, paste a field          |
 | Left, Right    | in a dialog's field: move (Shift: start, end)  |
 | ^R, Esc        | read the lists again                           |
-| Esc, Undo      | in a dialog or an alert: Cancel                |
+| Undo           | in a dialog or an alert: Cancel                |
+| Esc            | in a dialog: empty the field; no field: Cancel |
 | Space, Insert  | select the file under the cursor and move on   |
 | ^L             | server messages / transfers                    |
 | ^,             | Settings                                       |
 | F10            | Hebrew keyboard                                |
 | Help           | this guide, or the keys                        |
-| ^Q, ^W         | quit (^W closes the window, EFTP's only one)  |
+| ^Q, ^U         | quit (^U closes the window, EFTP's only one)  |
 
 While EFTP waits for the server (connecting, a list, a transfer), Esc,
 Undo or the Stop button stops it.

@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
-"""Esc and Undo cancel EFTP's dialogs (the AERA guidelines, 3.5), in Hatari.
+"""Esc and Undo in EFTP's dialogs (the AERA guidelines, 3.5, GEM's way
+since 27 Oct 2026), in Hatari.
 
-Each dialog is opened, something is typed into a text field, and Esc or
-Undo closes it: the dialog must be gone (the window seen again), the
-typing not kept in the field's place and nothing written: EFTP.INF is
-the same, byte for byte, as before.
+Each dialog is opened and something typed into the text field the cursor
+is in. Esc empties that field and the dialog stays open; Undo closes it:
+the dialog gone (the window seen again) and nothing written, EFTP.INF the
+same, byte for byte, as before. An alert, which has no field, closes on
+Esc and Undo alike.
 
     esc_test.py WORKDIR [MACHINE]     (Xvfb, xdotool, pip install pyftpdlib)
 
@@ -73,42 +75,56 @@ try:
     r.move(600, 450)                                # the pointer out of the way, for
     time.sleep(1)                                   # screens to compare
     plain = pixels(r.shot("plain"))
-    shots = []
-    for key, name in ((K["ESC"], "Esc"), (UNDO, "Undo")):
-        # the Site Manager: the cursor in the site's name; type, then cancel
-        r.ctrl("k")
-        time.sleep(2)
-        typed(3)
-        opened = pixels(r.shot("sites-typed-%s" % name))
-        r.key(key)
-        time.sleep(2)
-        after = pixels(r.shot("sites-after-%s" % name))
-        check(closed(opened, after, plain), "%s closes the Site Manager, the typing gone" % name)
-        # Settings: from the menu (Options > Settings) the first time, by
-        # ^, the second (the AERA guidelines, 6.1)
-        if key == K["ESC"]:
-            r.click(404, 9)
-            time.sleep(1)
-            r.click(424, 27)
-        else:
-            r.key(0x33, ctrl=True)
-        r.move(600, 450)
-        time.sleep(2)
-        opened = pixels(r.shot("settings-open-%s" % name))
-        r.key(key)
-        time.sleep(2)
-        after = pixels(r.shot("settings-after-%s" % name))
-        check(closed(opened, after, plain), "%s closes Settings" % name)
-        shots += ["sites-after-%s" % name, "settings-after-%s" % name]
+    # the Site Manager: the cursor in the site's name. Esc empties what
+    # was typed and the dialog stays; Undo closes it
+    r.ctrl("k")
+    time.sleep(2)
+    empty = pixels(r.shot("sites-open"))
+    typed(3)
+    opened = pixels(r.shot("sites-typed"))
+    r.key(K["ESC"])
+    time.sleep(2)
+    esc = pixels(r.shot("sites-esc"))
+    check(changed(esc, plain) > 20000 and changed(esc, opened) > 50 and changed(esc, empty) > 50,
+          "Esc in the Site Manager's field: the field emptied, the dialog still open")
+    typed(2)
+    r.key(UNDO)
+    time.sleep(2)
+    after = pixels(r.shot("sites-after-Undo"))
+    check(closed(opened, after, plain), "Undo closes the Site Manager, the typing gone")
+    # Settings: from the menu (Options > Settings); Esc empties the field
+    # with the cursor and stays, Undo closes
+    r.click(404, 9)
+    time.sleep(1)
+    r.click(424, 27)
+    r.move(600, 450)
+    time.sleep(2)
+    opened = pixels(r.shot("settings-open"))
+    r.key(K["ESC"])
+    time.sleep(2)
+    esc = pixels(r.shot("settings-esc"))
+    check(changed(esc, plain) > 20000, "Esc in Settings' field: Settings still open")
+    r.key(UNDO)
+    time.sleep(2)
+    after = pixels(r.shot("settings-after-Undo"))
+    check(closed(opened, after, plain), "Undo closes Settings")
+    # by ^, the second time, and the window's way out: Undo again
+    r.key(0x33, ctrl=True)
+    r.move(600, 450)
+    time.sleep(2)
+    opened = pixels(r.shot("settings-open-2"))
+    r.key(UNDO)
+    time.sleep(2)
+    check(closed(opened, pixels(r.shot("settings-after-2")), plain), "^, then Undo: Settings open and closed")
     time.sleep(2)
     after = open(inf, "rb").read()
     check(after == before, "Esc and Undo in the Site Manager and Settings: EFTP.INF unchanged")
-    # still running and answering: the Site Manager opens again, and Esc
+    # still running and answering: the Site Manager opens again, and Undo
     # leaves it once more
     r.ctrl("k")
     time.sleep(2)
     r.shot("sites-again")
-    r.key(K["ESC"])
+    r.key(UNDO)
     time.sleep(2)
     check(open(inf, "rb").read() == before, "a third time: EFTP.INF still unchanged")
 

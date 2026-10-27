@@ -250,7 +250,7 @@ make itest    # against pyftpdlib: logins, MLSD and LIST, files and folders both
 ```sh
 python3 tests/hatari/net_test.py /tmp/eftp-net Falcon              # a real FTP server; or ST-1, ST, TT
 python3 tests/hatari/secure_test.py /tmp/eftp-sec Falcon           # Direct FTPS; SFTP via eftpgate; no TLS.OVL
-python3 tests/hatari/esc_test.py /tmp/eftp-esc Falcon             # Esc and Undo cancel every dialog
+python3 tests/hatari/esc_test.py /tmp/eftp-esc Falcon             # Undo cancels every dialog, Esc empties a field
 python3 tests/hatari/disk_audit.py /tmp/eftp-disk Falcon          # disk access against its budgets (6.5)
 python3 tests/hatari/clock_test.py /tmp/eftp-clock Falcon         # times right on a fast 200 Hz clock
 python3 tests/hatari/font_test.py /tmp/eftp-font Falcon:16         # a GDOS font chosen, kept, drawn
