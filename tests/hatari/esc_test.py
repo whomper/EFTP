@@ -185,6 +185,6 @@ finally:
     m.stop()
     srv.close_all()
 
-print("screenshots in %s: %s" % (os.path.join(work, "shots"), ", ".join(shots)))
+print("screenshots in %s" % os.path.join(work, "shots"))
 print("%d failed" % len(fails))
 sys.exit(1 if fails else 0)
