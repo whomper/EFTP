@@ -132,12 +132,19 @@ static int enabled(int i)
 	return 0;
 }
 
-/* the buttons are the AES's own G_BUTTONs, drawn by objc_draw with its
-   3D flags where it has them (the guidelines, 5.6: a tester, Erez 27
-   Oct 2026, of EFTP's hand-drawn ones); the arrows are the system
-   font's */
+/* the buttons are the AES's own G_BUTTONs, drawn by objc_draw (the
+   guidelines, 5.6: a tester, Erez 27 Oct 2026, of EFTP's hand-drawn
+   ones); the arrows are the system font's. In 3D only where the AES
+   draws its windows in 3D (MiNT, MagiC), as common's pane bars: on TOS
+   4 and EmuTOS the window is flat, and so is its toolbar (5.1) */
 static OBJECT tool_tree[1 + NBUT];
 static char tool_text[NBUT][16];
+
+/* the window's own look is 3D: panebar.c's bar_3d */
+static int win_3d(void)
+{
+	return dlg_3d_ok() && dlg_3d_on && (aes_count() != 1 || get_cookie(0x4D616758L));	/* MagX */
+}
 
 static void tool_layout(void)
 {
@@ -189,7 +196,8 @@ static void tool_layout(void)
 		o->ob_width = but[i].w;
 		o->ob_height = but[i].h;
 	}
-	dlg_3d(tool_tree);
+	if (win_3d())
+		dlg_3d(tool_tree);
 }
 
 /* the buttons' words and states as things are now */
