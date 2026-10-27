@@ -22,6 +22,7 @@
 #include "bidi.h"
 #include "iconify.h"
 #include "panebar.h"
+#include "dialog.h"
 
 WIN w_local, w_remote, w_queue;
 static WIN *panes[] = { &w_local, &w_remote, &w_queue };
@@ -131,6 +132,13 @@ static int enabled(int i)
 	return 0;
 }
 
+/* the buttons are the AES's own G_BUTTONs, drawn by objc_draw with its
+   3D flags where it has them (the guidelines, 5.6: a tester, Erez 27
+   Oct 2026, of EFTP's hand-drawn ones); the arrows are the system
+   font's */
+static OBJECT tool_tree[1 + NBUT];
+static char tool_text[NBUT][16];
+
 static void tool_layout(void)
 {
 	short x, i, bw, th = ch + 8;
@@ -158,28 +166,41 @@ static void tool_layout(void)
 	r_name.y = mwork.y + 4;
 	r_name.h = ch;
 	r_name.w = but[B_STOP].x - cw - r_name.x;
+	/* the tree: the bar's box, the buttons in it */
+	memset(tool_tree, 0, sizeof(tool_tree));
+	tool_tree[0].ob_next = -1;
+	tool_tree[0].ob_head = 1;
+	tool_tree[0].ob_tail = NBUT;
+	tool_tree[0].ob_type = G_BOX;
+	tool_tree[0].ob_spec = 0x00001100L;	/* no frame, white */
+	tool_tree[0].ob_x = r_tool.x;
+	tool_tree[0].ob_y = r_tool.y;
+	tool_tree[0].ob_width = r_tool.w;
+	tool_tree[0].ob_height = r_tool.h - 1;	/* the line under it is the window's */
+	for (i = 0; i < NBUT; i++) {
+		OBJECT *o = &tool_tree[1 + i];
+		o->ob_next = i + 1 < NBUT ? i + 2 : 0;
+		o->ob_head = o->ob_tail = -1;
+		o->ob_type = G_BUTTON;
+		o->ob_flags = SELECTABLE | EXIT | (i + 1 == NBUT ? LASTOB : 0);
+		o->ob_spec = (long)tool_text[i];
+		o->ob_x = but[i].x - r_tool.x;
+		o->ob_y = but[i].y - r_tool.y;
+		o->ob_width = but[i].w;
+		o->ob_height = but[i].h;
+	}
+	dlg_3d(tool_tree);
 }
 
-static void draw_button(int i)
+/* the buttons' words and states as things are now */
+static void tool_states(void)
 {
-	GRECT r = but[i];
-	const char *l = label(i);
-	short n = (short)strlen(l), on = enabled(i), tx = r.x + cw, inv = 0;
-	fill(&r, inv);
-	frame(&r, on ? 1 : (colour ? pen[P_DIM] : 1));
-	if (i == B_UP || i == B_DOWN) {
-		/* the arrow in the direction of the file, in its colour */
-		short ah = ch / 2 + 2, aw = (short)(cw * 3 / 2);
-		draw_arrow(r.x + cw - 2, r.y + (r.h - ah) / 2, aw, ah, i == B_UP ? 3 : 2,
-			   !on ? (colour ? pen[P_DIM] : 1) : colour ? pen[i == B_UP ? P_UP : P_DOWN] : 1);
-		tx = r.x + cw * 3;
-	} else {
-		tx = (r.x + (r.w - n * cw) / 2) & ~7;
+	short i;
+	for (i = 0; i < NBUT; i++) {
+		snprintf(tool_text[i], sizeof(tool_text[i]), "%s%s", i == B_UP ? "\x03 " : i == B_DOWN ? "\x04 " : "",
+			 label(i));
+		tool_tree[1 + i].ob_state = enabled(i) ? 0 : DISABLED;
 	}
-	if (i == B_STOP && on && colour)
-		text_pen_at(pen[P_ERR], tx, r.y + 1, l, n, n, TX_LTR);
-	else
-		text_at(tx, r.y + 1, l, n, n, TX_LTR | (on ? 0 : TX_LIGHT));
 }
 
 /* what the toolbar shows, to draw it again only when that changes: it
@@ -198,14 +219,12 @@ static short tool_state(void)
 static void draw_toolbar(GRECT *clip)
 {
 	GRECT r = r_tool;
-	int i;
 	if (!intersect(clip, &r))
 		return;
 	tool_seen = tool_state();
 	tool_site = cur_site;
-	fill(&r, 0);
-	for (i = 0; i < NBUT; i++)
-		draw_button(i);
+	tool_states();
+	objc_draw(tool_tree, 0, 8, r.x, r.y, r.w, r.h);
 	/* the server: a light, green when connected, and its name */
 	{
 		GRECT dot;
@@ -284,26 +303,19 @@ static int toolbar_click(short mx, short my)
 			continue;
 		if (!enabled(i))
 			return 1;
-		/* pressed: inverted while the button is down */
+		/* pressed: the AES's selected button while it is down */
 		{
 			GRECT r = but[i];
-			short p[4];
 			wind_update(BEG_UPDATE);
 			graf_mouse(M_OFF, 0);
-			clip_on(&r);
-			p[0] = r.x + 1;
-			p[1] = r.y + 1;
-			p[2] = r.x + r.w - 2;
-			p[3] = r.y + r.h - 2;
-			vswr_mode(vdi_h, 3);
-			vsf_interior(vdi_h, 1);
-			vsf_color(vdi_h, 1);
-			vr_recfl(vdi_h, p);
-			vswr_mode(vdi_h, 1);
+			tool_states();
+			tool_tree[1 + i].ob_state |= SELECTED;
+			objc_draw(tool_tree, 1 + i, 8, r.x - 3, r.y - 3, r.w + 6, r.h + 6);
 			graf_mouse(M_ON, 0);
 			wind_update(END_UPDATE);
 			evnt_timer_(80);
-			main_redraw(&r);
+			tool_tree[1 + i].ob_state &= ~SELECTED;
+			main_redraw(&r_tool);
 		}
 		switch (i) {
 		case B_CONNECT:
