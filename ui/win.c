@@ -140,12 +140,6 @@ static int enabled(int i)
 static OBJECT tool_tree[1 + NBUT];
 static char tool_text[NBUT][16];
 
-/* the window's own look is 3D: panebar.c's bar_3d */
-static int win_3d(void)
-{
-	return dlg_3d_ok() && dlg_3d_on && (aes_count() != 1 || get_cookie(0x4D616758L));	/* MagX */
-}
-
 static void tool_layout(void)
 {
 	short x, i, bw, th = ch + 8;
@@ -196,7 +190,7 @@ static void tool_layout(void)
 		o->ob_width = but[i].w;
 		o->ob_height = but[i].h;
 	}
-	if (win_3d())
+	if (win_look_3d())		/* common's panebar.h */
 		dlg_3d(tool_tree);
 }
 
