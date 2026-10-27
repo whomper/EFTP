@@ -80,7 +80,10 @@ and passwords.
 Start it. This guide is also in `EFTP.HYP`, a hypertext: with EHypView,
 ST-Guide or HypView running (as an accessory, or as a program under
 MultiTOS or MagiC), the Help key or **Help > EFTP help** opens it, from
-next to `EFTP.PRG` or from the viewer's own help folder. Without a
+next to `EFTP.PRG` or from the viewer's own help folder. The viewer that
+`STGUIDE=` names in the AES's environment (MiNT's `XAAES.CNF`, MagiC's
+`MAGX.INF`) is asked first, and on MiNT and MagiC started when it isn't
+running. Without a
 viewer, Help says how to get one and offers the list of keys instead;
 **Help > Keys** shows that list at any time.
 
