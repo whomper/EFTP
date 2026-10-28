@@ -37,7 +37,7 @@ and SFTP servers too.
   1 MB ST with STinG; a TT or Falcon loads the TLS (`TLS.OVL`) only for a Direct connection. It runs
   in TT RAM when there is some.
 
-![EFTP on a Falcon: the Atari's files on the left, the server's on the right, the transfers below](docs/screenshot.png)
+![EFTP on a Falcon in 640x480 with 256 colours: the Atari's files on the left, the server's on the right, the transfers below](docs/screenshot.png)
 
 ## Getting started
 
@@ -81,7 +81,7 @@ small (5840 with an MSS of 1460): the card holds about four full packets.
 TOS keeps an entry in a small internal pool for every folder a program or accessory has looked
 into, and halts with "OUT OF INTERNAL MEMORY" when it runs out; FOLDRxxx makes the pool bigger.
 
-![EFTP on a 1 MB ST in high resolution](docs/st-mono.png)
+![EFTP on a 1 MB ST in high resolution, 640x400 monochrome](docs/st-mono.png)
 
 ## How it reaches the servers
 
