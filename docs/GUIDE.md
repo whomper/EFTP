@@ -49,8 +49,8 @@ settings are `EFTP.PRG`'s.
 
 EFTP can live in any folder, on any drive: there is no folder it must
 be in, and none to make first. A folder of its own keeps its files
-together, because EFTP keeps everything in the folder it is started
-from (from the desktop, the folder `EFTP.PRG` is in):
+together, because EFTP keeps everything in the folder `EFTP.PRG` is
+in, whether the desktop or another program starts it:
 
 ```
 EFTP.PRG      the program

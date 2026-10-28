@@ -864,15 +864,14 @@ static short click_count(short counted)
 	return counted >= 2 ? 2 : 1;
 }
 
-/* the folder EFTP.PRG was started from */
+/* EFTP.PRG's own folder, where its files are (the guidelines, 6.1):
+   app_dir() reads it from the command the AES started it with, as the
+   current folder is the desktop's when another program starts it with
+   shel_write on TOS 1.04 and 4.04 */
 static void work_dir(char *out, int size)
 {
-	char path[160];
-	short drv = (short)Dgetdrv();
-	path[0] = 0;
-	Dgetpath(path, 0);
-	snprintf(out, size, "%c:%s", 'A' + drv, path);
-	if (out[strlen(out) - 1] == '\\')
+	str_copy(out, app_dir(), size);
+	if (out[0] && out[strlen(out) - 1] == '\\')
 		out[strlen(out) - 1] = 0;
 }
 
