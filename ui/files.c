@@ -409,7 +409,8 @@ static void columns(WIN *w, COLS *c)
 	short cols = win_cols(w);
 	c->icon = 0;
 	c->name = 3;
-	c->dw = cols >= 50 ? 14 : cols >= 34 ? 8 : 0;	/* "13.10.26 18:56", or the date */
+	/* "13.10.26 18:56", or the date while the name keeps 12 (TOS's 8+3) */
+	c->dw = cols >= 50 ? 14 : cols >= 32 ? 8 : 0;
 	c->size = cols >= 26 ? 7 : 0;
 	c->nw = cols - c->name - (c->size ? c->size + 1 : 0) - (c->dw ? c->dw + 1 : 0);
 	if (c->nw < 6)

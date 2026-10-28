@@ -472,6 +472,16 @@ static void draw_header(WIN *w)
 	fill(&h, dark ? pen[P_HEAD] : pen[P_PANEL]);
 	if (tl > cols - 2)
 		tl = cols - 2;
+	/* an info too long loses its last parts whole ("3 folders, 8 files,
+	   1024 MB free" without the free room), not letters off its end */
+	while (il > cols - tl - 2) {
+		short k = il;
+		while (k > 0 && !(w->info[k - 1] == ',' && w->info[k] == ' '))
+			k--;
+		if (k <= 0)
+			break;
+		il = k - 1;
+	}
 	if (il > cols - tl - 2)
 		il = cols - tl - 2;
 	bold_at(text_x(h.x + 2), h.y + 2, w->title, tl, cols, TX_LTR | (dark ? TX_INVERSE : 0),
