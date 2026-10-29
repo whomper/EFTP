@@ -346,7 +346,9 @@ static void draw(WIN *w, GRECT *clip)
 
 /* ---------------- updates from the queue ---------------- */
 
-static unsigned long last_status;
+static unsigned long last_status, left_at, left_run;
+static long left_k = -1;
+static char left_shown[24];
 
 static void progress_status(long i)
 {
@@ -359,8 +361,20 @@ static void progress_status(long i)
 		return;
 	}
 	run_sum(&r);
+	/* the time left here changes every 10 seconds, or with the file: each
+	   new text has the AES draw the window's info line, and TOS 4.04's
+	   AES crashed there once in a download (Erez, 29 Oct 2026: its
+	   stack written from outside it). The Transfers pane keeps the
+	   time to the second */
+	if (r.k != left_k || run_t0 != left_run || (!left_shown[0] && r.left[0]) ||
+	    pf_ms() - left_at >= 10000UL) {
+		str_copy(left_shown, r.left, sizeof(left_shown));
+		left_k = r.k;
+		left_run = run_t0;
+		left_at = pf_ms();
+	}
 	snprintf(t, sizeof(t), "%s %s  -  file %s/%s%s%s   (Esc stops)", x->dir == XD_UP ? "Uploading" : "Downloading",
-		 x->disp, num(r.k), num(r.all), r.left[0] ? ", " : "", r.left);
+		 x->disp, num(r.k), num(r.all), left_shown[0] ? ", " : "", left_shown);
 	status(t);
 }
 

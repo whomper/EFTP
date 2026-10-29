@@ -113,8 +113,9 @@ One window, like a modern FTP program:
   Skipped, Stopped or Failed (in red) and why. While a transfer runs,
   its header says how many files and bytes have gone of all of them,
   and the time left for the whole transfer.
-- **The info line** under the title: what EFTP is doing, and at the
-  end of a transfer how much went in what time.
+- **The info line** under the title: what EFTP is doing (in a transfer,
+  the time left every 10 seconds; the Transfers header has it to the
+  second), and at the end of a transfer how much went in what time.
 
 The dividers between the panes can be dragged, the size box is at the
 bottom right, and EFTP remembers both. The pane you clicked last has the
