@@ -597,13 +597,19 @@ static short main_shown;
 #define NBATCH 8
 static short batching, nbatch;
 static GRECT batch[NBATCH];
+/* a scroll's copy in a batch keeps wind_update and the mouse hidden for
+   the batch's drawing, which would take them again (some 9 ms of an
+   8 MHz ST a line scrolled); win_batch(0) lets them go */
+static short held;
 
 static void draw_areas(GRECT *a, short n)
 {
 	GRECT r;
 	short k;
-	wind_update(BEG_UPDATE);
-	graf_mouse(M_OFF, 0);
+	if (!held) {
+		wind_update(BEG_UPDATE);
+		graf_mouse(M_OFF, 0);
+	}
 	wind_get(main_h, WF_FIRSTXYWH, &r.x, &r.y, &r.w, &r.h);
 	while (r.w > 0 && r.h > 0) {
 		for (k = 0; k < n; k++) {
@@ -615,8 +621,10 @@ static void draw_areas(GRECT *a, short n)
 		}
 		wind_get(main_h, WF_NEXTXYWH, &r.x, &r.y, &r.w, &r.h);
 	}
-	graf_mouse(M_ON, 0);
-	wind_update(END_UPDATE);
+	if (!held) {
+		graf_mouse(M_ON, 0);
+		wind_update(END_UPDATE);
+	}
 }
 
 /* a and b, if they overlap or touch and their box is hardly more than
@@ -646,11 +654,18 @@ void win_batch(int on)
 		batching++;
 		return;
 	}
-	if (batching && !--batching && nbatch) {
-		short n = nbatch;
-		nbatch = 0;
-		if (main_h > 0 && main_shown && !main_iconified)
-			draw_areas(batch, n);
+	if (batching && !--batching) {
+		if (nbatch) {
+			short n = nbatch;
+			nbatch = 0;
+			if (main_h > 0 && main_shown && !main_iconified)
+				draw_areas(batch, n);
+		}
+		if (held) {
+			held = 0;
+			graf_mouse(M_ON, 0);
+			wind_update(END_UPDATE);
+		}
 	}
 }
 
@@ -960,10 +975,12 @@ static void scroll_rows(WIN *w, long d)
 		win_redraw(w, &a);
 		return;
 	}
-	wind_update(BEG_UPDATE);
+	if (!held)
+		wind_update(BEG_UPDATE);
 	wind_get(main_h, WF_FIRSTXYWH, &f.x, &f.y, &f.w, &f.h);
 	if (f.x > a.x || f.y > a.y || f.x + f.w < a.x + a.w || f.y + f.h < a.y + a.h) {
-		wind_update(END_UPDATE);
+		if (!held)
+			wind_update(END_UPDATE);
 		win_redraw(w, &a);
 		return;
 	}
@@ -980,15 +997,20 @@ static void scroll_rows(WIN *w, long d)
 		p[3] = p[1] + h - 1;
 		p[5] = a.y + (d > 0 ? 0 : k * lh);
 		p[7] = p[5] + h - 1;
-		graf_mouse(M_OFF, 0);
+		if (!held)
+			graf_mouse(M_OFF, 0);
 		/* TOS's copy keeps to the VDI's clip (1.04 and 4.04), which is
 		   whatever was drawn last: during a transfer the running row
 		   or its bar, so the rows above stayed as they were */
 		clip_on(&a);
 		scr_rows(vdi_h, p);	/* vro_cpyfm S_ONLY, or the CPU on TOS's screen */
-		graf_mouse(M_ON, 0);
 	}
-	wind_update(END_UPDATE);
+	if (batching) {
+		held = 1;	/* the batch's drawing goes on under them */
+	} else if (!held) {
+		graf_mouse(M_ON, 0);
+		wind_update(END_UPDATE);
+	}
 	/* what came in: the rows at the end it moved from, and below the
 	   last whole row (a row cut in half there is a different one now) */
 	in = a;
