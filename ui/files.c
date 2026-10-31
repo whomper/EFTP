@@ -253,11 +253,13 @@ static void loaded(SIDE *s, const char *keep)
 		long rows = win_rows(s->w);
 		s->w->top = s->cur >= rows ? s->cur - rows + 1 : 0;
 	}
+	win_batch(1);		/* the bar, the rows, the headers, the toolbar: one pass */
 	win_sliders(s->w);
 	if (!changed_rows(s, side_of(s->w)))
 		win_redraw(s->w, 0);
 	files_titles();
 	toolbar_redraw();
+	win_batch(0);
 }
 
 static void local_load_keep(const char *keep)

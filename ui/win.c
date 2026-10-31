@@ -229,7 +229,8 @@ static void draw_toolbar(GRECT *clip)
 	tool_states();
 	objc_draw(tool_tree, 0, 8, r.x, r.y, r.w, r.h);
 	/* the server: a light, green when connected, and its name */
-	{
+	r = r_name;
+	if (intersect(clip, &r)) {
 		GRECT dot;
 		char t[100];
 		short n, d = ch >= 16 ? 8 : 6;
@@ -254,15 +255,44 @@ static void draw_toolbar(GRECT *clip)
 			text_pen_at(colour ? pen[P_DIM] : 1, r_name.x + d + cw / 2, r_name.y, t, n,
 				    (r_name.w - d) / cw - 1, TX_LTR | (colour ? 0 : TX_LIGHT));
 	}
-	hline(mwork.x, mwork.x + mwork.w - 1, mwork.y + r_tool.h - 1);
+	if (clip->y + clip->h >= mwork.y + r_tool.h)
+		hline(mwork.x, mwork.x + mwork.w - 1, mwork.y + r_tool.h - 1);
 }
 
 static void main_redraw(GRECT *area);
 
+/* only what changed: the buttons that came on or went off, in one box
+   from the first to the last of them (the whole bar, an objc_draw of its
+   buttons, took an 8 MHz ST 75-95 ms, and each objc_draw some 30 ms
+   however little it drew: four buttons each in its own, 130 ms; 31 Oct
+   2026); the connection or the site changed, the whole bar */
 void toolbar_redraw(void)
 {
-	if (main_h > 0 && (tool_state() != tool_seen || cur_site != tool_site))
+	short now, diff, i, x0 = 32767, x1 = -1;
+	GRECT b;
+	if (main_h <= 0)
+		return;
+	now = tool_state();
+	diff = (short)(now ^ tool_seen);
+	if (tool_seen < 0 || cur_site != tool_site || (diff & 3)) {
 		main_redraw(&r_tool);
+		return;
+	}
+	for (i = 0; i < NBUT; i++)
+		if (diff & (4 << i)) {
+			if (but[i].x < x0)
+				x0 = but[i].x;
+			if (but[i].x + but[i].w > x1)
+				x1 = but[i].x + but[i].w;
+		}
+	if (x1 < 0)
+		return;
+	b.x = x0 - 3;		/* the frames and a 3D edge, outside the buttons */
+	b.w = x1 - x0 + 6;
+	b.y = but[0].y - 3;
+	b.h = but[0].h + 6;
+	if (intersect(&r_tool, &b))
+		main_redraw(&b);
 }
 
 int toolbar_stop_hit(short mx, short my)
@@ -560,11 +590,11 @@ static short main_shown;
 
 /* redraw area of the window through its rectangle list */
 /* A user's action draws its rectangles in one go: from win_batch(1) to
-   win_batch(0) they are gathered (up to four, and those that overlap or
-   touch made one), then drawn in one pass over the AES's rectangle list,
+   win_batch(0) they are gathered (up to eight, and those that overlap or
+   touch made one when that adds little), then drawn in one pass over the AES's rectangle list,
    the mouse hidden once. A line scrolled drew the bar's slider, the row
    that came in and the old cursor's row each in its own pass. */
-#define NBATCH 4
+#define NBATCH 8
 static short batching, nbatch;
 static GRECT batch[NBATCH];
 
@@ -589,7 +619,9 @@ static void draw_areas(GRECT *a, short n)
 	wind_update(END_UPDATE);
 }
 
-/* a and b, if they overlap or touch: their box in a */
+/* a and b, if they overlap or touch and their box is hardly more than
+   the two (a toolbar's button and a pane's header touch, and their box
+   was the other pane too): their box in a */
 static int join(GRECT *a, const GRECT *b)
 {
 	short x0, y0, x1, y1;
@@ -599,6 +631,8 @@ static int join(GRECT *a, const GRECT *b)
 	y0 = a->y < b->y ? a->y : b->y;
 	x1 = a->x + a->w > b->x + b->w ? a->x + a->w : b->x + b->w;
 	y1 = a->y + a->h > b->y + b->h ? a->y + a->h : b->y + b->h;
+	if ((long)(x1 - x0) * (y1 - y0) > (long)a->w * a->h + (long)b->w * b->h + 8L * (x1 - x0))
+		return 0;
 	a->x = x0;
 	a->y = y0;
 	a->w = x1 - x0;
@@ -638,19 +672,14 @@ static void main_redraw(GRECT *area)
 		for (k = 0; k < nbatch; k++)
 			if (join(&batch[k], &a))
 				return;
-		if (nbatch < NBATCH) {
-			batch[nbatch++] = a;
-		} else if (!join(&batch[NBATCH - 1], &a)) {
-			GRECT *b = &batch[NBATCH - 1];	/* their box: more drawn, nothing missed */
-			b->w = (a.x + a.w > b->x + b->w ? a.x + a.w : b->x + b->w);
-			b->h = (a.y + a.h > b->y + b->h ? a.y + a.h : b->y + b->h);
-			if (a.x < b->x)
-				b->x = a.x;
-			if (a.y < b->y)
-				b->y = a.y;
-			b->w -= b->x;
-			b->h -= b->y;
+		if (nbatch == NBATCH) {
+			/* full: what was gathered drawn now (their box was most of
+			   the window, a transfer's end: 320 -> 355 ms on an ST) */
+			short n = nbatch;
+			nbatch = 0;
+			draw_areas(batch, n);
 		}
+		batch[nbatch++] = a;
 		return;
 	}
 	draw_areas(&a, 1);

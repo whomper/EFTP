@@ -478,6 +478,7 @@ void queue_run(void)
 		queue_changed(-1);
 	}
 	running = 0;
+	win_batch(1);		/* the pane, its header and the toolbar in one pass */
 	for (i = 0; i < xn; i++)
 		if (xq[i].state == XS_DONE && !xq[i].isdir && xq[i].t1 >= t0) {
 			files++;
@@ -508,6 +509,7 @@ void queue_run(void)
 		if (ms > 30000UL && win_hidden())
 			notify_send("Transfers done", m, "Show", 1);
 	}
+	win_batch(0);
 	/* the lists show what came and went; a screen turn first, as the
 	   end of the transfers was work too */
 	if (pf_idle)
