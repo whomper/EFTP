@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ui.h"
+#include "panebar.h"
 #include "theme.h"
 #include "conn.h"
 #include "secret.h"
@@ -1039,6 +1040,7 @@ int main(void)
 	scr_h = work_out[1] + 1;
 	vq_extnd(vdi_h, 1, work_out);
 	planes = work_out[4];
+	pb_vdi(vdi_h);		/* the pane bars by the VDI and the CPU, where they can be */
 	if (!screen_check("EFTP", scr_w)) {	/* not in ST low */
 		v_clsvwk(vdi_h);
 		appl_exit();

@@ -58,6 +58,9 @@ void clip_off(void)
 	text_noclip(vdi_h);
 }
 
+/* white and black on TOS's own screen by the CPU (common's scr_fill: a
+   pane of 15 rows 25 ms of an 8 MHz ST by the VDI); it changes no VDI
+   setting, and every caller sets its own after a fill */
 void fill(GRECT *r, short color)
 {
 	short pxy[4];
@@ -67,6 +70,10 @@ void fill(GRECT *r, short color)
 	pxy[1] = r->y;
 	pxy[2] = r->x + r->w - 1;
 	pxy[3] = r->y + r->h - 1;
+	if ((color == 0 || color == 1) && text_plain_state() == 1) {
+		scr_fill(vdi_h, pxy, color);
+		return;
+	}
 	vsf_interior(vdi_h, 1);
 	vsf_color(vdi_h, color);
 	vsf_perimeter(vdi_h, 0);
@@ -81,6 +88,10 @@ void hline(short x1, short x2, short y)
 	pxy[1] = y;
 	pxy[2] = x2;
 	pxy[3] = y;
+	if ((pen[P_LINE] == 0 || pen[P_LINE] == 1) && text_plain_state() == 1) {
+		scr_fill(vdi_h, pxy, pen[P_LINE]);	/* a row, by the CPU */
+		return;
+	}
 	vswr_mode(vdi_h, 1);
 	vsl_color(vdi_h, pen[P_LINE]);
 	v_pline(vdi_h, 2, pxy);
