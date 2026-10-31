@@ -180,6 +180,174 @@ int win_look_3d(void)
 	return dlg_3d_ok() && dlg_3d_on && (aes_count() != 1 || get_cookie(0x4D616758L));	/* MagX */
 }
 
+/* ---------------- the slider's move by the VDI (pb_vdi) ---------------- */
+
+static short bar_h;		/* the app's workstation (pb_vdi), 0 none */
+static int fast;		/* 0 not checked yet, 1 on, -1 off for the run */
+static long fast_n;
+
+/* text.c's, when the program has it */
+extern int text_plain_state(void) __attribute__((weak));
+extern void text_reclip(short h) __attribute__((weak));
+extern unsigned char *scr_at(long *bpl, short *planes, short *w, short *h) __attribute__((weak));
+extern void scr_fill(short h, const short *p, short pen) __attribute__((weak));
+
+void pb_vdi(short h)
+{
+	bar_h = h;
+}
+
+int pb_vdi_state(void)
+{
+	return fast;
+}
+
+long pb_vdi_count(void)
+{
+	return fast_n;
+}
+
+/* the VDI's fill attributes as fast_draw last set them (-1: not known,
+   each draw sets them afresh): a call costs a 68000 some 0.3 ms */
+static short at_mode, at_int, at_style, at_col;
+static GRECT at_clip;		/* the box fast_draw draws in */
+
+/* from along a1 to a2 and across k1 to k2, filled as the AES fills an
+   object whose ob_spec has colour word spec: its interior colour, pattern
+   (0 hollow, 7 solid, else the VDI's pattern of that number) and mode
+   (opaque or transparent) */
+static void fill_as(int across, unsigned short spec, short a1, short k1, short a2, short k2)
+{
+	short p[4], pat = (spec >> 4) & 7, mode = (spec & 0x80) ? 1 : 2, in = pat == 0 ? 0 : pat == 7 ? 1 : 2;
+	if (a1 > a2 || k1 > k2)
+		return;
+	p[0] = across ? a1 : k1;
+	p[1] = across ? k1 : a1;
+	p[2] = across ? a2 : k2;
+	p[3] = across ? k2 : a2;
+	if (mode == 1 && (in == 0 || (in == 1 && (spec & 15) <= 1))) {
+		/* white or black, solid: by the CPU (scr_fill), cut to the box
+		   here, as the VDI's clip would */
+		if (p[0] < at_clip.x)
+			p[0] = at_clip.x;
+		if (p[1] < at_clip.y)
+			p[1] = at_clip.y;
+		if (p[2] > at_clip.x + at_clip.w - 1)
+			p[2] = at_clip.x + at_clip.w - 1;
+		if (p[3] > at_clip.y + at_clip.h - 1)
+			p[3] = at_clip.y + at_clip.h - 1;
+		if (p[0] <= p[2] && p[1] <= p[3])
+			scr_fill(bar_h, p, in == 0 ? 0 : spec & 15);
+		return;
+	}
+	if (mode != at_mode)
+		vswr_mode(bar_h, at_mode = mode);
+	if (in != at_int)
+		vsf_interior(bar_h, at_int = in);
+	if (in == 2 && pat != at_style)
+		vsf_style(bar_h, at_style = pat);
+	if ((spec & 15) != at_col)
+		vsf_color(bar_h, at_col = spec & 15);
+	vr_recfl(bar_h, p);
+}
+
+/* a frame's line, in the colour word's frame colour */
+static void line_as(int across, unsigned short spec, short a1, short k1, short a2, short k2)
+{
+	fill_as(across, (unsigned short)(0x00F0 | ((spec >> 12) & 15)), a1, k1, a2, k2);
+}
+
+/* the fast way can be: the app's workstation, TOS's own screen (text.c's
+   text_plain on), not found wrong, and the track and slider framed a
+   pixel outside them (thickness -1, the flat look's) */
+static int fast_can(const OBJECT *t)
+{
+	return bar_h > 0 && fast >= 0 && text_plain_state && text_reclip && scr_at && scr_fill && text_plain_state() == 1 &&
+	       ((t[O_TRACK].ob_spec >> 16) & 0xFF) == 0xFF && ((t[O_SLIDER].ob_spec >> 16) & 0xFF) == 0xFF;
+}
+
+/* c cut to the track and its end lines along the bar: 0 when nothing is
+   left */
+static int in_track(const PANEBAR *b, GRECT *c, short ty, short th)
+{
+	short *a = b->across ? &c->x : &c->y, *l = b->across ? &c->w : &c->h;
+	short a2 = *a + *l, t2 = ty + th + 1;
+	if (*a < ty - 1)
+		*a = ty - 1;
+	if (a2 > t2)
+		a2 = t2;
+	*l = a2 - *a;
+	return *l > 0;
+}
+
+/* the box c, inside the track and its end lines (in_track), as the AES
+   draws it in the flat look: the track's fill between the bar's edges,
+   the edges and its end lines in its frame's colour, and over them the
+   slider's fill and frame. White and black by the CPU (scr_fill: the
+   caller's clip, text_clip's, holds the box, as for any redraw), the
+   track's pattern by the VDI */
+static void fast_draw(const PANEBAR *b, const GRECT *c, const OBJECT *t, short ty, short th, short sy, short sh)
+{
+	int across = b->across != 0;
+	short a1 = across ? c->x : c->y, a2 = a1 + (across ? c->w : c->h) - 1;
+	short k1 = across ? b->r.y : b->r.x, k2 = k1 + (across ? b->r.h : b->r.w) - 1;
+	unsigned short ts = (unsigned short)t[O_TRACK].ob_spec, ss = (unsigned short)t[O_SLIDER].ob_spec;
+	short cl[4], was[5];
+	/* the app's own fill and writing mode, put back at the end: ECal,
+	   EContact and EMail keep what they set last and don't set it again */
+	vqf_attributes(bar_h, was);
+	cl[0] = c->x;
+	cl[1] = c->y;
+	cl[2] = c->x + c->w - 1;
+	cl[3] = c->y + c->h - 1;
+	vs_clip(bar_h, 1, cl);
+	at_clip = *c;
+	at_mode = at_int = at_style = at_col = -1;
+	fill_as(across, ts, a1, k1 + 1, a2, k2 - 1);
+	line_as(across, ts, a1, k1, a2, k1);
+	line_as(across, ts, a1, k2, a2, k2);
+	if (a1 < ty)
+		line_as(across, ts, ty - 1, k1, ty - 1, k2);
+	if (a2 >= ty + th)
+		line_as(across, ts, ty + th, k1, ty + th, k2);
+	if (sh) {
+		fill_as(across, ss, sy, k1 + 1, sy + sh - 1, k2 - 1);
+		line_as(across, ss, sy - 1, k1, sy - 1, k2);
+		line_as(across, ss, sy + sh, k1, sy + sh, k2);
+		if ((ss ^ ts) & 0xF000) {
+			/* its sides, unless the track's edges are them already */
+			line_as(across, ss, sy, k1, sy + sh - 1, k1);
+			line_as(across, ss, sy, k2, sy + sh - 1, k2);
+		}
+	}
+	vsf_interior(bar_h, was[0]);
+	vsf_color(bar_h, was[1]);
+	vsf_style(bar_h, was[2]);
+	vswr_mode(bar_h, was[3]);
+	text_reclip(bar_h);
+	fast_n++;
+}
+
+/* the screen's bytes under c, summed (the first box's check) */
+static unsigned long box_sum(const GRECT *c)
+{
+	long bpl;
+	short planes, sw, sh, r, k, n, g0;
+	unsigned char *base = scr_at(&bpl, &planes, &sw, &sh), *row;
+	unsigned long s = 0, u = 0;
+	if (!base || c->x < 0 || c->y < 0 || c->x + c->w > sw || c->y + c->h > sh)
+		return 0;
+	g0 = c->x >> 4;
+	n = (short)((((c->x + c->w - 1) >> 4) - g0 + 1) * planes * 2);
+	row = base + (long)c->y * bpl + (long)g0 * planes * 2;
+	for (r = 0; r < c->h; r++, row += bpl)
+		for (k = 0; k < n; k++) {
+			s = ((s << 5) | (s >> 27)) ^ row[k];
+			u += s;
+		}
+	return s ^ (u << 1) ^ 1;	/* never 0 */
+}
+
 void pb_draw(const PANEBAR *b, const GRECT *clip)
 {
 	OBJECT t[O_N];
@@ -242,7 +410,36 @@ void pb_draw(const PANEBAR *b, const GRECT *clip)
 		t[O_DOWN].ob_flags |= 0x0600;
 		t[O_SLIDER].ob_flags |= 0x0600;
 	}
+	if (!d3 && fast > 0 && fast_can(t)) {
+		GRECT k = c;
+		if (in_track(b, &k, ty, th) && k.x == c.x && k.y == c.y && k.w == c.w && k.h == c.h) {
+			fast_draw(b, &c, t, ty, th, sy, sh);
+			return;
+		}
+	}
 	objc_draw(t, O_BAR, 2, c.x, c.y, c.w, c.h);
+	if (!d3 && !fast && fast_can(t)) {
+		/* the first time: a little of the track the AES drew (round the
+		   slider), drawn again the VDI's way over it, the same bytes or
+		   the AES's from now on (at the bar's first drawing, a window's
+		   opening, not a scroll's; a long slider's all took an ST 35 ms) */
+		GRECT k = c;
+		unsigned long was;
+		short *a = b->across ? &k.x : &k.y, *l = b->across ? &k.w : &k.h;
+		short f = sh ? sy - 4 : ty, e = f + 12;	/* a little: the track, the slider's top and frame */
+		if (*a + *l > e)
+			*l = e - *a;
+		if (*a < f) {
+			*l -= f - *a;
+			*a = f;
+		}
+		if (*l > 0 && in_track(b, &k, ty, th) && (was = box_sum(&k)) != 0) {
+			fast_draw(b, &k, t, ty, th, sy, sh);
+			fast = box_sum(&k) == was ? 1 : -1;
+			if (fast < 0)
+				objc_draw(t, O_BAR, 2, k.x, k.y, k.w, k.h);
+		}
+	}
 }
 
 void pb_corner(const GRECT *r, const GRECT *clip)
@@ -268,10 +465,13 @@ GRECT pb_moved(const PANEBAR *b, long old_top)
 		short p1 = sy < ny ? sy : ny, p2 = sy + sh > ny + nh ? sy + sh : ny + nh;
 		/* a raised slider's edge stands a few pixels out each way, over
 		   the arrows' feet too (EContact: a line left under the up
-		   arrow in 3D): within the bar, not the track */
+		   arrow in 3D): within the bar, not the track. Flat, its frame
+		   is the one pixel outside it, and the box stays off the arrows
+		   (pb_vdi's fast way: some 15 ms a line on an ST) */
+		short e = win_look_3d() ? 3 : 1;
 		short b0 = b->across ? b->r.x : b->r.y, b1 = b0 + (b->across ? b->r.w : b->r.h);
-		short a = p1 - 3 < b0 ? b0 : p1 - 3;
-		short l = (p2 + 3 > b1 ? b1 : p2 + 3) - a;
+		short a = p1 - e < b0 ? b0 : p1 - e;
+		short l = (p2 + e > b1 ? b1 : p2 + e) - a;
 		if (b->across) {
 			r.x = a;
 			r.w = l;
