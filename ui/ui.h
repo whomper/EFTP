@@ -93,6 +93,7 @@ extern int running;				/* a transfer is going */
 #define TX_DIM     TX_LIGHT	/* what can't be used: the shared popup's disabled items */
 void fill(GRECT *r, short color);
 extern short text_pen;		/* the colour of text (theme.h pens); set, draw, set back to 1 */
+extern short text_ground;	/* what is under the text: 0 white, -1 not known; set, draw, set back */
 #define text_pen_at(p, x, y, s, n, cols, fl) \
 	do { text_pen = (p); text_at(x, y, s, n, cols, fl); text_pen = 1; } while (0)
 void clip_on(GRECT *r);

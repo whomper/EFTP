@@ -495,6 +495,7 @@ static void draw(WIN *w, GRECT *clip)
 	GRECT r;
 	columns(w, &c);
 	fill(clip, 0);
+	text_ground = 0;		/* white, but for the selected rows */
 	seen[side_of(w)].valid = 0;	/* drawn meanwhile: what remember() saw is gone */
 	if (strcmp(col_zone, opt.tzname)) {
 		short k;
@@ -533,6 +534,7 @@ static void draw(WIN *w, GRECT *clip)
 		for (k = 0; k < 5; k++)
 			text_at(x0 + cw, w->work.y + w->head_h + (k + 1) * ch, help[k], strlen(help[k]),
 				w->work.w / cw - 2, k ? TX_LIGHT : 0);
+		text_ground = -1;
 		return;
 	}
 	win_clip_rows(w, clip, &i, &end);
@@ -543,25 +545,17 @@ static void draw(WIN *w, GRECT *clip)
 		short fl = lit ? TX_INVERSE : 0;
 		char tmp[COLW];
 		const char *t;
-		if (lit) {
-			r.x = w->work.x;
-			r.y = y;
-			r.w = w->work.w;
-			r.h = ch;
+		r.x = w->work.x;
+		r.y = y;
+		r.w = w->work.w;
+		r.h = ch;
+		if (lit)
 			fill(&r, pen[P_SEL]);
-		} else if (i == s->cur && w == win_focused()) {
-			/* the cursor, when it isn't on a selected row: a frame */
-			r.x = w->work.x;
-			r.y = y;
-			r.w = w->work.w;
-			r.h = ch;
-			frame(&r, colour ? pen[P_SEL] : 1);
-		}
 		if (!e) {
 			/* the way up */
 			draw_arrow(x0 + cw / 2, y + 2, cw, ch - 4, 0, lit ? 0 : colour ? pen[P_DIM] : 1);
 			text_at(x0 + c.name * cw, y, "..", 2, c.nw, fl);
-			continue;
+			goto cursor;
 		}
 		if (e->type == FE_DIR && side_of(w) == SIDE_LOCAL && !ldir[0])
 			draw_drive(x0, y, lit);
@@ -594,7 +588,13 @@ static void draw(WIN *w, GRECT *clip)
 		if (c.date >= 0 && t[8])
 			text_at(x0 + c.date * cw, y, t + 8, strlen(t + 8), c.dw, fl | TX_LTR);
 		text_pen = 1;
+	cursor:
+		/* the cursor, when it isn't on a selected row: a frame, after
+		   the text, which leaves the ground under it white */
+		if (!lit && i == s->cur && w == win_focused())
+			frame(&r, colour ? pen[P_SEL] : 1);
 	}
+	text_ground = -1;
 }
 
 /* ---------------- selecting ---------------- */

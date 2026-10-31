@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include "ui.h"
 #include "theme.h"
+#include "text.h"
 #include "util.h"
 #include "bidi.h"
 #include "iconify.h"
@@ -943,9 +944,7 @@ static void scroll_rows(WIN *w, long d)
 		draw_areas(batch, m);
 	}
 	{
-		MFDB scr;
 		short p[8], h = (n - k) * lh;
-		memset(&scr, 0, sizeof(scr));
 		p[0] = p[4] = a.x;
 		p[2] = p[6] = a.x + a.w - 1;
 		p[1] = a.y + (d > 0 ? k * lh : 0);
@@ -957,7 +956,7 @@ static void scroll_rows(WIN *w, long d)
 		   whatever was drawn last: during a transfer the running row
 		   or its bar, so the rows above stayed as they were */
 		clip_on(&a);
-		vro_cpyfm(vdi_h, 3, p, &scr, &scr);	/* S_ONLY */
+		scr_rows(vdi_h, p);	/* vro_cpyfm S_ONLY, or the CPU on TOS's screen */
 		graf_mouse(M_ON, 0);
 	}
 	wind_update(END_UPDATE);

@@ -222,7 +222,7 @@ static void draw_log(WIN *w, GRECT *clip)
 	}
 }
 
-static void draw(WIN *w, GRECT *clip)
+static void draw_white(WIN *w, GRECT *clip)
 {
 	long i, end;
 	short x0 = win_x0(w), cols = win_cols(w) - 1, nw, sx;
@@ -342,6 +342,15 @@ static void draw(WIN *w, GRECT *clip)
 		}
 		}
 	}
+}
+
+/* the pane is filled white first, and its text (but on the selected
+   row, which is inverted) goes on white */
+static void draw(WIN *w, GRECT *clip)
+{
+	text_ground = 0;
+	draw_white(w, clip);
+	text_ground = -1;
 }
 
 /* ---------------- updates from the queue ---------------- */

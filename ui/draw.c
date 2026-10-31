@@ -12,6 +12,11 @@
 #include "text.h"
 
 short text_pen = 1;		/* the colour of text that isn't inverted */
+/* the colour the caller filled under the text it draws now, -1 when it
+   isn't one colour (a frame, an icon or a bar in the cells): on white,
+   black text goes straight into TOS's screen (common's text_plain), the
+   same pixels as the VDI's transparent text there */
+short text_ground = -1;
 
 static GRECT cur_clip;		/* the VDI's clip now: blits keep to it themselves */
 
@@ -212,7 +217,10 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 	   TOS's bold gives; never vst_effects, as NVDI's widens each letter
 	   by a pixel or more and the run drawn next covers the last ones
 	   (EHypView under NVDI, "On the Falcon itsel"; the guidelines' Speed) */
-	text_n(vdi_h, x, y, out, n);
+	if (text_ground == 0 && text_pen == 1 && !(flags & TX_INVERSE) && !((flags & TX_LIGHT) && colour))
+		text_plain(vdi_h, x, y, out, n);
+	else
+		text_n(vdi_h, x, y, out, n);
 	if (flags & TX_BOLD) {
 		text_bold_strike(vdi_h, x, y, out, n);
 		vswr_mode(vdi_h, 2);
