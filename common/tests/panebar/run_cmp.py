@@ -5,7 +5,7 @@
 (pb_vdi) against objc_draw, byte for byte, and their times. Exit 1 when any
 move differs or the fast way didn't come on.
 
-    run_cmp.py WORK MACHINE [--nvdi]
+    run_cmp.py WORK MACHINE [--nvdi] [--quick]
 """
 import os
 import sys
@@ -21,6 +21,8 @@ r = speed.Rig(a[0], a[1], nvdi="--nvdi" in sys.argv, display=":92")
 bad = 1
 try:
     r.put(os.path.join(HERE, "build", "atari", "PBCMP.PRG"))
+    if "--quick" in sys.argv:          # the whole bars and the times only
+        open(os.path.join(r.hd, "QUICK"), "w").close()
     r.start("C:\\PBCMP.PRG", ready="PBC done", boot=1800)    # an ST takes some 15 minutes for the moves
     print("pane bars on", r.describe())
     for l in r.console().splitlines():

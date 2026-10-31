@@ -8,8 +8,10 @@
  * the AES at the old top, then the slider's move (pb_moved) drawn the fast
  * way, and again by objc_draw; the bar's bytes off the screen, each
  * compared byte for byte with the whole bar drawn afresh by objc_draw at
- * the new top (so pb_moved's box is checked too: big enough). Then the time of a line's
- * move each way. Lines go to the emulator's console (NatFeats) as
+ * the new top (so pb_moved's box is checked too: big enough). Then boxes
+ * with an arrow in them and whole bars, over the bar blacked out, the
+ * fast way against objc_draw. Then the time of a line's move and of a
+ * whole bar each way. Lines go to the emulator's console (NatFeats) as
  * "PBC ...", the last "PBC done"; a difference says "PBC DIFFERS".
  */
 #include <stdio.h>
@@ -130,6 +132,108 @@ static void moves(PANEBAR *b, const char *what)
 	}
 }
 
+/* the bar's box blacked out, then c of it drawn, fast or by the AES */
+static void boxed(PANEBAR *b, const GRECT *c, int fast, unsigned char *to)
+{
+	short p[4];
+	p[0] = b->r.x;
+	p[1] = b->r.y;
+	p[2] = b->r.x + b->r.w - 1;
+	p[3] = b->r.y + b->r.h - 1;
+	vswr_mode(vdi_h, 1);
+	vsf_interior(vdi_h, 1);
+	vsf_color(vdi_h, 1);
+	vr_recfl(vdi_h, p);
+	pb_vdi(fast ? vdi_h : 0);
+	pb_draw(b, c);
+	pb_vdi(0);
+	grab(b, to);
+}
+
+/* boxes with an arrow in them, and whole bars, the fast way against the
+   AES's */
+static void wholes(PANEBAR *b, const char *what)
+{
+	static const long sizes[][2] = { { 300, 15 }, { 20, 15 }, { 16, 15 }, { 5000, 20 } };
+	short s, k, len = b->across ? b->r.w : b->r.h;
+	size_t size = (size_t)(((b->r.w + 15) / 16) * 2L * b->r.h * planes);
+	for (s = 0; s < (short)(sizeof(sizes) / sizeof(sizes[0])); s++) {
+		long range;
+		b->total = sizes[s][0];
+		b->shown = sizes[s][1];
+		range = b->total - b->shown;
+		for (k = 0; k < 4; k++) {
+			GRECT c = b->r;
+			short *a = b->across ? &c.x : &c.y, *l = b->across ? &c.w : &c.h, j;
+			b->top = range > 0 ? range * k / 3 : 0;
+			for (j = 0; j < 4; j++) {
+				c = b->r;
+				if (j == 1)
+					*l = 30;			/* the up arrow and some track */
+				else if (j == 2) {
+					*a += len - 30;			/* the down arrow and some track */
+					*l = 30;
+				} else if (j == 3) {
+					*a += 7;			/* from in the arrow into the track */
+					*l = 40;
+				}
+				boxed(b, &c, 1, buf_a);
+				boxed(b, &c, 0, buf_b);
+				checks++;
+				if (memcmp(buf_a, buf_b, size)) {
+					differ++;
+					snprintf(line, sizeof(line), "PBC DIFFERS %s: whole, total %ld shown %ld top %ld, box %d", what,
+						 b->total, b->shown, b->top, j);
+					say(line);
+				}
+			}
+		}
+	}
+}
+
+static void timed_whole(PANEBAR *b, const char *what)
+{
+	short k;
+	unsigned long t0, t1, t2;
+	b->total = 300;
+	b->shown = 15;
+	b->top = 100;
+	pb_vdi(0);
+	t0 = tos_ms();
+	for (k = 0; k < 10; k++)
+		pb_draw(b, &b->r);
+	t1 = tos_ms();
+	pb_vdi(vdi_h);
+	for (k = 0; k < 10; k++)
+		pb_draw(b, &b->r);
+	t2 = tos_ms();
+	pb_vdi(0);
+	snprintf(line, sizeof(line), "PBC time: %s, the whole bar: objc_draw %lu ms, fast %lu ms", what,
+		 (t1 - t0) / 10, (t2 - t1) / 10);
+	say(line);
+	{
+		/* the track alone (no arrow in the box) the fast way */
+		GRECT c = b->r;
+		short a = pb_arrow_h();
+		if (b->across) {
+			c.x += pb_width() + 1;
+			c.w -= 2 * pb_width() + 2;
+		} else {
+			c.y += a + 1;
+			c.h -= 2 * a + 2;
+		}
+		pb_vdi(vdi_h);
+		t0 = tos_ms();
+		for (k = 0; k < 10; k++)
+			pb_draw(b, &c);
+		t1 = tos_ms();
+		pb_vdi(0);
+		snprintf(line, sizeof(line), "PBC time: %s, the track alone, fast %lu ms; the track's pattern %d", what,
+			 (t1 - t0) / 10, pb_vdi_pattern());
+		say(line);
+	}
+}
+
 static void timed(PANEBAR *b, const char *what)
 {
 	short k;
@@ -213,14 +317,26 @@ int main(void)
 	across.r.w = scr_w - 340;
 	across.r.h = pb_height();
 
-	moves(&down, "down");
-	moves(&off, "down, off a group");
-	moves(&across, "across");
-	snprintf(line, sizeof(line), "PBC %d moves, %d differ; fast way %d, %ld boxes drawn by it", checks, differ,
-		 pb_vdi_state(), pb_vdi_count());
+	{
+		long q = Fopen("QUICK", 0);	/* run_cmp.py --quick: the whole bars and the times only */
+		if (q >= 0)
+			Fclose((short)q);
+		else {
+			moves(&down, "down");
+			moves(&off, "down, off a group");
+			moves(&across, "across");
+		}
+	}
+	wholes(&down, "down");
+	wholes(&off, "down, off a group");
+	wholes(&across, "across");
+	snprintf(line, sizeof(line), "PBC %d moves, %d differ; fast way %d, %ld boxes drawn by it, the track's pattern %d",
+		 checks, differ, pb_vdi_state(), pb_vdi_count(), pb_vdi_pattern());
 	say(line);
 	timed(&down, "down");
 	timed(&across, "across");
+	timed_whole(&down, "down");
+	timed_whole(&across, "across");
 	wind_update(0);
 	graf_mouse(257, 0);
 	snprintf(line, sizeof(line), "PBC the app's fill and mode changed after %d moves", attr_lost);

@@ -67,6 +67,9 @@ void pb_draw(const PANEBAR *b, const GRECT *clip);
 void pb_vdi(short h);
 int pb_vdi_state(void);
 long pb_vdi_count(void);
+/* the track's pattern: 1 read off the screen and drawn by the CPU, 0 not
+   yet, -1 the VDI's (the tests') */
+int pb_vdi_pattern(void);
 
 /* the square where a bar down meets one across, in the bars' ground */
 void pb_corner(const GRECT *r, const GRECT *clip);
