@@ -75,6 +75,39 @@ void scr_xor(short h, const short *p);
    mouse */
 void scr_fill(short h, const short *p, short pen);
 
+/* the box p filled with a 16 by 16 pattern in pens 1 (its set pixels) and
+   0, as vr_recfl in MD_REPLACE with a fill pattern in pen 1 puts it: row
+   y's sixteen pixels pat[y & 15], from the left of each 16-pixel group of
+   the screen (the VDI's patterns lie on the screen's own grid). By the CPU
+   on TOS's screen, where text_plain goes into it, cut to the clip
+   text_clip set; 0, and nothing drawn, elsewhere (the caller uses the
+   VDI). panebar.c's track (a whole bar 76 ms of an 8 MHz ST by the AES).
+   The caller hides the mouse */
+int scr_pattern(short h, const short *p, const unsigned short *pat);
+
+/* the clip the CPU's drawing here (scr_fill, scr_text, scr_xor,
+   scr_pattern) is cut to for a while, the VDI's own left as it is: r (x1,
+   y1, x2, y2), and 0 for the one text_clip or text_noclip set again;
+   dialog.c's, for objc_draw's clip */
+void scr_clip(const short *r);
+
+/* n characters s of the system font of this cell height (8 or 16: the
+   AES's), at any x, as the AES puts an object's text: in pen 1 or 0, with
+   MD_TRANS (ground 0) or with the cells' ground in pen 0 (MD_REPLACE,
+   ground 1). By the CPU on TOS's screen, where text_plain goes into it,
+   cut to the clip; 0, and nothing drawn, elsewhere (the caller lets the
+   AES or the VDI draw it). An 8 MHz ST's VDI takes some 9 ms for a dozen
+   characters off a byte (EFTP's Settings tabs, 31 Oct 2026). The caller
+   hides the mouse */
+int scr_text(short x, short y, const char *s, long n, short pen, short height, int ground);
+
+/* 1 where the CPU's drawing into TOS's screen beats the AES and the VDI
+   at whole boxes (dialog.c's): text_plain goes into the screen and the
+   CPU is a 68000. On a 68030 TOS 4's AES and VDI are as fast or faster
+   (a stock Falcon: Settings 90 ms by objc_draw, 117 the CPU's way; the
+   screen under it 42 ms by the VDI, 45 by the CPU) */
+int scr_cpu_wins(void);
+
 /* the tests' and the logs': 1 text_plain goes into the screen, 0 not
    checked yet; below 0 it is text_n: -1 not the system font or NVDI, or
    the first draw's check failed, -2 a cell neither 8x8 nor 8x16, -3 no
