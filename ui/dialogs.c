@@ -851,9 +851,14 @@ static short settings_sidebar(short *ok)
 					 (short)((SW - 1) | (6 << 8)), 1);
 	}
 	box = d_add(G_IBOX, 0, 0, 0, SX - 1, 2, 42, 12);
+	/* each page in a box of its own, right of the list (a click on a tab
+	   finds the tab), hidden whole: TOS 1.04's AES takes some 0.3 ms for
+	   each hidden object it passes over (19 ms of Settings' 251) */
 	for (k = 1; k <= 5; k++) {
+		short pg;
 		from = nobj;
 		adding_page = k;
+		pg = d_add(G_IBOX, 0, 0, 0, SX - 1, 1, 43, 15);
 		d_add(G_STRING, 0, 0, (long)(names[k - 1] + 2), SX, 2, (short)strlen(names[k - 1] + 2), 1);
 		d_add(G_BOX, 0, 0, 0x00001171L, SX, (short)(3 | (2 << 8)), 40, (short)(0 | (1 << 8)));
 		if (k == 1)
@@ -866,6 +871,7 @@ static short settings_sidebar(short *ok)
 			part_connection(SX, 4);
 		else
 			part_secure(SX, 4);
+		d_nest(pg);
 		page_mark(from);
 	}
 	adding_page = 0;
