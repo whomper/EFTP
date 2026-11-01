@@ -183,6 +183,22 @@ try:
                                                       time.sleep(0.6 * SLOW), r.key(K["BACKSPACE"])))
     measure("Settings closed (Undo), window uncovered", 300, lambda: r.key(0x61))   # Esc empties a field (3.5)
 
+    # the smaller dialogs and the pop-ups: 150 ms (the guidelines' Speed)
+    measure("New folder asked (^N)", 150, lambda: r.ctrl("n"))
+    r.shot("2a-newfolder")
+    measure("New folder closed (Undo)", 300, lambda: r.key(0x61))
+    r.click(LOCAL_X, ROW0 + 3 * 16)
+    settle(1)
+    measure("Rename asked (^E)", 150, lambda: r.ctrl("e"))
+    r.shot("2b-rename")
+    measure("Rename closed (Undo)", 300, lambda: r.key(0x61))
+    measure("Site Manager opened (^K)", big_dialog, lambda: r.ctrl("k"))   # most of the screen
+    r.shot("2c-sites")
+    measure("Site Manager closed (Undo)", 300, lambda: r.key(0x61))
+    measure("a row's menu (right click)", 150, lambda: r.rclick(LOCAL_X, ROW0 + 3 * 16))
+    r.shot("2d-menu")
+    measure("the row's menu closed (Esc)", 300, lambda: r.key(K["ESC"]))
+
     # C:\MANY: 300 files
     measure("to a folder by its letter (m)", 50, lambda: r.type("m"))
     measure("local folder of 300 opened", 300, lambda: r.key(K["RETURN"]), quiet=3)
