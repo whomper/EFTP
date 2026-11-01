@@ -32,11 +32,11 @@ GCCINC  := $(shell $(CC) -print-file-name=include)
 CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
            -fno-pic -fno-pie -fno-tree-loop-distribute-patterns -fno-store-merging \
            -fdisable-tree-bswap \
-           -fno-asynchronous-unwind-tables -Wall -Wno-pointer-sign \
+           -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -Wall -Wno-pointer-sign \
            -DFTP_TOS -DDLG_CPU -DDLG_CLICK -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include \
            -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/ui -Icommon/third_party/bearssl/inc
 LDFLAGS := -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/atari/link.ld \
-           -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments
+           -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments -Wl,--gc-sections
 
 # BearSSL 0.6, for the tests on this computer: on the Atari the TLS is
 # TLS.OVL's (common/tlsovl, built in AERA-Atari, never here)
