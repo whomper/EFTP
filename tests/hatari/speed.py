@@ -174,7 +174,10 @@ try:
     presses("cursor moved a row (Down)", 50, K["DOWN"], 3)
     measure("Esc: both lists read again", 300, lambda: r.key(K["ESC"]))
 
-    measure("Settings opened (^,)", 150, lambda: r.ctrl(","))
+    # a dialog covering half the screen or more: 300 ms on an 8 MHz ST, 150
+    # elsewhere (the guidelines' Speed, Erez 1 Nov 2026, AERA-Atari ab6897d)
+    big_dialog = 300 if spec.split(":")[0] in ("ST", "ST-1") else 150
+    measure("Settings opened (^,)", big_dialog, lambda: r.ctrl(","))
     r.shot("2-settings")
     measure("a letter typed in a field", 50, lambda: (r.type("ab", pace=0.6 * SLOW), r.key(K["BACKSPACE"]),
                                                       time.sleep(0.6 * SLOW), r.key(K["BACKSPACE"])))
