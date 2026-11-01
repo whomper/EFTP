@@ -1661,6 +1661,19 @@ static void fields_to(SITE *s)
 	str_copy(s->ldir, f_ldir, sizeof(s->ldir));
 }
 
+/* the old row a press left for the next turn (row_later), taken off */
+static short row_later = -1;
+
+static void old_row_off(void)
+{
+	if (row_later < 0)
+		return;
+	graf_mouse(M_OFF, 0);
+	row_select(row_later, 0);
+	graf_mouse(M_ON, 0);
+	row_later = -1;
+}
+
 static void rows_fill(short first)
 {
 	short k;
@@ -1828,12 +1841,16 @@ static SITE *sites_dialog(void)
 				   is chosen again and its fields stay (3a60b0d) */
 				if (first + k != wsel) {
 					short was = wsel;
+					/* the pressed row in the press's turn, the old one
+					   in the next (5.8, 1bad614: both are more than 50
+					   ms of an 8 MHz ST) */
 					graf_mouse(M_OFF, 0);
-					if (was >= first && was < first + SROWS)
-						row_select(row[was - first], 0);
 					row_select(row[k], SELECTED);
 					graf_mouse(M_ON, 0);
-					if (dlg_touch_up() == PRESS_IN) {
+					row_later = was >= first && was < first + SROWS ? row[was - first] : -1;
+					k2 = (short)dlg_touch_up_idle(old_row_off);
+					old_row_off();		/* let go before the first turn */
+					if (k2 == PRESS_IN) {
 						wsel = first + k;
 						changed = 1;
 					} else {
