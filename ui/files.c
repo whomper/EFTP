@@ -64,7 +64,46 @@ static long count_kind(SIDE *s, int dirs)
 	return n;
 }
 
+/* each side's info line as last made, and what it was made of: a cursor
+   moved made it again with a walk over every entry (count_kind) and two
+   snprintf, some 10 ms of an 8 MHz ST a press in a folder of 300 */
+static struct {
+	char text[80];
+	long n, marks, free;
+	const FENTRY *e;
+	char ok, ftp, drive, valid;
+} info_kept[2];
+
+static void side_info_make(SIDE *s, int side, char *out, int size);
+
 static void side_info(SIDE *s, int side, char *out, int size)
+{
+	long marks = s->nmarks > 1 ? s->nmarks : 0;
+	long fr = side == SIDE_LOCAL && free_drive == ldir[0] ? free_bytes : -1;
+	char drive = side == SIDE_LOCAL ? ldir[0] : 0;
+	typeof(info_kept[0]) *k = &info_kept[side];
+	if (!(k->valid && k->n == s->l.n && k->e == s->l.e && k->marks == marks && k->free == fr &&
+	      k->ok == s->ok && k->ftp == (ftp != 0) && k->drive == drive)) {
+		side_info_make(s, side, k->text, sizeof(k->text));
+		k->n = s->l.n;
+		k->e = s->l.e;
+		k->marks = marks;
+		k->free = fr;
+		k->ok = s->ok;
+		k->ftp = ftp != 0;
+		k->drive = drive;
+		k->valid = 1;
+	}
+	str_copy(out, k->text, size);
+}
+
+/* the list read again: its counts made again too */
+static void side_info_forget(int side)
+{
+	info_kept[side].valid = 0;
+}
+
+static void side_info_make(SIDE *s, int side, char *out, int size)
 {
 	long dirs = count_kind(s, 1), files = s->l.n - dirs;
 	if (s->nmarks > 1) {
@@ -233,6 +272,7 @@ static void loaded(SIDE *s, const char *keep)
 {
 	long i;
 	aes_profile_tag("folder shown");
+	side_info_forget(side_of(s->w));
 	reset_marks(s);		/* for the new list: the sort gives the screen turns */
 	flist_sort(&s->l);
 	reset_marks(s);		/* and again: what was drawn meanwhile isn't kept */
@@ -616,14 +656,19 @@ static long later_row;
 static void press_later(void)
 {
 	SIDE *s = later_side;
+	int took;
 	if (!s)
 		return;
 	later_side = 0;
+	took = press_update_begin();
+	win_pressing(1);
 	win_batch(1);
 	redraw_row(s, later_row);
 	files_titles();
 	toolbar_redraw();
 	win_batch(0);
+	win_pressing(0);
+	press_update_end(took);
 	menu_update();
 }
 
@@ -975,10 +1020,14 @@ static void click(WIN *w, short mx, short my, short clicks, short kstate)
 		GRECT r;
 		(void)clicks;
 		dbl = (short)press_double(id, mx, my);
+		k = (short)press_update_begin();	/* not BEG_UPDATE of our own: TOS holds it back while held */
+		win_pressing(1);
 		if (!(entry(s, row) && s->mark[row - s->up] && s->nmarks > 1))
 			select_rows(s, row, 1);
 		else
 			s->cur = row;
+		win_pressing(0);
+		press_update_end(k);
 		if (!later_side)
 			menu_update();
 		r.x = w->work.x;

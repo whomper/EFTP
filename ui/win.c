@@ -17,6 +17,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "ui.h"
+#include "click.h"
 #include "theme.h"
 #include "text.h"
 #include "util.h"
@@ -344,14 +345,14 @@ static int toolbar_click(short mx, short my)
 		{
 			GRECT r = but[i];
 			short in;
-			wind_update(BEG_UPDATE);
+			int took = press_update_begin();	/* TOS holds BEG_UPDATE back while held (60d1ea5) */
 			tool_states();
 			in = graf_watchbox(tool_tree, 1 + i, SELECTED, tool_tree[1 + i].ob_state & ~SELECTED);
 			tool_tree[1 + i].ob_state &= ~SELECTED;
 			graf_mouse(M_OFF, 0);
 			objc_draw(tool_tree, 1 + i, 8, r.x - 3, r.y - 3, r.w + 6, r.h + 6);
 			graf_mouse(M_ON, 0);
-			wind_update(END_UPDATE);
+			press_update_end(took);
 			if (!in)
 				return 1;
 		}
@@ -614,12 +615,22 @@ static short steady_next;
    8 MHz ST a line scrolled); win_batch(0) lets them go */
 static short held;
 
+/* a press drawn: its lock is click.c's press_update_begin (TOS holds
+   BEG_UPDATE back while the button is held still; 5.8, 60d1ea5) */
+static short pressing;
+
+void win_pressing(int on)
+{
+	pressing = (short)on;
+}
+
 static void draw_areas(GRECT *a, const char *steady, short n)
 {
 	GRECT r;
 	short k;
 	if (!held) {
-		wind_update(BEG_UPDATE);
+		if (!pressing)
+			wind_update(BEG_UPDATE);
 		graf_mouse(M_OFF, 0);
 	}
 	wind_get(main_h, WF_FIRSTXYWH, &r.x, &r.y, &r.w, &r.h);
@@ -643,7 +654,8 @@ static void draw_areas(GRECT *a, const char *steady, short n)
 	}
 	if (!held) {
 		graf_mouse(M_ON, 0);
-		wind_update(END_UPDATE);
+		if (!pressing)
+			wind_update(END_UPDATE);
 	}
 }
 
@@ -684,7 +696,8 @@ void win_batch(int on)
 		if (held) {
 			held = 0;
 			graf_mouse(M_ON, 0);
-			wind_update(END_UPDATE);
+			if (!pressing)
+				wind_update(END_UPDATE);
 		}
 	}
 }
@@ -1012,11 +1025,11 @@ static void scroll_rows(WIN *w, long d)
 		win_redraw(w, &a);
 		return;
 	}
-	if (!held)
+	if (!held && !pressing)
 		wind_update(BEG_UPDATE);
 	wind_get(main_h, WF_FIRSTXYWH, &f.x, &f.y, &f.w, &f.h);
 	if (f.x > a.x || f.y > a.y || f.x + f.w < a.x + a.w || f.y + f.h < a.y + a.h) {
-		if (!held)
+		if (!held && !pressing)
 			wind_update(END_UPDATE);
 		win_redraw(w, &a);
 		return;
@@ -1046,7 +1059,8 @@ static void scroll_rows(WIN *w, long d)
 		held = 1;	/* the batch's drawing goes on under them */
 	} else if (!held) {
 		graf_mouse(M_ON, 0);
-		wind_update(END_UPDATE);
+		if (!pressing)
+			wind_update(END_UPDATE);
 	}
 	/* what came in: the rows at the end it moved from, and below the
 	   last whole row (a row cut in half there is a different one now) */

@@ -74,6 +74,7 @@ WIN *win_focused(void);				/* the pane with the keyboard */
 int  win_is_top(void);				/* the window is in front */
 int  win_mouse(short mx, short my, short button, short clicks, short kstate);
 void win_redraw_steady(WIN *w, GRECT *area);
+void win_pressing(int on);		/* a press drawn under press_update_begin's lock */
 
 void win_hover(short mx, short my);
 void win_focus(WIN *w);
