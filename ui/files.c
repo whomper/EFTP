@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ui.h"
+#include "click.h"
 #include "theme.h"
 #include "util.h"
 #include "charset.h"
@@ -606,7 +607,36 @@ static void redraw_row(SIDE *s, long row)
 	win_redraw_lines(s->w, row, 1);
 }
 
+/* what a press left for its next turn (5.8: the pressed row in the
+   press's own turn, the old one in the next, before the release's action;
+   on an 8 MHz ST both rows don't fit in 50 ms) */
+static SIDE *later_side;
+static long later_row;
+
+static void press_later(void)
+{
+	SIDE *s = later_side;
+	if (!s)
+		return;
+	later_side = 0;
+	win_batch(1);
+	redraw_row(s, later_row);
+	files_titles();
+	toolbar_redraw();
+	win_batch(0);
+	menu_update();
+}
+
+static void select_rows(SIDE *s, long row, int later);
+
 static void select_only(SIDE *s, long row)
+{
+	select_rows(s, row, 0);
+}
+
+/* row the only one selected; later: the old row, the titles and the
+   toolbar left to press_later when only the new row is drawn now */
+static void select_rows(SIDE *s, long row, int later)
 {
 	long old = s->cur;
 	int many = s->nmarks > 1;
@@ -633,6 +663,12 @@ static void select_only(SIDE *s, long row)
 		win_ensure_visible(s->w, row);
 		if (many) {
 			win_redraw(s->w, 0);
+		} else if (later && s->w->top == top && old != row) {
+			redraw_row(s, row);
+			later_side = s;
+			later_row = old;
+			win_batch(0);
+			return;
 		} else {
 			redraw_row(s, old);
 			if (s->w->top == top)
@@ -822,15 +858,16 @@ static void xor_rect(GRECT *r)
 /* the press on a selected row: if the mouse moves while held, a box
    follows it; dropped on the other pane, the selection goes there.
    1 if it was a drag */
-static int drag(SIDE *s, int side, short mx, short my)
+static int drag(SIDE *s, int side, short mx, short my, int moved_off)
 {
-	short x, y, mb, ks, moved = 0;
+	short x = mx, y = my, mb, ks, moved = 0;
 	GRECT b, scr;
 	char what[40];
 	if (!files_count(side) || !ftp)
 		return 0;
-	/* wait a moment: does it move before the button comes up? */
-	for (;;) {
+	/* wait a moment: does it move before the button comes up? (moved_off:
+	   it has, click.c saw the mouse leave the box round the press) */
+	while (!moved_off) {
 		graf_mkstate(&x, &y, &mb, &ks);
 		if (!(mb & 1))
 			return 0;
@@ -924,28 +961,43 @@ static void click(WIN *w, short mx, short my, short clicks, short kstate)
 	if (row >= s->l.n + s->up)
 		return;
 	if (kstate & (K_LSHIFT | K_RSHIFT | K_CTRL)) {
-		mark_click(s, row, kstate);
+		mark_click(s, row, kstate);	/* on press, and nothing on release (5.8) */
 		return;
 	}
-	if (clicks > 1) {
-		/* GEM gives a double click as one event: the row it is on is
-		   what it opens (or sends), selected or not */
-		if (entry(s, row) && !s->mark[row - s->up])
-			select_only(s, row);
-		open_row(s, side, row);
-		return;
+	/* the guidelines' 5.8 (Erez, 1 Nov 2026): the row selected at once,
+	   on press; let go over it, a double click's second opens the folder
+	   or sends the file; moved while held, the selection dragged (4.2).
+	   A row of a selection of several keeps them, for a drag. Common's
+	   click.c waits for the release, the AES's messages handled the
+	   while (a redraw) */
+	{
+		short id = (short)(((row & 0x3fff) << 1) | side), dx, dy, dbl, k;
+		GRECT r;
+		(void)clicks;
+		dbl = (short)press_double(id, mx, my);
+		if (!(entry(s, row) && s->mark[row - s->up] && s->nmarks > 1))
+			select_rows(s, row, 1);
+		else
+			s->cur = row;
+		if (!later_side)
+			menu_update();
+		r.x = w->work.x;
+		r.y = w->work.y + w->head_h + (short)((row - w->top) * w->line_h);
+		r.w = w->work.w;
+		r.h = w->line_h;
+		k = press_track(&r, mx, my, press_later, win_message, &dx, &dy);
+		press_later();		/* let go before its first turn */
+		switch (k) {
+		case PRESS_DRAG:
+			if (entry(s, row) && s->mark[row - s->up])
+				drag(s, side, mx, my, 1);
+			break;
+		case PRESS_IN:
+			if (dbl)
+				open_row(s, side, row);
+			break;
+		}
 	}
-	/* on a selected row: perhaps the start of a drag */
-	if (entry(s, row) && s->mark[row - s->up] && drag(s, side, mx, my))
-		return;
-	if (!(entry(s, row) && s->mark[row - s->up] && s->nmarks > 1))
-		select_only(s, row);
-	else
-		s->cur = row;
-	/* a drag may start on a row that wasn't selected yet */
-	if (entry(s, row))
-		drag(s, side, mx, my);
-	menu_update();
 }
 
 static void rclick(WIN *w, short mx, short my)

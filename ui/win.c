@@ -23,6 +23,7 @@
 #include "bidi.h"
 #include "iconify.h"
 #include "panebar.h"
+#include "offdraw.h"
 #include "dialog.h"
 
 WIN w_local, w_remote, w_queue;
@@ -336,19 +337,23 @@ static int toolbar_click(short mx, short my)
 			continue;
 		if (!enabled(i))
 			return 1;
-		/* pressed: the AES's selected button while it is down */
+		/* the guidelines' 5.8 (Erez, 1 Nov 2026): pressed on press, done
+		   on release over it, nothing if let go elsewhere, as GEM's own
+		   buttons in a dialog (graf_watchbox shows it pressed while the
+		   mouse is over it) */
 		{
 			GRECT r = but[i];
+			short in;
 			wind_update(BEG_UPDATE);
-			graf_mouse(M_OFF, 0);
 			tool_states();
-			tool_tree[1 + i].ob_state |= SELECTED;
+			in = graf_watchbox(tool_tree, 1 + i, SELECTED, tool_tree[1 + i].ob_state & ~SELECTED);
+			tool_tree[1 + i].ob_state &= ~SELECTED;
+			graf_mouse(M_OFF, 0);
 			objc_draw(tool_tree, 1 + i, 8, r.x - 3, r.y - 3, r.w + 6, r.h + 6);
 			graf_mouse(M_ON, 0);
 			wind_update(END_UPDATE);
-			evnt_timer_(80);
-			tool_tree[1 + i].ob_state &= ~SELECTED;
-			main_redraw(&r_tool);
+			if (!in)
+				return 1;
 		}
 		switch (i) {
 		case B_CONNECT:
@@ -535,6 +540,7 @@ static void draw_divider(GRECT *r)
 		return;
 	}
 	fill(r, 0);
+	fill_forget();
 	vsf_interior(vdi_h, 2);
 	vsf_style(vdi_h, 4);
 	vsf_color(vdi_h, 1);
@@ -597,12 +603,18 @@ static short main_shown;
 #define NBATCH 8
 static short batching, nbatch;
 static GRECT batch[NBATCH];
+/* a redraw in place that comes again and again (a transfer's progress
+   row, a pane's header): drawn off the screen and shown at once (Erez, 1
+   Nov 2026: it flickered on a stock Falcon); others, as rows scrolled in,
+   on the screen, which costs nothing more */
+static char batch_steady[NBATCH];
+static short steady_next;
 /* a scroll's copy in a batch keeps wind_update and the mouse hidden for
    the batch's drawing, which would take them again (some 9 ms of an
    8 MHz ST a line scrolled); win_batch(0) lets them go */
 static short held;
 
-static void draw_areas(GRECT *a, short n)
+static void draw_areas(GRECT *a, const char *steady, short n)
 {
 	GRECT r;
 	short k;
@@ -615,8 +627,16 @@ static void draw_areas(GRECT *a, short n)
 		for (k = 0; k < n; k++) {
 			GRECT c = r;
 			if (intersect(&a[k], &c)) {
+				/* a piece a few rows high (a transfer's progress row, a
+				   pane's header, rows scrolled in) drawn off the screen
+				   and shown at once: drawn in place, its ground showed
+				   for a frame or two before its words (Erez, 1 Nov 2026,
+				   on a stock Falcon) */
+				int off = steady[k] && c.h <= OFF_ROWS && off_begin(vdi_h, c.x, c.y, c.w, c.h);
 				clip_on(&c);
 				draw_main(&c);
+				if (off)
+					off_end();
 			}
 		}
 		wind_get(main_h, WF_NEXTXYWH, &r.x, &r.y, &r.w, &r.h);
@@ -659,7 +679,7 @@ void win_batch(int on)
 			short n = nbatch;
 			nbatch = 0;
 			if (main_h > 0 && main_shown && !main_iconified)
-				draw_areas(batch, n);
+				draw_areas(batch, batch_steady, n);
 		}
 		if (held) {
 			held = 0;
@@ -674,6 +694,8 @@ static void main_redraw(GRECT *area)
 {
 	GRECT a;
 	short k;
+	char steady = (char)steady_next;
+	steady_next = 0;
 	if (main_h <= 0 || !main_shown)
 		return;
 	if (main_iconified) {	/* the icon, not the panes (area is the old window's) */
@@ -685,19 +707,22 @@ static void main_redraw(GRECT *area)
 		return;
 	if (batching) {
 		for (k = 0; k < nbatch; k++)
-			if (join(&batch[k], &a))
+			if (join(&batch[k], &a)) {
+				batch_steady[k] = (char)(batch_steady[k] && steady);
 				return;
+			}
 		if (nbatch == NBATCH) {
 			/* full: what was gathered drawn now (their box was most of
 			   the window, a transfer's end: 320 -> 355 ms on an ST) */
 			short n = nbatch;
 			nbatch = 0;
-			draw_areas(batch, n);
+			draw_areas(batch, batch_steady, n);
 		}
+		batch_steady[nbatch] = steady;
 		batch[nbatch++] = a;
 		return;
 	}
-	draw_areas(&a, 1);
+	draw_areas(&a, &steady, 1);
 }
 
 void win_redraw(WIN *w, GRECT *area)
@@ -788,7 +813,19 @@ static void redraw_header(WIN *w)
 	h.y = w->box.y;
 	h.w = w->box.w;
 	h.h = header_h();
+	steady_next = 1;	/* its count and time, again and again */
 	main_redraw(&h);
+}
+
+/* a piece of w drawn again in place, as a transfer's progress row is
+   every second: off the screen and shown at once */
+void win_redraw_steady(WIN *w, GRECT *area)
+{
+	GRECT a = *area;
+	if (intersect(&w->box, &a)) {
+		steady_next = 1;
+		main_redraw(&a);
+	}
 }
 
 void win_title(WIN *w, const char *title)
@@ -987,7 +1024,7 @@ static void scroll_rows(WIN *w, long d)
 	if (nbatch) {			/* what was gathered goes first: the copy moves it */
 		short m = nbatch;
 		nbatch = 0;
-		draw_areas(batch, m);
+		draw_areas(batch, batch_steady, m);
 	}
 	{
 		short p[8], h = (n - k) * lh;

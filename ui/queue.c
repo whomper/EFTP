@@ -412,7 +412,7 @@ void queue_changed(long i)
 			a.w = w_queue.work.x + w_queue.work.w - a.x;
 			a.h = w_queue.line_h;
 			if (a.y >= w_queue.work.y)
-				win_redraw(&w_queue, &a);
+				win_redraw_steady(&w_queue, &a);	/* every second: no flicker */
 		} else {
 			win_redraw_lines(&w_queue, i, 1);
 		}

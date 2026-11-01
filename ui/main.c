@@ -856,14 +856,6 @@ static void wait_release(void)
 	}
 }
 
-/* one click or two. The AES counts them (the main loop asks for up to
-   two): EmuTOS's AES, asked for one, swallowed the second press of a
-   double click; a press held to drag comes as one click with the button
-   still down */
-static short click_count(short counted)
-{
-	return counted >= 2 ? 2 : 1;
-}
 
 /* EFTP.PRG's own folder, where its files are (the guidelines, 6.1):
    app_dir() reads it from the command the AES started it with, as the
@@ -1104,10 +1096,11 @@ int main(void)
 		hovering = !tip_tried && hover_x >= 0 && !main_iconified;
 		if (hovering)
 			wait = 100;
-		/* 0x102/3/0: wake on any button press, left or right, the
-		   clicks counted up to two */
-		which = evnt_multi_(MU_MESAG | MU_KEYBD | MU_BUTTON | MU_TIMER | MU_M1, 0x102, 3, 0,
-				    wait, msg, &ev);
+		/* 0x101/3/0: wake on any button press, left or right, at once:
+		   one click asked for (the guidelines' 5.8; asking for two held
+		   every press back for the double-click time). A list times its
+		   double clicks itself (common's click.c) */
+		which = evnt_multi_(MU_MESAG | MU_KEYBD | MU_BUTTON | MU_TIMER | MU_M1, 0x101, 3, 0, wait, msg, &ev);
 		aes_profile_tag((which & MU_MESAG) ? (msg[0] == WM_REDRAW ? "redraw" : msg[0] == MN_SELECTED ?
 				"menu" : "message") : (which & MU_KEYBD) ? "key" : (which & MU_BUTTON) ? "click" :
 				(which & MU_M1) ? "hover" : "timer");
@@ -1163,7 +1156,7 @@ int main(void)
 			wind_get(0, WF_TOP, &t, &dd, &dd, &dd);
 			if (h > 0 && h != t)	/* a click in a window behind: bring it up too */
 				wind_set(h, WF_TOP, 0, 0, 0, 0);
-			if (win_mouse(ev.mx, ev.my, ev.mbutton, click_count(ev.breturn), ev.kstate))
+			if (win_mouse(ev.mx, ev.my, ev.mbutton, 1, ev.kstate))
 				menu_update();
 			wait_release();
 		}
