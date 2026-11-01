@@ -532,9 +532,12 @@ static void page_mark(short from)
 		page_of[i] = adding_page;
 }
 
+static void page_need(short k);
+
 static void show_page(short p, int draw)
 {
 	short i;
+	page_need(p);
 	cur_page = p;
 	for (i = 1; i < nobj; i++) {
 		if (!page_of[i])
@@ -831,10 +834,60 @@ static void part_secure(short x, short y)
 #define SW 13			/* the list's width */
 #define SX (SW + 2)		/* where the settings start */
 
+static const char *const page_names[] = { "  Transfers", "  Names", "  Look", "  Connection", "  Secure" };
+static char page_built[6];
+
+/* page k's objects, in a box of its own right of the list (a click on a
+   tab finds the tab), hidden whole with it */
+static short page_add(short k)
+{
+	short pg, from = nobj;
+	adding_page = k;
+	pg = d_add(G_IBOX, 0, 0, 0, SX - 1, 1, 43, 15);
+	d_add(G_STRING, 0, 0, (long)(page_names[k - 1] + 2), SX, 2, (short)strlen(page_names[k - 1] + 2), 1);
+	d_add(G_BOX, 0, 0, 0x00001171L, SX, (short)(3 | (2 << 8)), 40, (short)(0 | (1 << 8)));
+	if (k == 1)
+		part_transfers(SX, 4);
+	else if (k == 2)
+		part_names(SX, 4);
+	else if (k == 3)
+		part_look(SX, 4);
+	else if (k == 4)
+		part_connection(SX, 4);
+	else
+		part_secure(SX, 4);
+	d_nest(pg);
+	page_mark(from);
+	adding_page = 0;
+	page_built[k] = 1;
+	return pg;
+}
+
+/* a page not built yet, built now at the tree's end: the first time its
+   tab is chosen. Settings opens with its first page alone (the other four
+   and their fix-up some 20 ms of an 8 MHz ST, 31 Oct 2026) */
+static void page_need(short k)
+{
+	short from = nobj, pg;
+	if (page_built[k])
+		return;
+	tree[nobj - 1].ob_flags &= ~LASTOB;
+	pg = page_add(k);
+	tree[last_child].ob_next = 0;
+	tree[nobj - 1].ob_flags |= LASTOB;
+	rsrc_obfix_all(&tree[from], (short)(nobj - from));
+	dlg_3d(tree);		/* the new objects' 3D look, where the AES has one */
+	/* in a dialog window the band is hidden and what was below it moved
+	   up by its height (common's dlg_band): the new page too, and back
+	   with the rest when it closes */
+	if (band > 0 && (tree[band].ob_flags & HIDETREE))
+		tree[pg].ob_y -= tree[band].ob_height;
+}
+
 static short settings_sidebar(short *ok)
 {
-	static const char *names[] = { "  Transfers", "  Names", "  Look", "  Connection", "  Secure" };
-	short k, box, from, gap = (short)(gl_hchar / 2);
+	const char *const *names = page_names;
+	short k, box, gap = (short)(gl_hchar / 2);
 	d_begin(SX + 42, 16);
 	nticks = 0;
 	npages = 0;
@@ -851,29 +904,11 @@ static short settings_sidebar(short *ok)
 					 (short)((SW - 1) | (6 << 8)), 1);
 	}
 	box = d_add(G_IBOX, 0, 0, 0, SX - 1, 2, 42, 12);
-	/* each page in a box of its own, right of the list (a click on a tab
-	   finds the tab), hidden whole: TOS 1.04's AES takes some 0.3 ms for
-	   each hidden object it passes over (19 ms of Settings' 251) */
-	for (k = 1; k <= 5; k++) {
-		short pg;
-		from = nobj;
-		adding_page = k;
-		pg = d_add(G_IBOX, 0, 0, 0, SX - 1, 1, 43, 15);
-		d_add(G_STRING, 0, 0, (long)(names[k - 1] + 2), SX, 2, (short)strlen(names[k - 1] + 2), 1);
-		d_add(G_BOX, 0, 0, 0x00001171L, SX, (short)(3 | (2 << 8)), 40, (short)(0 | (1 << 8)));
-		if (k == 1)
-			part_transfers(SX, 4);
-		else if (k == 2)
-			part_names(SX, 4);
-		else if (k == 3)
-			part_look(SX, 4);
-		else if (k == 4)
-			part_connection(SX, 4);
-		else
-			part_secure(SX, 4);
-		d_nest(pg);
-		page_mark(from);
-	}
+	/* each page in a box of its own, hidden whole: TOS 1.04's AES takes
+	   some 0.3 ms for each hidden object it passes over (19 ms of
+	   Settings' 251); the first now, the others when chosen */
+	memset(page_built, 0, sizeof(page_built));
+	page_add(1);
 	adding_page = 0;
 	d_button(SX + 18, 14, 10, "Cancel", EXIT);
 	*ok = d_button(SX + 30, 14, 10, "OK", EXIT | DEFAULT);
