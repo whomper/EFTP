@@ -58,9 +58,21 @@ void clip_off(void)
 	text_noclip(vdi_h);
 }
 
-/* white and black on TOS's own screen by the CPU (common's scr_fill: a
-   pane of 15 rows 25 ms of an 8 MHz ST by the VDI); it changes no VDI
-   setting, and every caller sets its own after a fill */
+/* the fill colour set (solid, no perimeter), -1 when not known: the
+   fill's settings made once, not four traps a fill */
+static short fill_set = -1;
+
+void fill_forget(void)
+{
+	fill_set = -1;
+}
+
+/* white and black on TOS's own screen by the CPU where it wins (common's
+   scr_fill where scr_cpu_wins(), a 68000: a pane of 15 rows 25 ms of an
+   8 MHz ST by the VDI); elsewhere vr_recfl, as fast or faster on a
+   68030's TOS 4 (the guidelines' Speed, b3fafbe). It leaves the writing
+   mode MD_REPLACE; a caller that sets the fill otherwise calls
+   fill_forget */
 void fill(GRECT *r, short color)
 {
 	short pxy[4];
@@ -70,13 +82,18 @@ void fill(GRECT *r, short color)
 	pxy[1] = r->y;
 	pxy[2] = r->x + r->w - 1;
 	pxy[3] = r->y + r->h - 1;
-	if ((color == 0 || color == 1) && text_plain_state() == 1) {
+	if ((color == 0 || color == 1) && scr_cpu_wins()) {
 		scr_fill(vdi_h, pxy, color);
 		return;
 	}
-	vsf_interior(vdi_h, 1);
-	vsf_color(vdi_h, color);
-	vsf_perimeter(vdi_h, 0);
+	if (fill_set != color) {
+		if (fill_set < 0) {
+			vsf_interior(vdi_h, 1);
+			vsf_perimeter(vdi_h, 0);
+		}
+		vsf_color(vdi_h, color);
+		fill_set = color;
+	}
 	vswr_mode(vdi_h, 1);
 	vr_recfl(vdi_h, pxy);
 }
@@ -88,7 +105,7 @@ void hline(short x1, short x2, short y)
 	pxy[1] = y;
 	pxy[2] = x2;
 	pxy[3] = y;
-	if ((pen[P_LINE] == 0 || pen[P_LINE] == 1) && text_plain_state() == 1) {
+	if ((pen[P_LINE] == 0 || pen[P_LINE] == 1) && scr_cpu_wins()) {
 		scr_fill(vdi_h, pxy, pen[P_LINE]);	/* a row, by the CPU */
 		return;
 	}
@@ -183,6 +200,7 @@ static void runs_at(short x, short y, const char *s, short n)
 void text_at(short x, short y, const char *s, long n, short cols, short flags)
 {
 	char vis[BIDI_MAX];
+	int plain;
 	const char *out = s;
 	if (cols <= 0)
 		return;
@@ -228,12 +246,19 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 	   TOS's bold gives; never vst_effects, as NVDI's widens each letter
 	   by a pixel or more and the run drawn next covers the last ones
 	   (EHypView under NVDI, "On the Falcon itsel"; the guidelines' Speed) */
-	if (text_ground == 0 && text_pen == 1 && !(flags & TX_INVERSE) && !((flags & TX_LIGHT) && colour))
+	plain = text_ground == 0 && text_pen == 1 && !(flags & TX_INVERSE) && !((flags & TX_LIGHT) && colour);
+	if (plain)
 		text_plain(vdi_h, x, y, out, n);
 	else
 		text_n(vdi_h, x, y, out, n);
 	if (flags & TX_BOLD) {
-		text_bold_strike(vdi_h, x, y, out, n);
+		/* black on white cells: as MD_REPLACE on white, so text_fx's bold
+		   (the box ORed onto itself a pixel to the right: the strike's
+		   pixels, without a second run of text off a byte) where it can */
+		if (plain && text_fx_fast(1, 1))
+			text_fx(vdi_h, x, y, out, n, 1, 1);
+		else
+			text_bold_strike(vdi_h, x, y, out, n);
 		vswr_mode(vdi_h, 2);
 	}
 	if ((flags & TX_LIGHT) && !colour) {
@@ -247,7 +272,7 @@ void text_at(short x, short y, const char *s, long n, short cols, short flags)
 		vsf_color(vdi_h, (flags & TX_INVERSE) ? 1 : 0);
 		vsf_perimeter(vdi_h, 0);
 		v_bar(vdi_h, p);
-		vsf_interior(vdi_h, 1);
+		fill_forget();
 	}
 }
 

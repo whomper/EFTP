@@ -73,6 +73,8 @@ int win_hidden(void);				/* behind another, or iconified */
 WIN *win_focused(void);				/* the pane with the keyboard */
 int  win_is_top(void);				/* the window is in front */
 int  win_mouse(short mx, short my, short button, short clicks, short kstate);
+void win_redraw_steady(WIN *w, GRECT *area);
+
 void win_hover(short mx, short my);
 void win_focus(WIN *w);
 void win_relayout(void);			/* after a font change */
@@ -92,6 +94,7 @@ extern int running;				/* a transfer is going */
 #define TX_LTR     16	/* left-to-right paragraph even when it starts in Hebrew */
 #define TX_DIM     TX_LIGHT	/* what can't be used: the shared popup's disabled items */
 void fill(GRECT *r, short color);
+void fill_forget(void);		/* the fill's settings changed elsewhere */
 extern short text_pen;		/* the colour of text (theme.h pens); set, draw, set back to 1 */
 extern short text_ground;	/* what is under the text: 0 white, -1 not known; set, draw, set back */
 #define text_pen_at(p, x, y, s, n, cols, fl) \
