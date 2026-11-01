@@ -11,6 +11,9 @@ that came while it ran (none: under 20 ms).
 
     speed.py WORKDIR MACHINE[:SCREEN] [DISPLAY PORT]
     EFTP_PROF_PRG=old/EFTP.PRG speed.py ...     an earlier such build
+    FONT=ID,PT speed.py ...                    the windows in that font (a GDOS
+                                               font under NVDI: Courier 14, as
+                                               Erez runs it), EFTP.INF's FONT=
 
 MACHINE is one of the family's (common/tools/machines.py): ST:mono,
 ST:med and Falcon-4:16 are the guidelines' (AERA_WITH_NVDI=1 for the
@@ -64,7 +67,12 @@ for i in range(400):
     server.FILES[name] = rnd.randrange(1, 3000)
 server.FILES["pub/zbig.bin"] = 60000 if ST else 400000
 srv, home = server.ftp_server(work)
-hd = server.drive_c(work, prg=m.prg)
+font = os.environ.get("FONT")
+if font and not re.fullmatch(r"\d+,\d+", font):
+    sys.exit("speed.py: FONT=ID,PT, as EFTP.INF has it")
+hd = server.drive_c(work, inf_extra="FONT=%s\r\n" % font if font else "", prg=m.prg)
+if font:
+    print("in font %s" % font, flush=True)
 shutil.copy(prof, os.path.join(hd, "EFTP.PRG"))
 os.makedirs(os.path.join(hd, "MANY"))
 for i in range(300):
@@ -75,11 +83,11 @@ for i in range(300):
 # where things are: the screen's rows (an ST's medium screen is shown
 # with its lines doubled, so 640x400 as the mono one)
 if m.screen == "mono":
-    CONNECT, ROW0 = (50, 68), 126
+    CONNECT, ROW0, SITES = (50, 68), 126, 89
 elif m.screen == "med":
-    CONNECT, ROW0 = (50, 79), 146
+    CONNECT, ROW0, SITES = (50, 79), 146, 89
 elif m.screen in ("16", "256", "ttmed"):
-    CONNECT, ROW0 = (50, 73), 131
+    CONNECT, ROW0, SITES = (50, 73), 131, 129
 else:
     sys.exit("speed.py: %s's %s screen isn't one this rig knows" % (m.name, m.screen))
 SITE1 = (CONNECT[0] + 10, CONNECT[1] + 19)
@@ -170,7 +178,12 @@ try:
     print("%-44s %6s ms  (300)%s" % ("main window drawn whole (opened)", opened or "<20", "  OVER" if opened > 300 else ""))
     r.shot("1-start")
 
-    measure("a row clicked", 50, lambda: r.click(LOCAL_X, ROW0 + 2 * 16))
+    # 5.8: the row drawn on the press; nothing waits for the release
+    def row_press():
+        r.move(LOCAL_X, ROW0 + 2 * 16)
+        r.xdo("mousedown", "1")
+    measure("a row pressed", 50, row_press)
+    measure("the row let go", 50, lambda: r.xdo("mouseup", "1"))
     presses("cursor moved a row (Down)", 50, K["DOWN"], 3)
     measure("Esc: both lists read again", 300, lambda: r.key(K["ESC"]))
 
@@ -194,6 +207,14 @@ try:
     measure("Rename closed (Undo)", 300, lambda: r.key(0x61))
     measure("Site Manager opened (^K)", big_dialog, lambda: r.ctrl("k"))   # most of the screen
     r.shot("2c-sites")
+    # a site, the guidelines' 5.8: its row selected on the press, its
+    # fields shown when it is let go
+    def press():
+        r.move(140, SITES + 16)
+        r.xdo("mousedown", "1")
+    measure("a site pressed: its row selected", 50, press)
+    measure("the site let go: its fields shown", 150, lambda: r.xdo("mouseup", "1"))
+    r.shot("2c-site")
     measure("Site Manager closed (Undo)", 300, lambda: r.key(0x61))
     measure("a row's menu (right click)", 150, lambda: r.rclick(LOCAL_X, ROW0 + 3 * 16))
     r.shot("2d-menu")
