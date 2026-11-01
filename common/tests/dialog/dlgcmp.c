@@ -25,6 +25,8 @@
 #include "dialog.h"
 
 extern unsigned long dlg_fast_t[4];
+extern unsigned long dlg_fast_kt[8];
+extern long dlg_fast_kn[8];
 
 short vdi_h, cw, ch, scr_w, scr_h, planes;
 
@@ -197,6 +199,54 @@ static void tree_black(int hollow)
 	end();
 }
 
+/* frames, buttons and pictures (the hub's (a) to (c), 31 Oct 2026): flat
+   boxes with frames inside and outside, outlined and shadowed, selected;
+   buttons plain, EXIT, DEFAULT, selected and disabled, at each of a
+   byte's eight pixels; a choice; ticks as EFTP draws them */
+static unsigned short tick_bits[16] = { 0x0000, 0x7FFE, 0x4002, 0x4002, 0x4006, 0x400E, 0x401A, 0x6032,
+					0x7062, 0x58C2, 0x4D82, 0x4702, 0x4202, 0x4002, 0x7FFE, 0x0000 };
+static BITBLK tick_blk = { tick_bits, 2, 16, 0, 0, 1 };
+static void tree_frames(void)
+{
+	static const char *names[] = { "OK", "Cancel", "Skip", "Resume", "Replace", "Apply", "Help", "Close" };
+	short k, y = 6;
+	begin(0x00021100L, OUTLINED, (short)(74 * cw), (short)(16 * ch + 40));
+	/* boxes: frames of 1 and 2 inside and outside, in black and in
+	   white, hollow and solid; selected; outlined; shadowed */
+	add(G_BOX, 0, 0, 0x00011100L, 8, y, 6 * cw, ch);
+	add(G_BOX, 0, 0, 0x00021100L, 8 + 8 * cw, y, 6 * cw, ch);
+	add(G_BOX, 0, 0, 0x00FF1100L, 8 + 16 * cw + 3, y, 6 * cw, ch);
+	add(G_BOX, 0, 0, 0x00FE1100L, 8 + 24 * cw + 5, y, 6 * cw, ch);
+	add(G_BOX, 0, 0, 0x00011171L, 8 + 32 * cw, y, 6 * cw, ch);
+	add(G_BOX, 0, SELECTED, 0x00FF1100L, 8 + 40 * cw + 1, y, 2 * cw, ch);
+	add(G_BOX, 0, OUTLINED, 0x00011100L, 8 + 46 * cw, y, 6 * cw, ch);
+	add(G_BOX, 0, SHADOWED, 0x00011100L, 8 + 56 * cw + 2, y, 6 * cw, ch);
+	add(G_BOX, 0, 0, 0x00010100L, 8 + 66 * cw, y, 6 * cw, ch);	/* a frame in white */
+	y = (short)(y + ch + 12);
+	/* buttons at each of a byte's eight pixels */
+	for (k = 0; k < 8; k++)
+		add(G_BUTTON, SELECTABLE | (k & 1 ? EXIT : 0) | (k == 3 || k == 6 ? DEFAULT : 0),
+		    k == 5 ? SELECTED : 0, (long)names[k], (short)(8 + k * 9 * cw + k), y, (short)(7 * cw + (k & 3)), ch);
+	y = (short)(y + ch + 12);
+	add(G_BUTTON, SELECTABLE | EXIT, DISABLED, (long)"Disabled", 8, y, 10 * cw, ch);
+	add(G_BUTTON, SELECTABLE | EXIT | DEFAULT, DISABLED, (long)"Off", 8 + 12 * cw + 3, y, 10 * cw, ch);
+	add(G_BUTTON, SELECTABLE | RBUTTON, SELECTED, (long)"By type", 8 + 24 * cw, y, 9 * cw, ch);
+	add(G_BUTTON, SELECTABLE | RBUTTON, 0, (long)"As text", 8 + 34 * cw + 4, y, 9 * cw, ch);
+	add(G_BUTTON, SELECTABLE | EXIT, 0, (long)"A long word in a button", 8 + 44 * cw, y, 8 * cw, ch);
+	y = (short)(y + ch + 12);
+	/* a choice, as EFTP's: a thin frame outside, the text on white */
+	add(G_BOXTEXT, TOUCHEXIT, 0, tedi(" Ask                    ...", 0, 0x1180, -1), 8 + 3, y, 28 * cw, ch);
+	add(G_BOXTEXT, TOUCHEXIT, 0, tedi("centred", 2, 0x1180, 1), 8 + 32 * cw, y, 12 * cw + 3, ch);
+	add(G_BOXTEXT, 0, 0, tedi("black", 2, 0x1071, -2), 8 + 48 * cw + 6, y, 10 * cw, ch);
+	y = (short)(y + ch + 12);
+	/* ticks: on, and off, and selected; on a byte and off one */
+	for (k = 0; k < 4; k++)
+		add(G_IMAGE, TOUCHEXIT, k == 3 ? SELECTED : 0, (long)&tick_blk, (short)(8 + k * 4 * cw + (k & 1) * 3), y, 2 * cw,
+		    ch);
+	str(8 + 18 * cw, y, "after a tick");
+	end();
+}
+
 /* the screen from (x, y), w by h, off it */
 static void grab(short x, short y, short w, short h, unsigned char *to)
 {
@@ -341,9 +391,15 @@ static void timed(void)
 	t1 = tos_ms();
 	dlg_fast_on = 1;
 	memset(dlg_fast_t, 0, sizeof(dlg_fast_t));
+	memset(dlg_fast_kt, 0, sizeof(dlg_fast_kt));
+	memset(dlg_fast_kn, 0, sizeof(dlg_fast_kn));
 	for (k = 0; k < 4; k++)
 		dlg_draw(tree, 0);
 	t2 = tos_ms();
+	snprintf(line, sizeof(line), "DLC time: the CPU's objects in 4 draws, ms/count: strings %lu/%ld, boxtexts %lu/%ld, boxes %lu/%ld, buttons %lu/%ld, images %lu/%ld",
+		 dlg_fast_kt[1], dlg_fast_kn[1], dlg_fast_kt[2], dlg_fast_kn[2], dlg_fast_kt[4], dlg_fast_kn[4],
+		 dlg_fast_kt[5], dlg_fast_kn[5], dlg_fast_kt[6], dlg_fast_kn[6]);
+	say(line);
 	(void)x;
 	(void)y;
 	snprintf(line, sizeof(line), "DLC time: Settings whole: objc_draw %lu ms, fast %lu ms (the walk %lu, the root's fill %lu, objc_draw %lu, the CPU's objects %lu)",
@@ -407,6 +463,36 @@ static void timed(void)
 			snprintf(line, sizeof(line), "DLC time: Logbase %lu us; scr_fill 8x1 %lu us, 456x1 %lu us, 8x256 %lu us",
 				 (u1 - u0) * 10, (u2 - u1) * 10, (u3 - u2) * 10, (u4 - u3) * 100);
 			say(line);
+			{
+				/* the root's box: one fill, one span, and its middle band's
+				   seven spans (outline, white, frame, inside, ...) */
+				short x = 96, y = 80, w = 456, hh = 256, one[3], seven[21];
+				short pp[4];
+				pp[0] = x; pp[1] = y; pp[2] = x + w - 1; pp[3] = y + hh - 1;
+				one[0] = x; one[1] = x + w - 1; one[2] = 0;
+				seven[0] = x - 3; seven[1] = x - 3; seven[2] = 1;
+				seven[3] = x - 2; seven[4] = x - 1; seven[5] = 0;
+				seven[6] = x; seven[7] = x + 1; seven[8] = 1;
+				seven[9] = x + 2; seven[10] = x + w - 3; seven[11] = 0;
+				seven[12] = x + w - 2; seven[13] = x + w - 1; seven[14] = 1;
+				seven[15] = x + w; seven[16] = x + w + 1; seven[17] = 0;
+				seven[18] = x + w + 2; seven[19] = x + w + 2; seven[20] = 1;
+				if (y + hh > scr_h)
+					hh = (short)(scr_h - y), pp[3] = y + hh - 1;
+				u0 = tos_ms();
+				for (k = 0; k < 4; k++)
+					scr_fill(vdi_h, pp, 0);
+				u1 = tos_ms();
+				for (k = 0; k < 4; k++)
+					scr_spans(y, (short)(y + hh - 1), one, 1);
+				u2 = tos_ms();
+				for (k = 0; k < 4; k++)
+					scr_spans(y, (short)(y + hh - 1), seven, 7);
+				u3 = tos_ms();
+				snprintf(line, sizeof(line), "DLC time: the root's box: scr_fill %lu ms, scr_spans of one span %lu ms, of seven %lu ms",
+					 (u1 - u0) / 4, (u2 - u1) / 4, (u3 - u2) / 4);
+				say(line);
+			}
 		}
 		graf_mouse(M_ON, 0);
 		scr_clip(0);
@@ -532,11 +618,57 @@ int main(void)
 		 cw, ch, text_plain_state(), dlg_3d_ok());
 	say(line);
 
+	{
+		/* run_cmp.py --look: the AES's own drawing of the frames' tree
+		   off to LOOK.BIN, for a look at its pixels, and no more */
+		long q = Fopen("LOOK", 0);
+		if (q >= 0) {
+			short x, y, w, h;
+			size_t size;
+			long f;
+			Fclose((short)q);
+			tree_frames();
+			tree[0].ob_x = 32;
+			tree[0].ob_y = 24;
+			x = 16;
+			y = 8;
+			w = (short)(tree[0].ob_width + 32);
+			h = (short)(tree[0].ob_height + 32);
+			if (y + h > scr_h)
+				h = (short)(scr_h - y);
+			size = (size_t)((w + 15) / 16) * 2 * h * planes;
+			ground(x, y, w, h);
+			dlg_fast_on = 0;
+			objc_draw(tree, 0, 8, x, y, w, h);
+			grab(x, y, w, h, buf_b);
+			f = Fcreate("LOOK.BIN", 0);
+			if (f >= 0) {
+				short hd[4];
+				hd[0] = w;
+				hd[1] = h;
+				hd[2] = planes;
+				hd[3] = 0;
+				Fwrite((short)f, sizeof(hd), hd);
+				Fwrite((short)f, (long)size, buf_b);
+				Fwrite((short)f, (long)size, buf_b);
+				Fclose((short)f);
+			}
+			say("DLC look written");
+			say("DLC done");
+			wind_update(0);
+			graf_mouse(257, 0);
+			v_clsvwk(vdi_h);
+			appl_exit();
+			return 0;
+		}
+	}
 	dlg_fast_part = 0;		/* every part the fast way, to check it */
 	tree_settings();
 	all("Settings");
 	tree_cases();
 	all("cases");
+	tree_frames();
+	all("frames");
 	tree_black(0);
 	all("black root");
 	tree_black(1);

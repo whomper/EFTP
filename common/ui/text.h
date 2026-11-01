@@ -101,6 +101,23 @@ void scr_clip(const short *r);
    hides the mouse */
 int scr_text(short x, short y, const char *s, long n, short pen, short height, int ground);
 
+/* a band of rows y1..y2 painted by the CPU: n spans (x1, x2, pen) side by
+   side, pens 0 and 1, each row written once (the edge words by their
+   masks, the words between whole); cut to the clip. 0, and nothing
+   drawn, where text_plain doesn't go into the screen or the band has
+   more pieces than it keeps (the caller uses another way). dialog.c's
+   frames, outlines and shadows: a narrow fill of its own cost an 8 MHz
+   ST some 47 us a row */
+int scr_spans(short y1, short y2, const short *spans, short n);
+
+/* a bitmap (rows of wb bytes, its set bits in pen, MD_TRANS) at any x, as
+   vrt_cpyfm in MD_TRANS puts a G_IMAGE's; cut to the clip. 0 elsewhere */
+int scr_bits(short x, short y, const unsigned char *bits, short wb, short rows, short pen);
+
+/* the box p's pixels cleared where x + y is even, as TOS 1.04's AES greys
+   a DISABLED object (MD_TRANS, pen 0, the 50% pattern); 0 elsewhere */
+int scr_grey_off(const short *p);
+
 /* 1 where the CPU's drawing into TOS's screen beats the AES and the VDI
    at whole boxes (dialog.c's): text_plain goes into the screen and the
    CPU is a 68000. On a 68030 TOS 4's AES and VDI are as fast or faster

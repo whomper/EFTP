@@ -6,7 +6,7 @@ way (the root's fill, flat G_BOXTEXTs and plain G_STRINGs by the CPU)
 against objc_draw, byte for byte, and their times. Exit 1 when any draw
 differs or the fast way didn't come on.
 
-    run_cmp.py WORK MACHINE [--nvdi]
+    run_cmp.py WORK MACHINE [--nvdi] [--look]
 """
 import os
 import sys
@@ -22,6 +22,8 @@ r = speed.Rig(a[0], a[1], nvdi="--nvdi" in sys.argv, display=":93")
 bad = 1
 try:
     r.put(os.path.join(HERE, "build", "cmp", "DLGCMP.PRG"))
+    if "--look" in sys.argv:           # the AES's drawing of the frames' tree, to WORK/hd/LOOK.BIN
+        open(os.path.join(r.hd, "LOOK"), "w").close()
     r.start("C:\\DLGCMP.PRG", ready="DLC done", boot=1800)
     print("dialogs on", r.describe())
     for l in r.console().splitlines():
