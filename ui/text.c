@@ -28,6 +28,12 @@ static const unsigned char *glyph;	/* the font's form: row r of c at [r * 256 + 
 static short sf_planes, sf_w, sf_h;
 static int sf_rows_cpu;			/* scr_rows by the CPU: a 68000 (on a 68030 TOS's copy is as fast) */
 static long sf_bpl;
+static unsigned char *base_held;	/* Logbase while scr_clip holds a clip (an XBIOS call 100 us of an ST) */
+
+static unsigned char *logbase(void)
+{
+	return base_held ? base_held : (unsigned char *)trap14_w(3);
+}
 
 static void sup_os(void)
 {
@@ -700,6 +706,100 @@ static void box_op(const short *p, int op, const unsigned short *pat)
 	}
 }
 
+/* the same, op 4 only: the pattern's set pixels cleared (MD_TRANS in pen
+   0, the DISABLED grey). Apart from box_op, whose row loop stays as it
+   is: a fifth op in it made TXT's rows cleared on ST:mono 53 ms against
+   45 */
+static void box_pat(const short *p, int op, const unsigned short *pat)
+{
+	short x1 = p[0], y1 = p[1], x2 = p[2], y2 = p[3], g0, g1, m0, m1, r, step, k;
+	unsigned short lmask, rmask;
+	unsigned char *row;
+
+	if (x1 > x2) {
+		short t = x1;
+		x1 = x2;
+		x2 = t;
+	}
+	if (y1 > y2) {
+		short t = y1;
+		y1 = y2;
+		y2 = t;
+	}
+	if (clipping) {
+		if (x1 < clip_now[0])
+			x1 = clip_now[0];
+		if (y1 < clip_now[1])
+			y1 = clip_now[1];
+		if (x2 > clip_now[2])
+			x2 = clip_now[2];
+		if (y2 > clip_now[3])
+			y2 = clip_now[3];
+	}
+	if (x1 < 0)
+		x1 = 0;
+	if (y1 < 0)
+		y1 = 0;
+	if (x2 > sf_w - 1)
+		x2 = (short)(sf_w - 1);
+	if (y2 > sf_h - 1)
+		y2 = (short)(sf_h - 1);
+	if (x1 > x2 || y1 > y2)
+		return;
+	step = (short)(sf_planes * 2);
+	g0 = x1 >> 4;
+	g1 = x2 >> 4;
+	lmask = (unsigned short)(0xFFFFu >> (x1 & 15));
+	rmask = (unsigned short)(0xFFFFu << (15 - (x2 & 15)));
+	if (g0 == g1) {
+		lmask &= rmask;
+		rmask = 0;
+	}
+	m0 = lmask == 0xFFFF ? g0 : g0 + 1;
+	m1 = g0 == g1 ? (lmask == 0xFFFF ? g0 : g0 - 1) : rmask == 0xFFFF ? g1 : g1 - 1;
+	row = logbase() + (long)y1 * sf_bpl;	/* Logbase */
+	{
+		long l = (long)g0 * step, m = (long)m0 * step, rr = (long)g1 * step, bpl = sf_bpl;
+		short mid = (short)((m1 - m0 + 1) * step), left = m0 > g0, right = g1 != g0 && m1 < g1;
+
+		short y = y1;
+		for (r = (short)(y2 - y1 + 1); r > 0; r--, row += bpl, y++) {
+			/* op 3: the pattern's row, its set pixels in every plane
+			   (pen 1), the others in none (pen 0) */
+			unsigned short pw = op >= 3 ? pat[y & 15] : 0;
+			if (left) {
+				unsigned short *w = (unsigned short *)(row + l);
+
+				for (k = 0; k < sf_planes; k++)
+					w[k] = op == 0 ? w[k] ^ lmask : op == 1 ? w[k] & ~lmask : op == 2 ? w[k] | lmask :
+					       op == 4 ? (unsigned short)(w[k] & ~(pw & lmask)) :
+					       (unsigned short)((w[k] & ~lmask) | (pw & lmask));
+			}
+			if (mid > 0 && op == 4) {
+				unsigned short *w = (unsigned short *)(row + m);
+				short n;
+
+				for (n = (short)(mid >> 1); n > 0; n--, w++)
+					*w = (unsigned short)(*w & ~pw);
+			} else if (mid > 0) {
+				if (op == 0)
+					xor_row(row + m, mid);
+				else
+					set_row(row + m, mid, op == 1 ? 0 : op == 2 ? 0xFFFFFFFFUL :
+						((unsigned long)pw << 16) | pw);
+			}
+			if (right) {
+				unsigned short *w = (unsigned short *)(row + rr);
+
+				for (k = 0; k < sf_planes; k++)
+					w[k] = op == 0 ? w[k] ^ rmask : op == 1 ? w[k] & ~rmask : op == 2 ? w[k] | rmask :
+					       op == 4 ? (unsigned short)(w[k] & ~(pw & rmask)) :
+					       (unsigned short)((w[k] & ~rmask) | (pw & rmask));
+			}
+		}
+	}
+}
+
 void scr_xor(short h, const short *p)
 {
 	if (sf != 1) {
@@ -741,6 +841,195 @@ int scr_pattern(short h, const short *p, const unsigned short *pat)
 	return 1;
 }
 
+int scr_grey_off(const short *p)
+{
+	/* the VDI's pattern 4 of interior 2 (50%), its set pixels where x + y
+	   is even: cleared */
+	static const unsigned short half[16] = { 0xAAAA, 0x5555, 0xAAAA, 0x5555, 0xAAAA, 0x5555, 0xAAAA, 0x5555,
+						 0xAAAA, 0x5555, 0xAAAA, 0x5555, 0xAAAA, 0x5555, 0xAAAA, 0x5555 };
+	if (sf != 1)
+		return 0;
+	box_pat(p, 4, half);
+	return 1;
+}
+
+int scr_spans(short y1, short y2, const short *sp, short n)
+{
+	/* the band's words: those the spans cover in part, each as (w & keep)
+	   | set, and runs of whole words in one pen */
+	struct {
+		short g;
+		unsigned short keep, set;
+	} op[24];
+	struct {
+		short g0, g1;
+		unsigned long v;
+	} run[12];
+	short nop = 0, nrun = 0, cx1, cx2, k, r, step = (short)(sf_planes * 2);
+	long bpl = sf_bpl;
+	unsigned char *row;
+
+	if (sf != 1)
+		return 0;
+	cx1 = clipping ? clip_now[0] : 0;
+	cx2 = clipping ? clip_now[2] : (short)(sf_w - 1);
+	if (cx1 < 0)
+		cx1 = 0;
+	if (cx2 > sf_w - 1)
+		cx2 = (short)(sf_w - 1);
+	if (clipping && y1 < clip_now[1])
+		y1 = clip_now[1];
+	if (clipping && y2 > clip_now[3])
+		y2 = clip_now[3];
+	if (y1 < 0)
+		y1 = 0;
+	if (y2 > sf_h - 1)
+		y2 = (short)(sf_h - 1);
+	if (y1 > y2)
+		return 1;
+	for (k = 0; k < n; k++) {
+		short x0 = sp[3 * k], x1 = sp[3 * k + 1], pen = sp[3 * k + 2], g0, g1, g;
+		unsigned short lm, rm;
+
+		if (x0 < cx1)
+			x0 = cx1;
+		if (x1 > cx2)
+			x1 = cx2;
+		if (x0 > x1)
+			continue;
+		g0 = (short)(x0 >> 4);
+		g1 = (short)(x1 >> 4);
+		lm = (unsigned short)(0xFFFFu >> (x0 & 15));
+		rm = (unsigned short)(0xFFFFu << (15 - (x1 & 15)));
+		if (g0 == g1) {
+			lm &= rm;
+			rm = 0;
+		}
+		for (g = g0; g <= g1; g++) {
+			unsigned short m = g == g0 ? lm : g == g1 ? rm : 0xFFFF;
+			short i;
+
+			if (m == 0xFFFF) {
+				/* a whole word: onto the run before it, or a new one */
+				if (nrun && run[nrun - 1].g1 == g - 1 && run[nrun - 1].v == (pen ? 0xFFFFFFFFUL : 0))
+					run[nrun - 1].g1 = g;
+				else if (nrun < 12) {
+					run[nrun].g0 = run[nrun].g1 = g;
+					run[nrun].v = pen ? 0xFFFFFFFFUL : 0;
+					nrun++;
+				} else
+					return 0;
+				continue;
+			}
+			for (i = 0; i < nop && op[i].g != g; i++)
+				;
+			if (i == nop) {
+				if (nop == 24)
+					return 0;
+				op[nop].g = g;
+				op[nop].keep = 0xFFFF;
+				op[nop].set = 0;
+				nop++;
+			}
+			op[i].keep &= (unsigned short)~m;
+			op[i].set = (unsigned short)((op[i].set & ~m) | (pen ? m : 0));
+		}
+	}
+	row = logbase() + (long)y1 * bpl;	/* Logbase */
+	{
+		/* the places in a row worked out once: a multiply a word a row
+		   cost the root of EFTP's Settings 86 ms */
+		short roff[12], rlen[12], ooff[24], p, np = (short)sf_planes;
+
+		for (k = 0; k < nrun; k++) {
+			roff[k] = (short)(run[k].g0 * step);
+			rlen[k] = (short)((run[k].g1 - run[k].g0 + 1) * step);
+		}
+		for (k = 0; k < nop; k++)
+			ooff[k] = (short)(op[k].g * step);
+		for (r = (short)(y2 - y1 + 1); r > 0; r--, row += bpl) {
+			for (k = 0; k < nrun; k++)
+				set_row(row + roff[k], rlen[k], run[k].v);
+			if (np == 1)
+				for (k = 0; k < nop; k++) {
+					unsigned short *w = (unsigned short *)(row + ooff[k]);
+
+					*w = (unsigned short)((*w & op[k].keep) | op[k].set);
+				}
+			else
+				for (k = 0; k < nop; k++) {
+					unsigned short *w = (unsigned short *)(row + ooff[k]), keep = op[k].keep, set = op[k].set;
+
+					for (p = np; p > 0; p--, w++)
+						*w = (unsigned short)((*w & keep) | set);
+				}
+		}
+	}
+	return 1;
+}
+
+int scr_bits(short x, short y, const unsigned char *b, short wb, short rows, short pen)
+{
+	/* a bitmap's rows, wb bytes each, its set bits in pen (MD_TRANS) */
+	short cx1, cy1, cx2, cy2, r, k, shift = (short)(x & 7), ls = (short)(8 - (x & 7)), step = (short)(sf_planes * 2);
+	long bpl = sf_bpl;
+	unsigned char *base;
+
+	if (sf != 1 || (pen != 0 && pen != 1))
+		return 0;
+	cx1 = clipping ? clip_now[0] : 0;
+	cy1 = clipping ? clip_now[1] : 0;
+	cx2 = clipping ? clip_now[2] : (short)(sf_w - 1);
+	cy2 = clipping ? clip_now[3] : (short)(sf_h - 1);
+	if (cx1 < 0)
+		cx1 = 0;
+	if (cy1 < 0)
+		cy1 = 0;
+	if (cx2 > sf_w - 1)
+		cx2 = (short)(sf_w - 1);
+	if (cy2 > sf_h - 1)
+		cy2 = (short)(sf_h - 1);
+	base = logbase();	/* Logbase */
+	for (r = 0; r < rows; r++) {
+		short yy = (short)(y + r);
+
+		if (yy < cy1 || yy > cy2)
+			continue;
+		for (k = 0; k < wb; k++) {
+			unsigned char v = b[(long)r * wb + k], ml = 0xFF, mr = 0xFF, a, c;
+			short px = (short)(x + k * 8), bl = (short)(px >> 3), br = (short)(bl + 1), p;
+			unsigned char *row = base + (long)yy * bpl, *dl, *dr;
+
+			if (!v)
+				continue;
+			if (bl * 8 < cx1)
+				ml = (unsigned char)(bl * 8 + 7 < cx1 ? 0 : 0xFF >> (cx1 - bl * 8));
+			if (bl * 8 + 7 > cx2)
+				ml &= (unsigned char)(bl * 8 > cx2 ? 0 : 0xFF << (bl * 8 + 7 - cx2));
+			if (br * 8 < cx1)
+				mr = (unsigned char)(br * 8 + 7 < cx1 ? 0 : 0xFF >> (cx1 - br * 8));
+			if (br * 8 + 7 > cx2)
+				mr &= (unsigned char)(br * 8 > cx2 ? 0 : 0xFF << (br * 8 + 7 - cx2));
+			a = (unsigned char)((v >> shift) & ml);
+			c = shift ? (unsigned char)((v << ls) & mr) : 0;
+			dl = row + (bl >> 1) * step + (bl & 1);
+			dr = row + (br >> 1) * step + (br & 1);
+			for (p = 0; p < step; p += 2) {
+				if (pen) {
+					dl[p] |= a;
+					if (c)
+						dr[p] |= c;
+				} else {
+					dl[p] &= (unsigned char)~a;
+					if (c)
+						dr[p] &= (unsigned char)~c;
+				}
+			}
+		}
+	}
+	return 1;
+}
+
 void scr_clip(const short *r)
 {
 	static short keep[4];
@@ -751,6 +1040,7 @@ void scr_clip(const short *r)
 			memcpy(keep, clip_now, sizeof(keep));
 			keep_on = clipping;
 			held = 1;
+			base_held = (unsigned char *)trap14_w(3);	/* Logbase, once a dialog */
 		}
 		memcpy(clip_now, r, sizeof(clip_now));
 		clipping = 1;
@@ -758,6 +1048,7 @@ void scr_clip(const short *r)
 		memcpy(clip_now, keep, sizeof(keep));
 		clipping = keep_on;
 		held = 0;
+		base_held = 0;
 	}
 }
 
@@ -855,7 +1146,7 @@ int scr_text(short x, short y, const char *s, long n, short pen, short height, i
 		return 1;		/* nothing of it shows */
 	step = (short)(sf_planes * 2);
 	shift = (short)(x & 7);
-	row = (unsigned char *)trap14_w(3) + (long)(y + r0) * bpl;	/* Logbase */
+	row = logbase() + (long)(y + r0) * bpl;	/* Logbase */
 	if (!ground) {
 		/* character by character: its glyph's byte a row into the one
 		   screen byte under it, or the two (off a byte), cut to the
