@@ -33,7 +33,7 @@ CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
            -fno-pic -fno-pie -fno-tree-loop-distribute-patterns -fno-store-merging \
            -fdisable-tree-bswap \
            -fno-asynchronous-unwind-tables -Wall -Wno-pointer-sign \
-           -DFTP_TOS -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include \
+           -DFTP_TOS -DDLG_CPU -DDLG_CLICK -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include \
            -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/ui -Icommon/third_party/bearssl/inc
 LDFLAGS := -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/atari/link.ld \
            -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments
@@ -46,7 +46,7 @@ HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
 CORE    := util charset conn ftp xfer store futil bidi secret ctime tz ovl
 ATARI   := libc tos plat_tos net_tos sting gem tls_ovl crash bigbuf
-UI      := main draw win files queue dialogs popup font fontsel about theme dsp_ovl help av alert dialog field mbar aboutbox iconify clip clipedit dd panebar text notify aboutline
+UI      := main draw win files queue dialogs popup font fontsel about theme dsp_ovl help av alert dialog field mbar aboutbox iconify clip clipedit dd panebar text notify aboutline offdraw click
 
 OBJDIR  := build
 # make PROFILE=20 build/prof/EFTP.PRG: the speed rig's build
