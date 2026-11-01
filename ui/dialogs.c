@@ -11,6 +11,7 @@
 #include <stdarg.h>
 #include "ui.h"
 #include "dialog.h"
+#include "click.h"
 #include "bidi.h"
 #include "util.h"
 #include "charset.h"
@@ -18,6 +19,7 @@
 #include "clip.h"
 #include "field.h"
 #include "theme.h"
+#include "text.h"
 #include "tls.h"
 
 #define DMAX 80
@@ -346,6 +348,313 @@ static short esc_button(void)
 	return exits == 1 ? last : 0;
 }
 
+/* what a pass of a dialog's loop changed, drawn alone: each object's
+   state, spec and text as last drawn (a sum of the text: no buffer) */
+static struct {
+	unsigned short state;
+	long spec;
+	unsigned long text;
+} seen[DMAX];
+
+static unsigned long text_sum(short i)
+{
+	const char *t = 0;
+	unsigned long sum = 0;
+	switch (tree[i].ob_type & 0xff) {
+	case G_STRING: case G_BUTTON: case G_TITLE:
+		t = (const char *)tree[i].ob_spec;
+		break;
+	case G_TEXT: case G_BOXTEXT: case G_FTEXT: case G_FBOXTEXT:
+		t = ((TEDINFO *)tree[i].ob_spec)->te_ptext;
+		break;
+	}
+	while (t && *t)
+		sum = sum * 31 + (unsigned char)*t++;
+	return sum;
+}
+
+static void seen_take(void)
+{
+	short i;
+	for (i = 0; i < nobj; i++) {
+		seen[i].state = tree[i].ob_state;
+		seen[i].spec = tree[i].ob_spec;
+		seen[i].text = text_sum(i);
+	}
+}
+
+/* an object's parent */
+static short parent_of(short o)
+{
+	short p = o;
+	while (tree[p].ob_next >= 0 && tree[tree[p].ob_next].ob_tail != p)
+		p = tree[p].ob_next;
+	return tree[p].ob_next < 0 ? 0 : tree[p].ob_next;
+}
+
+/* one object drawn again by itself: objc_draw from the root, clipped,
+   cost the AES 40-65 ms on an 8 MHz ST, from the object 6-16. Each
+   object that reaches into the piece (3 pixels round each, for frames
+   and 3D edges) is drawn there alone, in the tree's order, as the whole
+   tree would be: an object that fills its box (a box, a button, a field)
+   from itself, through its frame and edge; one drawn over what is under
+   it (a string, an image) clipped to itself, from what is under it */
+static int opaque(short o)
+{
+	switch (tree[o].ob_type & 0xff) {
+	case G_BOX: case G_BOXCHAR: case G_BOXTEXT: case G_FBOXTEXT: case G_BUTTON:
+		return 1;
+	}
+	return 0;
+}
+
+/* where each object is, and whether it shows: worked out here once a
+   pass (objc_offset is an AES call, a millisecond or more each) */
+static struct {
+	short x, y;
+	unsigned char hid;	/* hidden, or inside a hidden one */
+	unsigned char out;	/* how far it draws outside its box */
+} at[DMAX];
+
+/* how far the AES draws an object outside its box: a frame outside,
+   the outline (3), the shadow (twice the frame), the 3D edge */
+static unsigned char reach_of(short o)
+{
+	short th = 0, out;
+	switch (tree[o].ob_type & 0xff) {
+	case G_BOX: case G_IBOX: case G_BOXCHAR:
+		th = (signed char)(tree[o].ob_spec >> 16);
+		break;
+	case G_BOXTEXT: case G_FBOXTEXT:
+		th = ((TEDINFO *)tree[o].ob_spec)->te_thickness;
+		break;
+	case G_BUTTON:
+		th = (short)(-1 - ((tree[o].ob_flags & EXIT) != 0) - ((tree[o].ob_flags & DEFAULT) != 0));
+		break;
+	}
+	out = th < 0 ? -th : 0;
+	if ((tree[o].ob_state & OUTLINED) && out < 3)
+		out = 3;
+	if (tree[o].ob_state & SHADOWED)
+		out += 2 * (th < 0 ? -th : th);
+	if (tree[o].ob_flags & 0x0600)	/* the 3D look's edge */
+		out += 3;
+	return (unsigned char)out;
+}
+
+static void at_fill(void)
+{
+	short i, c;
+	at[0].x = tree[0].ob_x;
+	at[0].y = tree[0].ob_y;
+	at[0].hid = (tree[0].ob_flags & HIDETREE) != 0;
+	at[0].out = reach_of(0);
+	/* each object's children from it, in one pass: a parent comes
+	   before its children (finding each one's parent through its
+	   brothers took an 8 MHz ST 17 ms) */
+	for (i = 0; i < nobj; i++) {
+		const OBJECT *p = &tree[i];
+		for (c = p->ob_head; c > 0 && c != i; c = tree[c].ob_next) {
+			const OBJECT *o = &tree[c];
+			at[c].x = at[i].x + o->ob_x;
+			at[c].y = at[i].y + o->ob_y;
+			at[c].hid = at[i].hid || (o->ob_flags & HIDETREE);
+			at[c].out = reach_of(c);
+		}
+	}
+}
+
+/* the objects from the tree's from-th on that reach into c[], drawn
+   there again, each alone */
+static unsigned char pending[DMAX];	/* changed, its own turn still to come */
+
+static void draw_from(short from, const short *c)
+{
+	short j;
+	for (j = from; j < nobj; j++) {
+		short jr = at[j].out;
+		if (at[j].hid || pending[j] || at[j].x - jr > c[2] || at[j].y - jr > c[3] || at[j].x + tree[j].ob_width - 1 + jr < c[0] ||
+		    at[j].y + tree[j].ob_height - 1 + jr < c[1])
+			continue;
+		objc_draw(tree, j, 0, c[0], c[1], c[2] - c[0] + 1, c[3] - c[1] + 1);
+	}
+}
+
+static void draw_one(short o)
+{
+	short x = at[o].x, y = at[o].y, r = at[o].out, from = o, c[4];
+	if (opaque(o)) {
+		c[0] = x - r, c[1] = y - r, c[2] = x + tree[o].ob_width - 1 + r, c[3] = y + tree[o].ob_height - 1 + r;
+	} else {
+		c[0] = x, c[1] = y, c[2] = x + tree[o].ob_width - 1, c[3] = y + tree[o].ob_height - 1;
+		/* from what is under it: the nearest box round it that fills it */
+		do
+			from = from ? parent_of(from) : 0;
+		while (from && !(opaque(from) && at[from].x <= c[0] && at[from].y <= c[1] &&
+				 at[from].x + tree[from].ob_width > c[2] && at[from].y + tree[from].ob_height > c[3]));
+	}
+	draw_from(from, c);
+}
+
+/* the objects that changed since seen_take drawn again, each alone (the
+   whole when most did, or in a window, where dlg_draw draws through what
+   shows of it) */
+static void seen_draw(void)
+{
+	short i, n = 0, ch[DMAX];
+	for (i = 1; i < nobj; i++)
+		if (seen[i].state != tree[i].ob_state || seen[i].spec != tree[i].ob_spec || seen[i].text != text_sum(i))
+			ch[n++] = i;
+	if (n > nobj / 2 || dlg_in_window()) {
+		if (n > nobj / 2)
+			dlg_draw(tree, 0);
+		else
+			for (i = 0; i < n; i++)
+				dlg_draw(tree, ch[i]);
+	} else if (n) {
+		at_fill();
+		/* one changed after this one is left to its own turn, which
+		   draws it and what lies over it then */
+		for (i = 0; i < n; i++)
+			pending[ch[i]] = 1;
+		graf_mouse(M_OFF, 0);	/* once: the AES's own, inside, then cost nothing */
+		for (i = 0; i < n; i++) {
+			pending[ch[i]] = 0;
+			draw_one(ch[i]);
+		}
+		graf_mouse(M_ON, 0);
+	}
+	seen_take();
+}
+
+/* a box the AES paints every pixel of, out to its reach (a frame
+   outside, no 3D edge, outline or shadow) */
+static int solid(short j)
+{
+	short t = tree[j].ob_type & 0xff;
+	return (t == G_BOX || t == G_BOXCHAR || t == G_BOXTEXT || t == G_FBOXTEXT || t == G_BUTTON) &&
+	       !(tree[j].ob_flags & 0x0600) && !(tree[j].ob_state & (OUTLINED | SHADOWED));
+}
+
+#define PIECES 12
+
+/* the boxes p[] (x1, y1, x2, y2) less the box r; 0 when they would be
+   more than PIECES */
+static int cut_out(short (*p)[4], short *n, const short *r)
+{
+	short q[PIECES][4], m = 0, i;
+	for (i = 0; i < *n; i++) {
+		short *b = p[i], x1, x2;
+		if (r[0] > b[2] || r[2] < b[0] || r[1] > b[3] || r[3] < b[1]) {
+			if (m == PIECES)
+				return 0;
+			memcpy(q[m++], b, sizeof(q[0]));
+			continue;
+		}
+		x1 = r[0] > b[0] ? r[0] : b[0];
+		x2 = r[2] < b[2] ? r[2] : b[2];
+		if (m + 4 > PIECES)
+			return 0;
+		if (b[1] < r[1])	/* above */
+			q[m][0] = b[0], q[m][1] = b[1], q[m][2] = b[2], q[m][3] = r[1] - 1, m++;
+		if (b[3] > r[3])	/* below */
+			q[m][0] = b[0], q[m][1] = r[3] + 1, q[m][2] = b[2], q[m][3] = b[3], m++;
+		if (b[0] < x1)		/* left, between */
+			q[m][0] = b[0], q[m][1] = r[1] > b[1] ? r[1] : b[1], q[m][2] = x1 - 1,
+			q[m][3] = r[3] < b[3] ? r[3] : b[3], m++;
+		if (b[2] > x2)		/* right, between */
+			q[m][0] = x2 + 1, q[m][1] = r[1] > b[1] ? r[1] : b[1], q[m][2] = b[2],
+			q[m][3] = r[3] < b[3] ? r[3] : b[3], m++;
+	}
+	memcpy(p, q, sizeof(q[0]) * m);
+	*n = m;
+	return 1;
+}
+
+/* a list's row selected or not, drawn at once (5.8: within 50 ms of
+   the press): a flat string's selected look is the AES's inversion of
+   its box, so it is inverted in place, by scr_xor where
+   text_plain_state() > 0 (the guidelines' Speed). The pixels of a box
+   drawn after it that reaches over it (the arrows' frame) are left out;
+   anything else over it is drawn again (objc_change took an 8 MHz ST
+   45 ms a row, the arrow alone 13). In a window, through what shows of
+   it. The caller hides the mouse */
+static void row_select(short o, unsigned short state)
+{
+	short c[4], p[PIECES][4], n = 1, j, again[8], na = 0, i;
+	GRECT r;
+	if (dlg_in_window() || (tree[o].ob_flags & 0x0600) || ((tree[o].ob_state ^ state) & ~SELECTED)) {
+		tree[o].ob_state = state;
+		dlg_draw(tree, o);
+		seen[o].state = state;
+		return;
+	}
+	if (tree[o].ob_state != state) {
+		tree[o].ob_state = state;
+		at_fill();
+		r.x = c[0] = at[o].x;
+		r.y = c[1] = at[o].y;
+		c[2] = at[o].x + tree[o].ob_width - 1;
+		c[3] = at[o].y + tree[o].ob_height - 1;
+		r.w = tree[o].ob_width;
+		r.h = tree[o].ob_height;
+		memcpy(p[0], c, sizeof(c));
+		for (j = o + 1; j < nobj; j++) {
+			short jr = at[j].out, e[4];
+			e[0] = at[j].x - jr, e[1] = at[j].y - jr;
+			e[2] = at[j].x + tree[j].ob_width - 1 + jr, e[3] = at[j].y + tree[j].ob_height - 1 + jr;
+			if (at[j].hid || e[0] > c[2] || e[1] > c[3] || e[2] < c[0] || e[3] < c[1])
+				continue;
+			if (!(solid(j) && cut_out(p, &n, e))) {
+				if (na == 8)
+					na = 7;		/* more than any list has: the last drawn whole */
+				again[na++] = j;
+			}
+		}
+		clip_on(&r);
+		for (i = 0; i < n; i++) {
+			if (text_plain_state() > 0) {
+				scr_xor(vdi_h, p[i]);
+			} else {
+				fill_forget();
+				vsf_interior(vdi_h, 1);
+				vsf_color(vdi_h, 1);
+				vsf_perimeter(vdi_h, 0);
+				vswr_mode(vdi_h, 3);
+				vr_recfl(vdi_h, p[i]);
+				vswr_mode(vdi_h, 1);
+			}
+		}
+		clip_off();
+		for (i = 0; i < na; i++)
+			objc_draw(tree, again[i], 0, c[0], c[1], c[2] - c[0] + 1, c[3] - c[1] + 1);
+	}
+	seen[o].state = state;
+}
+
+/* the object at x, y, as objc_find(tree, 0, 8, x, y) finds it (the last
+   child shown that holds it, each level down), worked out here: the AES
+   call took an 8 MHz ST 20 ms */
+static short find_obj(short x, short y)
+{
+	short cur = 0, best, k;
+	at_fill();
+#define HOLDS(i) (!at[i].hid && x >= at[i].x && y >= at[i].y && x < at[i].x + tree[i].ob_width && \
+		  y < at[i].y + tree[i].ob_height)
+	if (!HOLDS(0))
+		return -1;
+	for (;;) {
+		best = -1;
+		for (k = tree[cur].ob_head; k >= 0 && k != cur; k = tree[k].ob_next)
+			if (HOLDS(k))
+				best = k;
+		if (best < 0)
+			return cur;
+		cur = best;
+	}
+#undef HOLDS
+}
+
 /* form_do, with password fields and the clipboard (^C ^X ^V). Undo is
    Cancel, and so is Esc where no text field has the cursor; in a field
    Esc empties it, as form_do's does (the guidelines, 3.5; a tester,
@@ -364,7 +673,7 @@ static short form_loop(short start)
 			else
 				objc_edit(tree, edit, 0, &idx, ED_INIT);
 		}
-		dlg_evnt(MU_KEYBD | MU_BUTTON, 2, 1, 1, 0, m, &e);	/* the closer: Undo */
+		dlg_evnt(MU_KEYBD | MU_BUTTON, DLG_CLICKS, 1, 1, 0, m, &e);	/* the closer: Undo */
 		if (e.which & MU_KEYBD) {
 			LFIELD *lf = edit ? lf_of(tree, edit) : 0;
 			short ck;
@@ -390,7 +699,7 @@ static short form_loop(short start)
 			}
 		}
 		if (e.which & MU_BUTTON) {
-			short obj = objc_find(tree, 0, 8, e.mx, e.my), i;
+			short obj = find_obj(e.mx, e.my), i;
 			PWFIELD *eye = 0;
 			for (i = 0; i < npw; i++)
 				if (pwf[i].eye == obj && obj > 0)
@@ -407,6 +716,8 @@ static short form_loop(short start)
 				next = 0;
 			} else {
 				cont = form_button(tree, obj, e.breturn, &next);
+				if (!cont)	/* a row's double click: on its second release (5.8) */
+					dlg_touch(tree, &next, e.mx, e.my);
 			}
 		}
 		if (!cont || (next && next != edit))
@@ -1460,20 +1771,23 @@ static SITE *sites_dialog(void)
 
 	dlg_name("Sites");
 	dlg_band(band);
+	tree[b_up].ob_state = first > 0 ? 0 : DISABLED;		/* as drawn from the start */
+	tree[b_down].ob_state = first + SROWS < nwork ? 0 : DISABLED;
+	tree[b_del].ob_state = nwork > 0 ? 0 : DISABLED;
+	tree[b_conn].ob_state = nwork > 0 ? (tree[b_conn].ob_state & ~DISABLED) : DISABLED;
 	dlg_open(tree, &x, &y, &w, &h);
+	seen_take();
 	for (;;) {
 		int dbl;
 		short changed = 0, k2;
-		tree[b_up].ob_state = first > 0 ? 0 : DISABLED;
-		tree[b_down].ob_state = first + SROWS < nwork ? 0 : DISABLED;
-		tree[b_del].ob_state = nwork > 0 ? 0 : DISABLED;
-		tree[b_conn].ob_state = nwork > 0 ? (tree[b_conn].ob_state & ~DISABLED) : DISABLED;
 		r = form_loop(e_name);
+		seen_take();	/* the screen as the user left it: typed into, the eye, a button pressed */
 		dbl = (r & 0x8000) != 0;
 		r &= 0x7fff;
 		if (r == tick_box[f_anon] || r == tick_lbl[f_anon]) {
 			s_on[0] = !s_on[0];
 			tick_draw(f_anon);
+			seen_take();
 			evnt_timer_(120);
 			continue;
 		}
@@ -1483,12 +1797,14 @@ static SITE *sites_dialog(void)
 				lf_end(lf_of(tree, e_ldir));
 			win_redraw_area(0);
 			dlg_draw(tree, 0);
+			seen_take();
 			continue;
 		}
 		if (r == b_proto && nwork) {
 			tree[r].ob_state &= ~SELECTED;
 			work[wsel].proto = (short)proto_pick(b_proto, work[wsel].proto, f_port);
 			dlg_draw(tree, 0);
+			seen_take();
 			continue;
 		}
 		/* what the fields say goes into the site shown */
@@ -1506,8 +1822,30 @@ static SITE *sites_dialog(void)
 					chosen = wsel;
 					break;
 				}
-				wsel = first + k;
-				changed = 1;
+				/* 5.8: on the press the old row and the new, at once;
+				   let go over it, the site's fields. The fields are
+				   the chosen site's, so let go elsewhere the old row
+				   is chosen again and its fields stay (3a60b0d) */
+				if (first + k != wsel) {
+					short was = wsel;
+					graf_mouse(M_OFF, 0);
+					if (was >= first && was < first + SROWS)
+						row_select(row[was - first], 0);
+					row_select(row[k], SELECTED);
+					graf_mouse(M_ON, 0);
+					if (dlg_touch_up() == PRESS_IN) {
+						wsel = first + k;
+						changed = 1;
+					} else {
+						graf_mouse(M_OFF, 0);
+						row_select(row[k], 0);
+						if (was >= first && was < first + SROWS)
+							row_select(row[was - first], SELECTED);
+						graf_mouse(M_ON, 0);
+					}
+				} else {
+					dlg_touch_up();
+				}
 			}
 		if (chosen >= 0) {
 			r = b_conn;
@@ -1566,7 +1904,16 @@ static SITE *sites_dialog(void)
 			tree[m_bin].ob_state = work[wsel].ascii == 2 ? SELECTED : 0;
 			tree[tick_box[f_anon]].ob_spec = (long)(s_on[0] ? &tick_on_blk : &tick_off_blk);
 		}
-		dlg_draw(tree, 0);
+		tree[b_up].ob_state = first > 0 ? 0 : DISABLED;
+		tree[b_down].ob_state = first + SROWS < nwork ? 0 : DISABLED;
+		tree[b_del].ob_state = nwork > 0 ? 0 : DISABLED;
+		tree[b_conn].ob_state = nwork > 0 ? (tree[b_conn].ob_state & ~DISABLED) : DISABLED;
+		if (changed == 2) {
+			dlg_draw(tree, 0);	/* after the alert: all of it */
+			seen_take();
+		} else {
+			seen_draw();		/* a site chosen: its row and fields (5.8: on the press) */
+		}
 	}
 	dlg_close();
 	tree[r].ob_state &= ~SELECTED;
