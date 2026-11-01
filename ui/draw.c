@@ -553,6 +553,44 @@ static int masks_ready(void)
 }
 
 /* mask m at x, y in color: its set pixels, within the clip */
+/* mask m's rows y0..y1-1 (at y) set (color 1) or cleared (0) in every
+   plane of TOS's screen, x on a byte, with one or two planes: two or
+   three words a row. vrt_cpyfm took an 8 MHz ST 2.5 ms a row's icon, a
+   quarter of a pane's redraw; common's scr_bits, at any x, more. 0, and
+   nothing drawn, elsewhere */
+static int stamp_cpu(MASK *m, short x, short y, short y0, short y1, short color)
+{
+	long bpl;
+	short pl, sw, sh, r, k, q, gx = x >> 4;
+	unsigned char *base;
+	if ((color != 0 && color != 1) || (x & 7) || x < 0 || !(base = scr_at(&bpl, &pl, &sw, &sh)) || pl > 2 ||
+	    x + MW * 16 > sw || y0 < 0 || y1 > sh)
+		return 0;
+	for (r = y0; r < y1; r++) {
+		unsigned long v = ((unsigned long)m[0][r - y][0] << 16) | m[0][r - y][1];
+		unsigned short g[3], *w;
+		short n;
+		if (!v)
+			continue;
+		if (x & 15) {
+			g[0] = (unsigned short)(v >> 24);
+			g[1] = (unsigned short)(v >> 8);
+			g[2] = (unsigned short)(v << 8);
+			n = 3;
+		} else {
+			g[0] = (unsigned short)(v >> 16);
+			g[1] = (unsigned short)v;
+			n = 2;
+		}
+		w = (unsigned short *)(base + (long)r * bpl) + (long)gx * pl;
+		for (k = 0; k < n; k++, w += pl)
+			if (g[k])
+				for (q = 0; q < pl; q++)
+					w[q] = color ? (unsigned short)(w[q] | g[k]) : (unsigned short)(w[q] & ~g[k]);
+	}
+	return 1;
+}
+
 static void stamp(MASK *m, short x, short y, short color)
 {
 	MFDB src, dst;
@@ -566,6 +604,8 @@ static void stamp(MASK *m, short x, short y, short color)
 	if (y1 > cur_clip.y + cur_clip.h)
 		y1 = cur_clip.y + cur_clip.h;
 	if (x1 <= x0 || y1 <= y0)
+		return;
+	if (x0 == x && x1 == x + MW * 16 && stamp_cpu(m, x, y, y0, y1, color))
 		return;
 	memset(&src, 0, sizeof(src));
 	memset(&dst, 0, sizeof(dst));
