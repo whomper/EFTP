@@ -122,6 +122,25 @@ def settle(quiet=1.5, most=30):
             break
 
 
+held_bad = []        # presses not shown while held still (5.8, 60d1ea5)
+
+
+def held_shows(name, box):
+    """a press held still: its row shows selected on the screen before the
+    release (TOS holds BEG_UPDATE back while the button is held; AESGAP
+    can't see that wait). A selected row is its selection's fill, most of
+    its pixels not white; a row not selected is most of them white"""
+    from PIL import Image
+    time.sleep(1.0 * SLOW)
+    px = list(Image.open(r.shot(name)).convert("RGB").crop(box).getdata())
+    lit = sum(1 for p in px if p != (255, 255, 255)) / float(len(px))
+    ok = lit > 0.5
+    print("%-44s %s" % ("  held still, before the release", "shown" if ok else "NOT SHOWN (%d%% lit)" % (100 * lit)),
+          flush=True)
+    if not ok:
+        held_bad.append(name)
+
+
 def gaps(since):
     return [(int(g.group(1)), g.group(2)) for g in re.finditer(r"AESGAP (\d+) ms (\S+)", log_text()[since:])]
 
@@ -183,6 +202,7 @@ try:
         r.move(LOCAL_X, ROW0 + 2 * 16)
         r.xdo("mousedown", "1")
     measure("a row pressed", 50, row_press)
+    held_shows("1b-row-held", (16, ROW0 + 2 * 16 - 2, 280, ROW0 + 2 * 16 + 2))   # inside the row whatever the font
     measure("the row let go", 50, lambda: r.xdo("mouseup", "1"))
     presses("cursor moved a row (Down)", 50, K["DOWN"], 3)
     measure("Esc: both lists read again", 300, lambda: r.key(K["ESC"]))
@@ -213,12 +233,22 @@ try:
         r.move(140, SITES + 16)
         r.xdo("mousedown", "1")
     measure("a site pressed: its row selected", 50, press)
+    held_shows("2c-site-held", (96, SITES + 16 - 2, 220, SITES + 16 + 2))
     measure("the site let go: its fields shown", 150, lambda: r.xdo("mouseup", "1"))
     r.shot("2c-site")
     measure("Site Manager closed (Undo)", 300, lambda: r.key(0x61))
     measure("a row's menu (right click)", 150, lambda: r.rclick(LOCAL_X, ROW0 + 3 * 16))
     r.shot("2d-menu")
     measure("the row's menu closed (Esc)", 300, lambda: r.key(K["ESC"]))
+
+    # the About box (common's aboutbox.c), from the EFTP menu
+    def about():
+        r.move(24, 8, 0.3)
+        time.sleep(0.8 * SLOW)
+        r.click(60, 26)
+    measure("About box opened", 150, about)
+    r.shot("2e-about")
+    measure("About box closed (Return)", 300, lambda: r.key(K["RETURN"]))
 
     # C:\MANY: 300 files
     measure("to a folder by its letter (m)", 50, lambda: r.type("m"))
@@ -259,13 +289,21 @@ try:
 
     # the server: /pub, then /pub/many (400 files)
     def connect():
-        r.click(*CONNECT)
-        time.sleep(1.5 * SLOW)
-        r.click(*SITE1)
+        if font:
+            # the toolbar lies below the status line, which is in the
+            # window's font: by the Site Manager (the system font's), its
+            # first site and Connect, the default button
+            r.ctrl("k")
+            time.sleep(3 * SLOW)
+            r.key(K["RETURN"])
+        else:
+            r.click(*CONNECT)
+            time.sleep(1.5 * SLOW)
+            r.click(*SITE1)
         wait_for(lambda: elog_has("CWD /pub"), 60 * SLOW)
     measure("connected, /pub listed", 300, connect, quiet=3, most=90)
     r.shot("7-connected")
-    r.click(REMOTE_X, ROW0)             # the keyboard to the server's pane
+    r.click(REMOTE_X, ROW0 + 2 * 16)    # the keyboard to the server pane: a row, whatever the font (FONT=)
     time.sleep(1 * SLOW)
     r.type("m")
     time.sleep(1 * SLOW)
@@ -299,4 +337,6 @@ with open(os.path.join(work, "speed.json"), "w") as f:
         {"action": a, "ms": ms, "limit": lim, "tags": tags} for a, ms, lim, tags in results]}, f, indent=1)
 over = [a for a, ms, lim, _ in results if ms > lim]
 print("%d actions, %d over their time on %s" % (len(results), len(over), m.describe()))
-sys.exit(1 if over else 0)
+if held_bad:
+    print("presses not shown while held: %s" % ", ".join(held_bad))
+sys.exit(1 if over or held_bad else 0)
