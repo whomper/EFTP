@@ -48,7 +48,7 @@ srv, home = server.ftp_server(work)
 srv.handler.authorizer.add_user(USER, PASS, home, perm="elradfmwMT")
 hd = server.drive_c(work, prg=m.prg)
 SLOW = 3 if m.name in ("ST", "ST-1") else 1
-elog, flog, inf = os.path.join(hd, "EFTP.LOG"), os.path.join(work, "ftpd.log"), os.path.join(hd, "EFTP.INF")
+elog, flog, inf = rig.machines.ci_path(hd, "eftp.log"), os.path.join(work, "ftpd.log"), rig.machines.ci_path(hd, "eftp.inf")
 fails = []
 
 

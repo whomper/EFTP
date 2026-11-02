@@ -1,7 +1,7 @@
 name: Release
 
 # Builds EFTP and publishes it as a GitHub Release: each file on its
-# own, and all of them in EFTP-x.y.zip. Two ways to start it:
+# own, and all of them in eftp-x.y.zip (every name in lowercase: the guidelines, 6.6). Two ways to start it:
 # - Actions > Release > Run workflow, on main, with the notes: it tags
 #   main's commit vX.Y, from VERSION;
 # - push a tag vX.Y that matches VERSION: the tag's message

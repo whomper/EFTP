@@ -267,20 +267,22 @@ int store_init(const char *workdir)
 
 	defaults();
 	str_copy(opt.workdir, workdir, sizeof(opt.workdir));
-	path_join(inf_path, sizeof(inf_path), workdir, "EFTP.INF");
+	path_join(inf_path, sizeof(inf_path), workdir, "eftp.inf");
 	{
 		char kf[220];
-		path_join(kf, sizeof(kf), workdir, "EFTP.KEY");
+		path_join(kf, sizeof(kf), workdir, "eftp.key");
 		secret_init(kf);
 		store_lost_passwords = 0;
 	}
 	/* a Direct connection: TLS.OVL, the root certificates and the random
-	   seed next to EFTP.PRG */
-	path_join(conn_cacert, sizeof(conn_cacert), workdir, "CACERT.PEM");
-	path_join(tls_roots_cache, sizeof(tls_roots_cache), workdir, "ROOTS.DAT");
-	path_join(tls_seed_path, sizeof(tls_seed_path), workdir, "SEED.DAT");
-	path_join(tls_sigs_path, sizeof(tls_sigs_path), workdir, "SIGS.DAT");	/* signatures already checked */
-	path_join(tls_ovl_path, sizeof(tls_ovl_path), workdir, "TLS.OVL");
+	   seed next to EFTP.PRG. Every name of EFTP's own in lowercase: on a
+	   case-sensitive MiNT drive (ext2) EFTP.INF and eftp.inf are two
+	   files (the guidelines, 6.6) */
+	path_join(conn_cacert, sizeof(conn_cacert), workdir, "cacert.pem");
+	path_join(tls_roots_cache, sizeof(tls_roots_cache), workdir, "roots.dat");
+	path_join(tls_seed_path, sizeof(tls_seed_path), workdir, "seed.dat");
+	path_join(tls_sigs_path, sizeof(tls_sigs_path), workdir, "sigs.dat");	/* signatures already checked */
+	path_join(tls_ovl_path, sizeof(tls_ovl_path), workdir, "tls.ovl");
 	buf = pf_load(inf_path, 0);
 	if (buf) {
 		for (line = buf; line && *line; line = next) {

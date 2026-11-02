@@ -73,15 +73,15 @@ def drive_c(work, inf_extra="", desk=None, prg=None):
                 f.write(os.urandom(size))
     # EFTP.PRG (prg, the machine's, or EFTP_PRG=), and TLS.OVL next to it
     # for a Direct connection (EFTP_NO_OVL=1 leaves it out)
-    prg = prg or os.environ.get("EFTP_PRG", "EFTP.PRG")
-    shutil.copy(os.path.join(ROOT, "binary", prg), os.path.join(hd, "EFTP.PRG"))
-    ovl = os.path.join(ROOT, "binary", "TLS.OVL")
+    prg = prg or os.environ.get("EFTP_PRG", "eftp.prg")
+    shutil.copy(os.path.join(ROOT, "binary", prg), os.path.join(hd, "eftp.prg"))
+    ovl = os.path.join(ROOT, "binary", "tls.ovl")
     if os.path.exists(ovl) and not os.environ.get("EFTP_NO_OVL"):
-        shutil.copy(ovl, os.path.join(hd, "TLS.OVL"))
+        shutil.copy(ovl, os.path.join(hd, "tls.ovl"))
     # FAKESTNG.PRG, the family's (common/tools/fakesting), built if need be
     subprocess.run(["make", "-s", "-C", FAKESTING], check=True)
     shutil.copy(os.path.join(FAKESTING, "FAKESTNG.PRG"), os.path.join(hd, "AUTO"))
-    with open(os.path.join(hd, "EFTP.INF"), "w", newline="") as f:
+    with open(os.path.join(hd, "eftp.inf"), "w", newline="") as f:
         f.write("[OPTIONS]\r\nTIMEZONE=Asia/Jerusalem\r\nLOG=1\r\nLOCALDIR=C:\\\r\n" + inf_extra +
                 "[SITE]\r\nNAME=Test server\r\nHOST=127.0.0.1\r\nPORT=%d\r\nANONYMOUS=0\r\n"
                 "USER=atari\r\nPASS=falcon\r\nREMOTEDIR=/pub\r\n"

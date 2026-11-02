@@ -92,7 +92,7 @@ def run(fast):
         m.stop()
         srv.close_all()
     check(t1 is not None, "%s: the file came down" % tag)
-    log = open(os.path.join(hd, "EFTP.LOG"), errors="replace").read().splitlines()
+    log = open(rig.machines.ci_path(hd, "eftp.log"), errors="replace").read().splitlines()
     note = [l for l in log if "200 Hz clock" in l]
     if fast:
         m = re.search(r"runs at (\d+)\.\d Hz", note[0]) if note else None

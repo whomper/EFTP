@@ -45,9 +45,9 @@ def session(spec):
     m = rig.machine(spec, work)
     print("on %s, %s" % (m.describe(), m.prg), flush=True)
     srv, home = server.ftp_server(work)
-    hd = server.drive_c(work, inf_extra=SECURE if m.prg == "EFTP.PRG" else "", prg=m.prg)
-    if m.prg == "EFTP.PRG":
-        with open(os.path.join(hd, "EFTP.INF"), "a", newline="") as f:
+    hd = server.drive_c(work, inf_extra=SECURE if m.prg == "eftp.prg" else "", prg=m.prg)
+    if m.prg == "eftp.prg":
+        with open(rig.machines.ci_path(hd, "eftp.inf"), "a", newline="") as f:
             f.write(SFTP_SITE)
     r = rig.Rig(work, m, extra=m.network())      # FAKESTNG and its bridge
     return r, srv, m

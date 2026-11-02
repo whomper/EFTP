@@ -2,8 +2,8 @@
 # Copyright (C) 2026 AERA | Erez Yaary
 # EFTP - an FTP program for the Atari ST/STE/TT/Falcon, in C.
 #
-#   make            builds binary/EFTP.PRG, one program for every Atari,
-#                   and copies TLS.OVL next to it (a Direct connection's
+#   make            builds binary/eftp.prg, one program for every Atari,
+#                   and copies tls.ovl next to it (a Direct connection's
 #                   TLS, loaded on a TT or Falcon: the guidelines, 7.4),
 #                   with a stock m68k ELF cross compiler
 #                   (Debian/Ubuntu: apt install gcc-m68k-linux-gnu).
@@ -12,9 +12,9 @@
 #   make test       builds the FTP core for this computer and runs the
 #                   unit tests; `make itest` also runs it against a real
 #                   FTP server (pip install pyftpdlib).
-#   make help       binary/EFTP.HYP, the guide for ST-Guide (needs hcp:
+#   make help       binary/eftp.hyp, the guide for ST-Guide (needs hcp:
 #                   common/tools/build-hcp.sh builds it)
-#   make dist       a release's files in dist/: each file, and EFTP-x.y.zip
+#   make dist       a release's files in dist/: each file, and eftp-x.y.zip
 #
 # binary/ is what make builds, never committed: releases carry the
 # programs (.github/workflows/release.yml).
@@ -63,14 +63,16 @@ HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
            common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h)
 
 # what goes onto the Atari: binary/ (built, never committed)
-all: binary/EFTP.PRG binary/TLS.OVL binary/ROOTS.DAT
+all: binary/eftp.prg binary/tls.ovl binary/roots.dat
 
-binary/EFTP.PRG: $(OBJDIR)/eftp.elf common/tools/elf2tos.py | binary
+binary/eftp.prg: $(OBJDIR)/eftp.elf common/tools/elf2tos.py | binary
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
 build/prof/EFTP.PRG: $(OBJDIR)/eftp.elf common/tools/elf2tos.py
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
-# the family's TLS.OVL, as it comes with common/: copied, never built here
-binary/TLS.OVL: common/tlsovl/TLS.OVL | binary
+# the family's tls.ovl, as it comes with common/: copied, never built here.
+# Every file of a release, and every name EFTP gives its own files, in
+# lowercase (the guidelines, 6.6: a MiNT ext2 drive tells the cases apart)
+binary/tls.ovl: common/tlsovl/tls.ovl | binary
 	cp $< $@
 
 # the version: VERSION holds the last release (major.minor, e.g. 1.31),
@@ -150,20 +152,20 @@ $(OBJDIR)/mkroots: common/tools/mkroots.c $(HOSTSRC) $(HDRS) $(HOSTLIB) | $(OBJD
 
 # the root certificates (Mozilla's list, kept in common/) next to the
 # program, and decoded on this computer so the Atari needn't
-binary/CACERT.PEM: common/certs/CACERT.PEM | binary
+binary/cacert.pem: common/certs/CACERT.PEM | binary
 	cp $< $@
-binary/ROOTS.DAT: binary/CACERT.PEM
+binary/roots.dat: binary/cacert.pem
 	$(MAKE) $(OBJDIR)/mkroots
-	$(OBJDIR)/mkroots binary/CACERT.PEM $@
+	$(OBJDIR)/mkroots binary/cacert.pem $@
 
 # the help file for ST-Guide and HypView, from docs/GUIDE.md; needs hcp
 # (github.com/th-otto/hypview; common/tools/build-hcp.sh builds it):
 # make help HCP=/path/to/hcp
 HCP     ?= hcp
-help: binary/EFTP.HYP
+help: binary/eftp.hyp
 # The front page (the AERA guidelines, 4.3) is common/tools/helpfront.py's,
 # from docs/front.json.
-binary/EFTP.HYP: docs/GUIDE.md tools/mkhelp.py VERSION docs/front.json docs/help/WINDOW.IMG \
+binary/eftp.hyp: docs/GUIDE.md tools/mkhelp.py VERSION docs/front.json docs/help/WINDOW.IMG \
 		common/help/EFTP.IMG common/tools/helpfront.py | $(OBJDIR) binary
 	python3 tools/mkhelp.py docs/GUIDE.md VERSION $(OBJDIR)/EFTP.STG
 	python3 common/tools/helpfront.py page docs/front.json $(OBJDIR)/EFTP.STG $(OBJDIR)/EFTP.STG
@@ -220,16 +222,17 @@ itest: $(OBJDIR)/ftp-cli
 	python3 -m unittest discover -s gateway -p 'test_eftpgate.py'
 
 # a release's files: each one in dist/, and all of them in
-# dist/EFTP-x.y.zip (the icons in icons/), for the release workflow
-DIST    := binary/EFTP.PRG binary/TLS.OVL binary/CACERT.PEM binary/ROOTS.DAT binary/EFTP.HYP
+# dist/eftp-x.y.zip (the icons in icons/), for the release workflow; every
+# name in lowercase (6.6), the icons' too
+DIST    := binary/eftp.prg binary/tls.ovl binary/cacert.pem binary/roots.dat binary/eftp.hyp
 ICONS   := icons/EFTP.RSC icons/EFTPNV.RSC icons/EFTP.ICN icons/EFTPMK.ICN
 dist: all help
 	rm -rf dist
 	mkdir -p dist/zip/icons
-	cp $(DIST) $(ICONS) dist/
+	cp $(DIST) dist/
 	cp $(DIST) dist/zip/
-	cp $(ICONS) dist/zip/icons/
-	cd dist/zip && zip -q -9 -r ../EFTP-$(VERSION_STR).zip .
+	for f in $(ICONS); do l=$$(basename $$f | tr A-Z a-z); cp $$f dist/$$l; cp $$f dist/zip/icons/$$l; done
+	cd dist/zip && zip -q -9 -r ../eftp-$(VERSION_STR).zip .
 	rm -rf dist/zip
 
 clean:

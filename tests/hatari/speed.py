@@ -73,7 +73,7 @@ if font and not re.fullmatch(r"\d+,\d+", font):
 hd = server.drive_c(work, inf_extra="FONT=%s\r\n" % font if font else "", prg=m.prg)
 if font:
     print("in font %s" % font, flush=True)
-shutil.copy(prof, os.path.join(hd, "EFTP.PRG"))
+shutil.copy(prof, rig.machines.ci_path(hd, "eftp.prg"))
 os.makedirs(os.path.join(hd, "MANY"))
 for i in range(300):
     with open(os.path.join(hd, "MANY", "%s%03d.%s" % (rnd.choice(["FILE", "PIC", "DOC", "SND"]), i,
@@ -96,7 +96,7 @@ SLOW = 3 if ST else 1
 
 r = rig.Rig(work, m, extra=m.network(), display=display)
 hlog = os.path.join(work, "hatari.log")
-elog = os.path.join(hd, "EFTP.LOG")
+elog = rig.machines.ci_path(hd, "eftp.log")
 results = []          # (action, longest ms or 0, limit, tags)
 
 

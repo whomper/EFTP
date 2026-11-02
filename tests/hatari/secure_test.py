@@ -118,7 +118,7 @@ def ftps_server(work, h):
 
 
 def write_inf(hd, opts, site):
-    with open(os.path.join(hd, "EFTP.INF"), "w", newline="") as f:
+    with open(rig.machines.ci_path(hd, "eftp.inf"), "w", newline="") as f:
         f.write("[OPTIONS]\r\nTIMEZONE=Asia/Jerusalem\r\nLOG=1\r\nLOCALDIR=C:\\\r\n" + opts + site)
 
 
@@ -140,10 +140,10 @@ def run(mode):
     if mode == "ftps":
         srv, cert = ftps_server(w, h)
         # the Mozilla roots EFTP ships, plus the test certificate, decoded here
-        with open(os.path.join(hd, "CACERT.PEM"), "wb") as f:
-            f.write(open(os.path.join(ROOT, "binary", "CACERT.PEM"), "rb").read() + open(cert, "rb").read())
-        subprocess.run([os.path.join(ROOT, "build", "mkroots"), os.path.join(hd, "CACERT.PEM"),
-                        os.path.join(hd, "ROOTS.DAT")], check=True, capture_output=True)
+        with open(rig.machines.ci_path(hd, "cacert.pem"), "wb") as f:
+            f.write(open(os.path.join(ROOT, "binary", "cacert.pem"), "rb").read() + open(cert, "rb").read())
+        subprocess.run([os.path.join(ROOT, "build", "mkroots"), rig.machines.ci_path(hd, "cacert.pem"),
+                        rig.machines.ci_path(hd, "roots.dat")], check=True, capture_output=True)
         write_inf(hd, "FALCON=1\r\nDSP=%d\r\n" % dsp,
                   "[SITE]\r\nNAME=Secure server\r\nHOST=127.0.0.1\r\nPORT=%d\r\nPROTOCOL=ftps\r\n"
                   "ANONYMOUS=0\r\nUSER=atari\r\nPASS=falcon\r\nREMOTEDIR=/pub\r\n" % server.PORT)
@@ -165,7 +165,7 @@ def run(mode):
         r.ctrl("k")                                 # Site Manager
         time.sleep(2)
         r.key(rig.K["RETURN"])                      # Connect
-        logf = os.path.join(hd, "EFTP.LOG")
+        logf = rig.machines.ci_path(hd, "eftp.log")
         ok = wait_for(lambda: os.path.exists(logf) and "CWD /pub" in open(logf, errors="replace").read(), 240)
         time.sleep(8)
         r.shot("%s-connected" % mode)
@@ -226,9 +226,9 @@ def no_ovl(w, m):
     """TLS.OVL left out: switching a Direct connection on gives the alert
     (the guidelines, 7.4), never a crash, and leaves it off"""
     hd = server.drive_c(w, prg=m.prg)
-    os.remove(os.path.join(hd, "TLS.OVL"))
+    os.remove(rig.machines.ci_path(hd, "tls.ovl"))
     write_inf(hd, "FALCON=0\r\n", "")
-    logf, inf = os.path.join(hd, "EFTP.LOG"), os.path.join(hd, "EFTP.INF")
+    logf, inf = rig.machines.ci_path(hd, "eftp.log"), rig.machines.ci_path(hd, "eftp.inf")
     r = rig.Rig(w, m, extra=m.network())
     try:
         time.sleep(30)                              # boot, FAKESTNG, EFTP
@@ -252,7 +252,7 @@ def no_ovl(w, m):
         check(wait_for(lambda: "FALCON=0" in open(inf, errors="replace").read()
                        and "Direct connection" in open(inf, errors="replace").read(), 30),
               "noovl: EFTP went on and quit, Direct connection still off in EFTP.INF")
-        check(not os.path.exists(os.path.join(hd, "CRASH.LOG")), "noovl: no CRASH.LOG")
+        check(not os.path.exists(rig.machines.ci_path(hd, "crash.log")), "noovl: no CRASH.LOG")
     finally:
         r.stop()
         m.stop()

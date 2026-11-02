@@ -53,7 +53,7 @@ for p, size in FOLDER.items():
     if not p.endswith(b"/"):
         with open(path, "wb") as f:
             f.write(os.urandom(size))
-inf = os.path.join(hd, "EFTP.INF")
+inf = rig.machines.ci_path(hd, "eftp.inf")
 with open(inf, newline="") as f:
     text = f.read().replace("LOCALDIR=C:\\\r\n", "LOCALDIR=C:\\HEB\\\r\n")
 with open(inf, "w", newline="") as f:
@@ -151,7 +151,7 @@ def connect(r):
     r.click(*CONNECT)
     time.sleep(2)
     r.click(*SITE1)
-    elog = os.path.join(hd, "EFTP.LOG")
+    elog = rig.machines.ci_path(hd, "eftp.log")
     t = time.time()
     while time.time() - t < 60:
         if os.path.exists(elog) and "CWD /pub" in open(elog, errors="replace").read():

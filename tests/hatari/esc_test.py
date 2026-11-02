@@ -33,7 +33,7 @@ if m.screen not in ("16", "256", "ttmed"):
 print("on %s, %s" % (m.describe(), m.prg), flush=True)
 srv, home = server.ftp_server(work)
 hd = server.drive_c(work, prg=m.prg)
-inf = os.path.join(hd, "EFTP.INF")
+inf = rig.machines.ci_path(hd, "eftp.inf")
 r = rig.Rig(work, m, extra=m.network())      # FAKESTNG and its bridge
 fails = []
 
@@ -176,7 +176,7 @@ try:
     r.shot("exists-stopped")
     r.ctrl("d")                                     # the log written out
     time.sleep(5)
-    log = open(os.path.join(hd, "EFTP.LOG"), errors="replace").read()
+    log = open(rig.machines.ci_path(hd, "eftp.log"), errors="replace").read()
     check(first and open(got, "rb").read() == first and os.path.getmtime(got) == stamp,
           "Esc in 'already there': the file as it was")
     check(log.count("RETR /pub/atari/STinG") == 1, "and it didn't come down again")

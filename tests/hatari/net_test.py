@@ -114,7 +114,7 @@ try:
     time.sleep(2)
     r.shot("t1b-connect-menu")
     r.click(*SITE1)                                 # "Test server", /pub: one click
-    elog = os.path.join(hd, "EFTP.LOG")
+    elog = rig.machines.ci_path(hd, "eftp.log")
     wait_for(lambda: os.path.exists(elog) and "CWD /pub" in open(elog, errors="replace").read(), 30)
     time.sleep(6)
     r.shot("t2-connected")
@@ -187,7 +187,7 @@ try:
     r.click(320, 27)
     check(wait_for(lambda: same(part, sting), 60 + 2 * os.path.getsize(sting) / bps, slow=False),
           "resumed and complete")
-    log = open(os.path.join(hd, "EFTP.LOG"), errors="replace").read()
+    log = open(rig.machines.ci_path(hd, "eftp.log"), errors="replace").read()
     check("REST %d" % size in log, "resumed with REST")
     # the downloads gathered in memory and went to disk in one go (a 1 MB
     # ST may have too little to spare: then straight to disk, as before)

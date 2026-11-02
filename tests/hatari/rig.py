@@ -17,8 +17,8 @@ import machines  # noqa: E402
 # the family's test machines (common/tools/machines.py): one EFTP.PRG on
 # every one, TLS.OVL next to it (a Direct connection on the TT and the
 # Falcons; an ST never loads it)
-PRG = {"ST": "EFTP.PRG", "ST-1": "EFTP.PRG", "TT": "EFTP.PRG", "Falcon": "EFTP.PRG",
-       "Falcon-4": "EFTP.PRG"}
+PRG = {"ST": "eftp.prg", "ST-1": "eftp.prg", "TT": "eftp.prg", "Falcon": "eftp.prg",
+       "Falcon-4": "eftp.prg"}
 
 
 def machine(spec, work):

@@ -81,7 +81,7 @@ def run(job):
     global FTPD_LOG
     FTPD_LOG = FTPD_LOG or os.path.join(w, "ftpd.log")
     hd = server.drive_c(w, prg=m.prg)
-    inf = os.path.join(hd, "EFTP.INF")
+    inf = rig.machines.ci_path(hd, "eftp.inf")
     text = open(inf, newline="").read().replace("LOG=1", "LOG=0")
     open(inf, "w", newline="").write(text)
     r = rig.Rig(w, m, extra=list(m.network()) + ["--trace", "gemdos", "--trace-file", trace])

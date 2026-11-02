@@ -43,7 +43,7 @@ static SITE conn_site;			/* the site connected to */
    can show the keys instead */
 static void help_key_pressed(void)
 {
-	if (help_key(opt.workdir, "EFTP.HYP", 0, "Keys"))
+	if (help_key(opt.workdir, "eftp.hyp", 0, "Keys"))
 		dlg_keys();
 }
 
@@ -253,7 +253,7 @@ static void set_logging(void)
 {
 	conn_log_flush();
 	if (opt.log)
-		path_join(conn_logfile, sizeof(conn_logfile), opt.workdir, "EFTP.LOG");
+		path_join(conn_logfile, sizeof(conn_logfile), opt.workdir, "eftp.log");
 	else
 		conn_logfile[0] = 0;
 }
