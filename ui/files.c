@@ -326,6 +326,10 @@ void local_load(void)
 }
 
 /* the server's folder; hidden files are left out unless asked for */
+/* what the info line says once a listing came: "" (connect's message
+   instead, remote_load_saying) */
+static const char *read_done = "";
+
 static void remote_load_keep(const char *keep)
 {
 	SIDE *s = &sd[SIDE_REMOTE];
@@ -358,7 +362,7 @@ static void remote_load_keep(const char *keep)
 				s->l.e[o++] = s->l.e[i];
 			}
 			s->l.n = o;
-			status("");
+			status(read_done);
 		}
 		s->up = ftp && strcmp(ftp->cwd, "/") != 0;
 	}
@@ -368,6 +372,17 @@ static void remote_load_keep(const char *keep)
 void remote_load(void)
 {
 	remote_load_keep(0);
+}
+
+/* the folder listed, then the info line saying done: on connect, its
+   "Connected to ..." drawn once, not cleared and drawn again (the AES's
+   info line, some 30 ms of an 8 MHz ST each time); 0 if it couldn't */
+int remote_load_saying(const char *done)
+{
+	read_done = done;
+	remote_load_keep(0);
+	read_done = "";
+	return sd[SIDE_REMOTE].ok;
 }
 
 void files_disconnected(void)

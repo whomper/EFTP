@@ -513,8 +513,8 @@ int connect_site(SITE *s)
 		alert(1, "[1][The folder %s isn't there:|%s][ OK ]", s->rdir, ftp->err);
 	if (s->ldir[0] && pf_isdir(s->ldir))
 		local_cd(s->ldir);
-	remote_load();
-	status(m);
+	if (!remote_load_saying(m))
+		status(m);
 	toolbar_redraw();
 	menu_update();
 	return 1;

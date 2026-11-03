@@ -126,6 +126,7 @@ extern char ldir[200];			/* the Atari folder shown, "" = the drives */
 void files_init(void);
 void local_load(void);			/* read the Atari folder again */
 void remote_load(void);			/* list the server folder again */
+int remote_load_saying(const char *done);	/* and the info line says done */
 void local_cd(const char *dir);
 void remote_cd(const char *dir);
 void files_titles(void);
