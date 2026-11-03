@@ -137,7 +137,8 @@ static int enabled(int i)
 
 /* the buttons are the AES's own G_BUTTONs, drawn by objc_draw (the
    guidelines, 5.6: a tester, Erez 27 Oct 2026, of EFTP's hand-drawn
-   ones); the arrows are the system font's. In 3D only where the AES
+   ones); Upload's and Download's arrows are EFTP's, in their colours
+   over the spaces left for them (tool_arrows). In 3D only where the AES
    draws its windows in 3D (MiNT, MagiC), as common's pane bars: on TOS
    4 and EmuTOS the window is flat, and so is its toolbar (5.1) */
 static OBJECT tool_tree[1 + NBUT];
@@ -197,14 +198,39 @@ static void tool_layout(void)
 		dlg_3d(tool_tree);
 }
 
-/* the buttons' words and states as things are now */
+/* the buttons' words and states as things are now: two spaces before
+   Upload and Download where tool_arrows draws their arrows */
 static void tool_states(void)
 {
 	short i;
 	for (i = 0; i < NBUT; i++) {
-		snprintf(tool_text[i], sizeof(tool_text[i]), "%s%s", i == B_UP ? "\x03 " : i == B_DOWN ? "\x04 " : "",
+		snprintf(tool_text[i], sizeof(tool_text[i]), "%s%s", i == B_UP || i == B_DOWN ? "  " : "",
 			 label(i));
 		tool_tree[1 + i].ob_state = enabled(i) ? 0 : DISABLED;
+	}
+}
+
+/* Upload's arrow to the server's pane, terracotta, and Download's to
+   this computer's, green, as the queue's rows have them (the system
+   font's, black and hollow, from 1.64 until Erez missed the colours, 3
+   Nov 2026); grey when the button can't act. The AES centres the text,
+   so the two spaces start a character in from the button's edge. */
+static void tool_arrow(short i)
+{
+	GRECT r = but[i];
+	short ah = ch / 2 + 2, aw = (short)(cw * 3 / 2), on = enabled(i);
+	draw_arrow(r.x + cw - 2, r.y + (r.h - ah) / 2, aw, ah, i == B_UP ? 3 : 2,
+		   !on ? (colour ? pen[P_DIM] : 1) : colour ? pen[i == B_UP ? P_UP : P_DOWN] : 1);
+}
+
+/* the arrows in the area being drawn: a copy each (draw.c's stamps) */
+static void tool_arrows(GRECT *clip)
+{
+	short i;
+	for (i = B_UP; i <= B_DOWN; i++) {
+		GRECT r = but[i];
+		if (intersect(clip, &r))
+			tool_arrow(i);
 	}
 }
 
@@ -230,6 +256,7 @@ static void draw_toolbar(GRECT *clip)
 	tool_site = cur_site;
 	tool_states();
 	objc_draw(tool_tree, 0, 8, r.x, r.y, r.w, r.h);
+	tool_arrows(&r);
 	/* the server: a light, green when connected, and its name */
 	r = r_name;
 	if (intersect(clip, &r)) {
@@ -347,10 +374,19 @@ static int toolbar_click(short mx, short my)
 			short in;
 			int took = press_update_begin();	/* TOS holds BEG_UPDATE back while held (60d1ea5) */
 			tool_states();
+			/* held, the AES's own pressed button: the system font's
+			   arrow in it, so it never stands empty */
+			if (i == B_UP || i == B_DOWN)
+				tool_text[i][0] = i == B_UP ? '\x03' : '\x04';
 			in = graf_watchbox(tool_tree, 1 + i, SELECTED, tool_tree[1 + i].ob_state & ~SELECTED);
 			tool_tree[1 + i].ob_state &= ~SELECTED;
+			tool_states();
 			graf_mouse(M_OFF, 0);
 			objc_draw(tool_tree, 1 + i, 8, r.x - 3, r.y - 3, r.w + 6, r.h + 6);
+			if (i == B_UP || i == B_DOWN) {
+				clip_on(&r);
+				tool_arrow(i);
+			}
 			graf_mouse(M_ON, 0);
 			press_update_end(took);
 			if (!in)
