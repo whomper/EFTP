@@ -422,6 +422,41 @@ void local_cd(const char *dir)
 	local_load_keep(keep);
 }
 
+/* the drives in a menu under the local pane's title (a tester, 4 Nov
+   2026: to another partition without going up to the drive list); the
+   chosen drive's root, the drive shown now ticked */
+static void drive_menu(WIN *w, short mx, short my)
+{
+	static char lab[26][5];
+	const char *l[26];
+	char drv[26];
+	long map = pf_drives();
+	short n = 0, d, r;
+	(void)my;
+	for (d = 0; d < 26; d++) {
+		char c = (char)('A' + d);
+		if (!(map & (1L << d)))
+			continue;
+		lab[n][0] = ldir[0] && (ldir[0] & ~0x20) == c ? '\x08' : ' ';
+		lab[n][1] = c;
+		lab[n][2] = ':';
+		lab[n][3] = 0;
+		drv[n] = c;
+		l[n] = lab[n];
+		n++;
+	}
+	if (!n)
+		return;
+	r = popup(mx, w->work.y, l, n);
+	if (r >= 0) {
+		char p[3];
+		p[0] = drv[r];
+		p[1] = ':';
+		p[2] = 0;
+		local_cd(p);
+	}
+}
+
 void remote_cd(const char *dir)
 {
 	char keep[256] = "";
@@ -1479,6 +1514,7 @@ void files_init(void)
 		w[i]->draw = draw;
 		w[i]->click = click;
 		w[i]->rclick = rclick;
+		w[i]->hclick = i == SIDE_LOCAL ? drive_menu : 0;
 		w[i]->key = key;
 		w[i]->tip = tip;
 		w[i]->head_h = ch + 3;

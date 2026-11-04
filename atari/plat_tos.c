@@ -19,6 +19,41 @@ static void str_copy_(char *d, const char *s, size_t size)
 
 void (*pf_idle)(void);
 
+/* ---------------- long names (MiNT, MagiC) ----------------
+ * TOS's Fsfirst gives 8+3 names: on a FAT32 or VFAT drive under MiNT or
+ * MagiC a file listed as NEW_FO~2 went up under that name (a tester, 4
+ * Nov 2026). Where MiNT or MagiC runs, the program asks for long names
+ * (Pdomain(1)) and reads folders with Dopendir and Dreaddir, a file's
+ * size, date and kind with Fxattr; on plain TOS as before. */
+#define Pdomain(d)        trap1_ww(0x119, (d))
+#define Dopendir(p, f)    trap1_wlw(0x128, (long)(p), (f))
+#define Dreaddir(n, d, b) trap1_wwll(0x129, (n), (long)(d), (long)(b))
+#define Dclosedir(d)      trap1_wl(0x12b, (long)(d))
+#define Fxattr(f, p, x)   trap1_wwll(0x12c, (f), (long)(p), (long)(x))
+
+typedef struct {
+	unsigned short mode;
+	long index;
+	unsigned short dev, rdev, nlink, uid, gid;
+	long size, blksize, nblocks;
+	unsigned short mtime, mdate, atime, adate, ctime, cdate;
+	unsigned short attr, res2;
+	long res3[2];
+} XATTR;
+
+static int lfn;		/* MiNT or MagiC: long names */
+
+/* a file's details by its whole name, long or short (0: there) */
+static long xattr_of(const char *path, XATTR *x)
+{
+	return Fxattr(0, path, x);
+}
+
+static int xattr_dir(const XATTR *x)
+{
+	return (x->mode & 0xF000) == 0x4000 || (x->attr & 0x10);
+}
+
 int pf_open(const char *path, int mode)
 {
 	long h;
@@ -42,8 +77,13 @@ static DTA dta;
 
 long pf_size(const char *path)
 {
-	void *old = Fgetdta();
+	void *old;
 	long r;
+	if (lfn) {
+		XATTR x;
+		return xattr_of(path, &x) == 0 && !xattr_dir(&x) ? x.size : -1;
+	}
+	old = Fgetdta();
 	Fsetdta(&dta);
 	r = Fsfirst(path, 0x07) == 0 ? (long)dta.d_length : -1;
 	Fsetdta(old);
@@ -52,8 +92,13 @@ long pf_size(const char *path)
 
 int pf_exists(const char *path)
 {
-	void *old = Fgetdta();
+	void *old;
 	long r;
+	if (lfn) {
+		XATTR x;
+		return xattr_of(path, &x) == 0;
+	}
+	old = Fgetdta();
 	Fsetdta(&dta);
 	r = Fsfirst(path, 0x17);
 	Fsetdta(old);
@@ -69,6 +114,56 @@ int pf_mkdir(const char *path)
 int pf_remove(const char *path) { return (int)Fdelete(path); }
 int pf_rename(const char *from, const char *to) { return (int)Frename(from, to); }
 
+static void dos_time(unsigned short d, unsigned short tm, PFTIME *t);
+
+/* every entry of a folder by its long name, with its details; "." and
+   ".." left out. -1: the folder couldn't be opened */
+static int lfn_walk(const char *dir, int (*each)(const char *, const XATTR *, void *), void *ud)
+{
+	char path[256], buf[4 + 256];
+	size_t dl;
+	long h;
+	int n = 0;
+	str_copy_(path, dir, sizeof(path) - 2);
+	dl = strlen(path);
+	if (dl && path[dl - 1] != '\\') {
+		path[dl++] = '\\';
+		path[dl] = 0;
+	}
+	h = Dopendir(path, 0);
+	if (h < 0 || (h & 0xff000000L) == 0xff000000L)
+		return -1;
+	while (Dreaddir((short)sizeof(buf), h, buf) == 0) {
+		const char *nm = buf + 4;	/* after the entry's index */
+		XATTR x;
+		if (nm[0] == '.' && (!nm[1] || (nm[1] == '.' && !nm[2])))
+			continue;
+		if (dl + strlen(nm) >= sizeof(path))
+			continue;
+		strcpy(path + dl, nm);
+		if (xattr_of(path, &x))
+			continue;
+		n++;
+		if (each(nm, &x, ud))
+			break;
+	}
+	Dclosedir(h);
+	return n;
+}
+
+struct list_cb {
+	int (*cb)(const char *, long, void *);
+	void *ud;
+};
+
+static int list_each(const char *nm, const XATTR *x, void *ud)
+{
+	struct list_cb *l = ud;
+	if (xattr_dir(x) || (x->attr & 0x08))
+		return 0;
+	return l->cb(nm, x->size, l->ud);
+}
+
 int pf_list(const char *dir, int (*cb)(const char *, long, void *), void *ud)
 {
 	char pat[200];
@@ -76,6 +171,13 @@ int pf_list(const char *dir, int (*cb)(const char *, long, void *), void *ud)
 	void *old = Fgetdta();
 	long r;
 	int n = 0;
+	if (lfn) {
+		struct list_cb l;
+		l.cb = cb;
+		l.ud = ud;
+		n = lfn_walk(dir, list_each, &l);
+		return n < 0 ? 0 : n;
+	}
 	strncpy(pat, dir, sizeof(pat) - 6);
 	pat[sizeof(pat) - 6] = 0;
 	if (*pat && pat[strlen(pat) - 1] != '\\')
@@ -107,6 +209,28 @@ static void dos_time(unsigned short d, unsigned short tm, PFTIME *t)
 	t->sec = (tm & 31) * 2;
 }
 
+struct dir_cb {
+	int (*cb)(const char *, long, const PFTIME *, int, void *);
+	void *ud;
+};
+
+static int dir_each(const char *nm, const XATTR *x, void *ud)
+{
+	struct dir_cb *dc = ud;
+	PFTIME t;
+	int fl = 0;
+	if (x->attr & 0x08)
+		return 0;
+	if (xattr_dir(x))
+		fl |= PF_ISDIR;
+	if (x->attr & 0x06)
+		fl |= PF_HIDDEN;
+	if (x->attr & 0x01)
+		fl |= PF_RDONLY;
+	dos_time(x->mdate, x->mtime, &t);
+	return dc->cb(nm, xattr_dir(x) ? 0 : x->size, &t, fl, dc->ud);
+}
+
 /* every entry, folders too: hidden and system files as well (0x16),
    the volume label (0x08) not */
 int pf_dir(const char *dir, int (*cb)(const char *, long, const PFTIME *, int, void *), void *ud)
@@ -116,6 +240,12 @@ int pf_dir(const char *dir, int (*cb)(const char *, long, const PFTIME *, int, v
 	void *old = Fgetdta();
 	long r;
 	int n = 0;
+	if (lfn) {
+		struct dir_cb dc;
+		dc.cb = cb;
+		dc.ud = ud;
+		return lfn_walk(dir, dir_each, &dc);
+	}
 	strncpy(pat, dir, sizeof(pat) - 6);
 	pat[sizeof(pat) - 6] = 0;
 	if (*pat && pat[strlen(pat) - 1] != '\\')
@@ -186,6 +316,10 @@ static unsigned long file_info(const char *path, long *size)
 
 void pf_init(void)
 {
+	if (get_cookie(0x4D694E54L) || get_cookie(0x4D616758L)) {	/* MiNT, MagX */
+		Pdomain(1);
+		lfn = 1;
+	}
 	pf_size_open = size_open;
 	tls_file_info = file_info;
 }
@@ -203,8 +337,17 @@ int pf_settime_h(int h, const PFTIME *t)
 
 int pf_info(const char *path, long *size, PFTIME *t)
 {
-	void *old = Fgetdta();
+	void *old;
 	long r;
+	if (lfn) {
+		XATTR x;
+		if (xattr_of(path, &x) || xattr_dir(&x))
+			return 0;
+		*size = x.size;
+		dos_time(x.mdate, x.mtime, t);
+		return 1;
+	}
+	old = Fgetdta();
 	Fsetdta(&dta);
 	r = Fsfirst(path, 0x07);
 	Fsetdta(old);
@@ -227,6 +370,10 @@ int pf_isdir(const char *path)
 		return 1;		/* a drive's root */
 	if (n && p[n - 1] == '\\')
 		p[n - 1] = 0;
+	if (lfn) {
+		XATTR x;
+		return xattr_of(p, &x) == 0 && xattr_dir(&x);
+	}
 	Fsetdta(&dta);
 	r = Fsfirst(p, 0x17);
 	Fsetdta(old);

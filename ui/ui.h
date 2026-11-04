@@ -33,6 +33,7 @@ struct WIN {
 	void (*click)(WIN *w, short mx, short my, short clicks, short kstate);
 	int  (*key)(WIN *w, short kstate, short key);	/* 1 = handled */
 	void (*rclick)(WIN *w, short mx, short my);	/* right button: context menu */
+	void (*hclick)(WIN *w, short mx, short my);	/* a click on its title bar */
 	void (*resized)(WIN *w);
 	/* a tooltip for the point: 1 and the text in out */
 	int  (*tip)(WIN *w, short mx, short my, char *out, int size);

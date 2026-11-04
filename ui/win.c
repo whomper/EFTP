@@ -1296,6 +1296,8 @@ int win_mouse(short mx, short my, short button, short clicks, short kstate)
 		r = sb_rect(w);
 		if (inside(&r, mx, my)) {
 			scrollbar_press(w, mx, my);
+		} else if (my < w->work.y && w->hclick && !(button & 2)) {
+			w->hclick(w, mx, my);
 		} else if (inside(&w->work, mx, my)) {
 			if ((button & 2) && w->rclick)
 				w->rclick(w, mx, my);

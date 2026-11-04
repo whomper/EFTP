@@ -105,7 +105,8 @@ One window, like a modern FTP program:
 - **This Atari** on the left: the folder you're in, folders first with
   amber folder icons, then the files with their size and date; the
   header says how many there are and how much room the drive has left.
-  Above a drive's root is the list of drives.
+  Above a drive's root is the list of drives; a click on the header
+  (`C:\`) opens a menu of the drives, for another drive at once.
 - **The server** on the right, the same way: the folder on the server,
   with the permissions in the tooltip of each file.
 - **Transfers** across the bottom: every file and folder you send, with
@@ -310,8 +311,10 @@ Windows does with long names: `screenshot-001.png` becomes
 Demos.st` `CUDDLY~1.ST`. The same server folder always gives the same
 names, so a file downloaded again lands on its earlier copy.
 
-Under MiNT or MagiC with a drive that takes long names, switch off
-Settings > Names > Shorten long names, and names come as they are.
+Under MiNT or MagiC, EFTP reads the Atari's folders by their long names
+on a drive that has them (FAT32 or VFAT, ext2), and sends them up as
+they are. With such a drive, switch off Settings > Names > Shorten long
+names, and names coming down keep theirs too.
 
 Going up, the Atari's capitals become small letters, as on most servers
 (`README.TXT` becomes `readme.txt`); Settings > Names switches that off.
