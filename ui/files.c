@@ -871,7 +871,7 @@ void files_transfer(int side)
 		return;
 	if (side == SIDE_REMOTE) {
 		char *names = local_names(&s->l);
-		char rp[400], lp[300];
+		char rp[XRPATH], lp[300];
 		if (!ldir[0]) {
 			alert(1, "[1][Open a drive or a folder on|the left to copy into.][ OK ]");
 			free(names);
@@ -889,7 +889,7 @@ void files_transfer(int side)
 		}
 		free(names);
 	} else {
-		char rp[400], lp[300], rn[200];
+		char rp[XRPATH], lp[300], rn[XRNAME];
 		for (i = 0; i < s->l.n; i++) {
 			FENTRY *e = &s->l.e[i];
 			if (!s->mark[i])
@@ -912,7 +912,7 @@ void files_transfer(int side)
    caller starts it (queue_run) */
 int files_upload_path(const char *path)
 {
-	char dir[300], rp[400], rn[200];
+	char dir[300], rp[XRPATH], rn[XRNAME];
 	const char *base = strrchr(path, '\\');
 	FLIST l;
 	long i;

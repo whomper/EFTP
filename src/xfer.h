@@ -74,6 +74,14 @@ int  local_list(const char *dir, FLIST *out, int hidden);
    same), else only the characters TOS can't take replaced. LNAME bytes
    each, malloc'ed */
 #define LNAME 64
+/* whole paths (xfer.c's fill): on the server under XRPATH_MAX bytes (the
+   FTP command line, ftp.c's cmd, is 600), on the Atari under XLPATH_MAX;
+   the buffers they are made in are bigger, so a path that was cut shows
+   as too long and is refused, never sent under the cut name */
+#define XRPATH 640
+#define XRNAME 520
+#define XRPATH_MAX 580
+#define XLPATH_MAX 256
 char *local_names(FLIST *l);
 /* one name typed on the Atari made one TOS takes (8+3, no spaces) */
 void tos_name(const char *src, char *out, int size);

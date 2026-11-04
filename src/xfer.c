@@ -93,6 +93,12 @@ static XITEM *fill(XITEM *x, int dir, int isdir, const char *remote, const char 
 	x->wall = (short)wall;
 	x->text = (short)text;
 	x->state = XS_WAIT;
+	/* a path too long for EFTP's buffers was cut short on its way here:
+	   never sent or written under the cut name */
+	if (strlen(x->remote) >= XRPATH_MAX || strlen(x->local) >= XLPATH_MAX) {
+		x->state = XS_FAIL;
+		str_copy(x->note, "the name is too long", sizeof(x->note));
+	}
 	return x;
 }
 
@@ -275,9 +281,9 @@ char *local_names(FLIST *l)
 
 void remote_name(const char *atari, char *out, int size, int utf8)
 {
-	char low[LNAME];
+	char low[256];		/* a long name whole (MiNT, MagiC: up to 255) */
 	int k;
-	for (k = 0; atari[k] && k < LNAME - 1; k++)
+	for (k = 0; atari[k] && k < (int)sizeof(low) - 1; k++)
 		low[k] = opt.lower ? (char)tolower((unsigned char)atari[k]) : atari[k];
 	low[k] = 0;
 	if (utf8 && has_8bit(low, k)) {
@@ -493,7 +499,7 @@ static void note(XITEM *x, const char *s)
 static int list_down(FTP *f, const SITE *site, long i)
 {
 	FLIST l;
-	char *names, rp[400], lp[300];
+	char *names, rp[XRPATH], lp[300];
 	long k, at = i + 1;
 	XITEM x = xq[i];
 	if (!ftp_cd(f, x.remote) || !ftp_list(f, &l, opt.hidden)) {
@@ -524,7 +530,7 @@ static int list_down(FTP *f, const SITE *site, long i)
 static int list_up(FTP *f, const SITE *site, long i)
 {
 	FLIST l;
-	char rp[400], lp[300], rn[LNAME * 2];
+	char rp[XRPATH], lp[300], rn[XRNAME];
 	long k, at = i + 1;
 	XITEM x = xq[i];
 	if (!local_list(x.local, &l, opt.hidden)) {
@@ -782,6 +788,13 @@ int xfer_run(FTP *f, const SITE *site, long *failed)
 	/* then the folders and files, in order */
 	for (i = 0; i < xn && ok; i++) {
 		int st;
+		if (xq[i].state == XS_FAIL && !xq[i].t0) {
+			/* refused as it was put in the queue (fill: a name too
+			   long), counted once */
+			xq[i].t0 = xq[i].t1 = pf_ms();
+			(*failed)++;
+			continue;
+		}
 		if (xq[i].state != XS_WAIT)
 			continue;
 		if (!ftp_alive(f) || conn_stop) {

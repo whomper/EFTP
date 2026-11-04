@@ -164,6 +164,26 @@ def main():
     r = cli(port, "put", up, "/pub")
     check(r.returncode == 0, "put folder: " + r.stdout + r.stderr)
     check("files at start: 2" in r.stdout, "every file listed before the first, up: " + r.stdout)
+    # long names going up whole (MiNT, MagiC: up to 255): a file of 200
+    # characters by itself and in a folder, and one whose whole path is
+    # too long for EFTP refused, never sent under a cut name
+    longup = os.path.join(work, "longup")
+    os.makedirs(longup)
+    n200 = ("a long name " * 20)[:196] + ".txt"
+    with open(os.path.join(longup, n200), "wb") as f:
+        f.write(b"x" * 100)
+    r = cli(port, "put", os.path.join(longup, n200), "/pub")
+    check(r.returncode == 0 and os.path.exists(os.path.join(home, "pub", n200)),
+          "put a 200-character name whole: " + r.stdout + r.stderr)
+    deep = os.path.join(longup, "d" * 40)
+    os.makedirs(deep)
+    n250 = ("z" * 250) + ".txt"
+    with open(os.path.join(deep, n250), "wb") as f:
+        f.write(b"y" * 10)
+    r = cli(port, "put", deep, "/pub", ok=False)
+    there = os.listdir(os.path.join(home, "pub", "d" * 40)) if os.path.isdir(os.path.join(home, "pub", "d" * 40)) else []
+    check(r.returncode != 0 and not there,
+          "a path too long refused, nothing cut sent: rc %d, %r" % (r.returncode, there))
     check(open(os.path.join(home, "pub", "upme", "sub", "game.prg"), "rb").read() == bytes(range(256)) * 10,
           "put folder contents")
     # upload resume

@@ -43,10 +43,23 @@ typedef struct {
 
 static int lfn;		/* MiNT or MagiC: long names */
 
-/* a file's details by its whole name, long or short (0: there) */
+/* a system without the calls (EINVFN): TOS's names again, as before */
+static void lfn_off(void)
+{
+	if (lfn) {
+		lfn = 0;
+		Pdomain(0);
+	}
+}
+
+/* a file's details by its whole name, long or short (0: there; -32:
+   no Fxattr, and long names are off from now on) */
 static long xattr_of(const char *path, XATTR *x)
 {
-	return Fxattr(0, path, x);
+	long r = Fxattr(0, path, x);
+	if (r == -32)
+		lfn_off();
+	return r;
 }
 
 static int xattr_dir(const XATTR *x)
@@ -81,7 +94,9 @@ long pf_size(const char *path)
 	long r;
 	if (lfn) {
 		XATTR x;
-		return xattr_of(path, &x) == 0 && !xattr_dir(&x) ? x.size : -1;
+		r = xattr_of(path, &x);
+		if (lfn)
+			return r == 0 && !xattr_dir(&x) ? x.size : -1;
 	}
 	old = Fgetdta();
 	Fsetdta(&dta);
@@ -96,7 +111,9 @@ int pf_exists(const char *path)
 	long r;
 	if (lfn) {
 		XATTR x;
-		return xattr_of(path, &x) == 0;
+		r = xattr_of(path, &x);
+		if (lfn)
+			return r == 0;
 	}
 	old = Fgetdta();
 	Fsetdta(&dta);
@@ -118,6 +135,8 @@ static void dos_time(unsigned short d, unsigned short tm, PFTIME *t);
 
 /* every entry of a folder by its long name, with its details; "." and
    ".." left out. -1: the folder couldn't be opened */
+#define LFN_PATH 199
+
 static int lfn_walk(const char *dir, int (*each)(const char *, const XATTR *, void *), void *ud)
 {
 	char path[256], buf[4 + 256];
@@ -131,18 +150,30 @@ static int lfn_walk(const char *dir, int (*each)(const char *, const XATTR *, vo
 		path[dl] = 0;
 	}
 	h = Dopendir(path, 0);
-	if (h < 0 || (h & 0xff000000L) == 0xff000000L)
+	if (h == -32) {			/* no Dopendir: TOS's names (-2) */
+		lfn_off();
+		return -2;
+	}
+	if (h < 0)
 		return -1;
 	while (Dreaddir((short)sizeof(buf), h, buf) == 0) {
 		const char *nm = buf + 4;	/* after the entry's index */
 		XATTR x;
 		if (nm[0] == '.' && (!nm[1] || (nm[1] == '.' && !nm[2])))
 			continue;
-		if (dl + strlen(nm) >= sizeof(path))
+		/* a whole path EFTP can't carry (its folder paths are under
+		   200 bytes) left out: one cut short would go up, or be
+		   looked for, under another name */
+		if (dl + strlen(nm) >= LFN_PATH)
 			continue;
 		strcpy(path + dl, nm);
-		if (xattr_of(path, &x))
+		if (xattr_of(path, &x)) {
+			if (!lfn) {
+				Dclosedir(h);
+				return -2;
+			}
 			continue;
+		}
 		n++;
 		if (each(nm, &x, ud))
 			break;
@@ -176,7 +207,9 @@ int pf_list(const char *dir, int (*cb)(const char *, long, void *), void *ud)
 		l.cb = cb;
 		l.ud = ud;
 		n = lfn_walk(dir, list_each, &l);
-		return n < 0 ? 0 : n;
+		if (n != -2)
+			return n < 0 ? 0 : n;
+		n = 0;
 	}
 	strncpy(pat, dir, sizeof(pat) - 6);
 	pat[sizeof(pat) - 6] = 0;
@@ -244,7 +277,10 @@ int pf_dir(const char *dir, int (*cb)(const char *, long, const PFTIME *, int, v
 		struct dir_cb dc;
 		dc.cb = cb;
 		dc.ud = ud;
-		return lfn_walk(dir, dir_each, &dc);
+		n = lfn_walk(dir, dir_each, &dc);
+		if (n != -2)
+			return n;
+		n = 0;
 	}
 	strncpy(pat, dir, sizeof(pat) - 6);
 	pat[sizeof(pat) - 6] = 0;
@@ -317,8 +353,22 @@ static unsigned long file_info(const char *path, long *size)
 void pf_init(void)
 {
 	if (get_cookie(0x4D694E54L) || get_cookie(0x4D616758L)) {	/* MiNT, MagX */
+		/* long names only where the calls are there: tried on the
+		   current drive's root; EINVFN (-32), TOS's names as before */
+		char root[4];
+		XATTR x;
+		long h;
+		root[0] = (char)('A' + Dgetdrv());
+		root[1] = ':';
+		root[2] = '\\';
+		root[3] = 0;
 		Pdomain(1);
 		lfn = 1;
+		h = Dopendir(root, 0);
+		if (h == -32 || Fxattr(0, root, &x) == -32)
+			lfn_off();
+		else if (h >= 0)
+			Dclosedir(h);
 	}
 	pf_size_open = size_open;
 	tls_file_info = file_info;
@@ -341,11 +391,14 @@ int pf_info(const char *path, long *size, PFTIME *t)
 	long r;
 	if (lfn) {
 		XATTR x;
-		if (xattr_of(path, &x) || xattr_dir(&x))
-			return 0;
-		*size = x.size;
-		dos_time(x.mdate, x.mtime, t);
-		return 1;
+		r = xattr_of(path, &x);
+		if (lfn) {
+			if (r || xattr_dir(&x))
+				return 0;
+			*size = x.size;
+			dos_time(x.mdate, x.mtime, t);
+			return 1;
+		}
 	}
 	old = Fgetdta();
 	Fsetdta(&dta);
@@ -372,7 +425,9 @@ int pf_isdir(const char *path)
 		p[n - 1] = 0;
 	if (lfn) {
 		XATTR x;
-		return xattr_of(p, &x) == 0 && xattr_dir(&x);
+		r = xattr_of(p, &x);
+		if (lfn)
+			return r == 0 && xattr_dir(&x);
 	}
 	Fsetdta(&dta);
 	r = Fsfirst(p, 0x17);

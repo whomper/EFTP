@@ -166,7 +166,7 @@ int main(int argc, char **argv)
 			 dir ? -1 : ftp_filesize(f, argv[6]), ftp_filetime(f, argv[6]), 0, is_text(argv[6], &site));
 		ok = xfer_run(f, &site, &failed) && !failed;
 	} else if (!strcmp(c, "put") && argc > 7) {
-		char remote[300], rn[128];
+		char remote[XRPATH], rn[XRNAME];
 		const char *base = strrchr(argv[6], '/');
 		long failed;
 		PFTIME t;
