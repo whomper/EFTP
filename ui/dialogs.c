@@ -1177,6 +1177,28 @@ static short page_add(short k)
 /* a page not built yet, built now at the tree's end: the first time its
    tab is chosen. Settings opens with its first page alone (the other four
    and their fix-up some 20 ms of an 8 MHz ST, 31 Oct 2026) */
+static short set_cancel, set_ok;
+
+/* Cancel and OK the last of the dialog's objects again: objc_find takes
+   the last object under the mouse, and a page built later went after
+   them, its box over their row, so on every page but the first neither
+   could be pressed (Erez, 4 Nov 2026; since 1.73) */
+static void buttons_last(void)
+{
+	short p = tree[0].ob_head;
+	if (tree[0].ob_tail == set_ok)
+		return;
+	while (p > 0 && tree[p].ob_next != set_cancel)
+		p = tree[p].ob_next;
+	if (p <= 0)
+		return;
+	tree[p].ob_next = tree[set_ok].ob_next;
+	tree[tree[0].ob_tail].ob_next = set_cancel;
+	tree[set_ok].ob_next = 0;
+	tree[0].ob_tail = set_ok;
+	last_child = set_ok;
+}
+
 static void page_need(short k)
 {
 	short from = nobj, pg;
@@ -1185,6 +1207,7 @@ static void page_need(short k)
 	tree[nobj - 1].ob_flags &= ~LASTOB;
 	pg = page_add(k);
 	tree[last_child].ob_next = 0;
+	buttons_last();
 	tree[nobj - 1].ob_flags |= LASTOB;
 	rsrc_obfix_all(&tree[from], (short)(nobj - from));
 	dlg_3d(tree);		/* the new objects' 3D look, where the AES has one */
@@ -1221,8 +1244,8 @@ static short settings_sidebar(short *ok)
 	memset(page_built, 0, sizeof(page_built));
 	page_add(1);
 	adding_page = 0;
-	d_button(SX + 18, 14, 10, "Cancel", EXIT);
-	*ok = d_button(SX + 30, 14, 10, "OK", EXIT | DEFAULT);
+	set_cancel = d_button(SX + 18, 14, 10, "Cancel", EXIT);
+	*ok = set_ok = d_button(SX + 30, 14, 10, "OK", EXIT | DEFAULT);
 	d_end();
 	show_page(1, 0);
 	return box;
