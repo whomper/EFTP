@@ -49,6 +49,8 @@ OBJECT *d_tree(void)
 	return tree;
 }
 
+static short band;		/* the dialog's title band (d_band), 0: none */
+
 void d_begin(short w, short h)
 {
 	static short eyes_made;
@@ -64,6 +66,7 @@ void d_begin(short w, short h)
 	memset(tree, 0, DMAX * sizeof(OBJECT));
 	nobj = 1;
 	nted = 0;
+	band = 0;
 	last_child = 0;
 	tree[0].ob_next = -1;
 	tree[0].ob_head = tree[0].ob_tail = -1;
@@ -659,11 +662,29 @@ static short find_obj(short x, short y)
    Cancel, and so is Esc where no text field has the cursor; in a field
    Esc empties it, as form_do's does (the guidelines, 3.5; a tester,
    Erez 27 Oct 2026). ^[ is Esc */
+/* the Hebrew keyboard's badge at the right end of the dialog's title
+   band while it is on (the guidelines, 5.3; common's hebrew_badge_right),
+   in the band's white; in a dialog window the title is the AES's and the
+   band hidden: there the main window's info line carries it */
+static void band_badge(void)
+{
+	short x, y;
+	if (band <= 0 || (tree[band].ob_flags & HIDETREE) || !hebrew_kbd || dlg_in_window())
+		return;
+	objc_offset(tree, band, &x, &y);
+	font_sys_push();
+	graf_mouse(M_OFF, 0);
+	hebrew_badge_right(vdi_h, x, y, tree[band].ob_width, tree[band].ob_height, 0);
+	graf_mouse(M_ON, 0);
+	font_sys_pop();
+}
+
 static short form_loop(short start)
 {
 	short next = start ? start : first_editable(), edit = 0, idx = 0, cont = 1;
 	short m[8];
 	AEVENT e;
+	band_badge();		/* the dialog has just been drawn, whole */
 	while (cont) {
 		if (next && next != edit) {
 			edit = next;
@@ -680,7 +701,14 @@ static short form_loop(short start)
 			if (dlg_esc(e.kreturn) && !dlg_undo(e.kreturn))
 				e.kreturn = 0x011b;	/* ^[ too: the key objc_edit empties a field on */
 			ck = clip_key(e.kreturn);
-			if (dlg_cancel_key(e.kreturn, edit > 0)) {
+			if (KEY_SCAN(e.kreturn) == 0x44 && !(e.kstate & 0x0f)) {
+				/* F10: the Hebrew keyboard, in a dialog too (5.3) */
+				set_hebrew_kbd(!hebrew_kbd);
+				if (band > 0 && !(tree[band].ob_flags & HIDETREE) && !dlg_in_window()) {
+					dlg_draw(tree, band);
+					band_badge();
+				}
+			} else if (dlg_cancel_key(e.kreturn, edit > 0)) {
 				if (esc_button()) {
 					next = esc_button();	/* as if it were clicked */
 					cont = 0;
@@ -774,7 +802,6 @@ static TEDINFO *d_ted(const char *text, short just, short color)
 
 /* black band across the top, white title; in a dialog window (MiNT,
    MagiC) the window's title bar names it, and the band goes (dlg_band) */
-static short band;
 
 static void d_band(short w, const char *title)
 {

@@ -901,8 +901,77 @@ void main_status(const char *s)
 	if (!strcmp(v, main_info))
 		return;
 	str_copy(main_info, v, sizeof(main_info));
-	if (main_h > 0)
+	if (main_h > 0) {
 		wind_set_str(main_h, WF_INFO, main_info);
+		main_badge_later(0);	/* the AES drew the line again */
+	}
+}
+
+/* ---------------- the Hebrew keyboard's badge ----------------
+ * At the right end of the window's info line while the keyboard is on
+ * (the guidelines, 5.3; common's hebrew_badge_right). The AES draws that
+ * line, so the badge goes on again whenever the AES may have drawn it
+ * (its text set, the window redrawn or topped); asked for here and drawn
+ * from the main loop (main_badge_now), never while a dialog is over the
+ * window. Its copy doesn't clip: only drawn where all of it shows. */
+static char badge_want, badge_erase;
+
+void main_badge_later(int erase)
+{
+	if (erase)
+		badge_erase = 1;
+	else if (hebrew_kbd)
+		badge_want = 1;
+}
+
+void main_badge_now(void)
+{
+	GRECT cur, n, r, b;
+	short bw, bh;
+	if (!badge_want && !badge_erase)
+		return;
+	if (main_h <= 0 || !main_shown || main_iconified) {
+		badge_want = badge_erase = 0;
+		return;
+	}
+	if (badge_erase) {		/* the AES draws the line again, badge gone */
+		badge_erase = 0;
+		wind_set_str(main_h, WF_INFO, main_info);
+		if (!hebrew_kbd) {
+			badge_want = 0;
+			return;
+		}
+	}
+	badge_want = 0;
+	if (!hebrew_kbd)
+		return;
+	/* the info line: between the work area without it and with it */
+	wind_get(main_h, WF_CURRXYWH, &cur.x, &cur.y, &cur.w, &cur.h);
+	wind_calc(WC_WORK, icon_kind(MAINKIND) & ~INFO, cur.x, cur.y, cur.w, cur.h, &n.x, &n.y, &n.w, &n.h);
+	n.h = mwork.y - n.y;
+	n.x = mwork.x;
+	n.w = mwork.w;
+	if (n.h <= 0)
+		return;
+	font_sys_push();		/* the AES writes the line in the system font */
+	hebrew_badge_size(vdi_h, &bw, &bh);
+	b.w = bw;
+	b.h = bh;
+	b.x = n.x + n.w - bw - 3;
+	b.y = n.h > bh ? n.y + (n.h - bh) / 2 : n.y;
+	/* the rectangle list is the work area's only: the info line shows
+	   whole where the window is on top, and on the screen */
+	wind_get(main_h, WF_TOP, &r.x, &r.y, &r.w, &r.h);
+	if (r.x == main_h && b.x >= desk_x && b.y >= desk_y && b.x + b.w <= desk_x + desk_w &&
+	    b.y + b.h <= desk_y + desk_h) {
+		wind_update(BEG_UPDATE);
+		graf_mouse(M_OFF, 0);
+		clip_on(&b);	/* TOS's copy keeps to the VDI's clip, the work area's */
+		hebrew_badge_right(vdi_h, n.x, n.y, n.w, n.h, 1);
+		graf_mouse(M_ON, 0);
+		wind_update(END_UPDATE);
+	}
+	font_sys_pop();
 }
 
 /* ---------------- opening and closing ---------------- */
@@ -1362,6 +1431,7 @@ void win_message(short *msg)
 			icon_window(&r);
 		else
 			main_redraw(&r);
+		main_badge_later(0);	/* the AES may have drawn the info line */
 		break;
 	case WM_ICONIFY:
 	case WM_ALLICONIFY:
@@ -1385,6 +1455,7 @@ void win_message(short *msg)
 	case WM_NEWTOP: {
 		short mx, my, mb, ks;
 		wind_set(main_h, WF_TOP, 0, 0, 0, 0);
+		main_badge_later(0);
 		/* the AES tops a window on a click in its contents and keeps
 		   the click: act on it as well, as a modern program does */
 		graf_mkstate(&mx, &my, &mb, &ks);

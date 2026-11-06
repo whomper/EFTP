@@ -424,7 +424,9 @@ Hebrew, 2 for DOS 862, 0 for the Atari's own places.
 same as the tick in Settings > Secure, and **Options > Protocol log**
 the log, the same as the tick in Settings > Connection.
 
-F10 switches to the Israeli keyboard for typing Hebrew names.
+F10 switches to the Israeli keyboard for typing Hebrew names, in a
+dialog too; while it is on, the letters ayin and bet show at the right
+end of the window's info line and of a dialog's title.
 
 ## Keys
 

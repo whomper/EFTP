@@ -222,9 +222,9 @@ void busy(int on);
 void ui_poll(void);		/* during a transfer: redraws, Esc and Stop */
 void idle_report(void);		/* to the log: how long GEM had while data moved */
 void keys_flush(void);		/* after a stop: drop waiting keys, Esc quiet for a second */
-void set_hebrew_kbd(short on);
-extern short hebrew_kbd;
-unsigned char key_char(short kstate, short key);	/* honours the Hebrew layout */
+#include "hebkey.h"	/* the family's Hebrew keyboard: hebrew_kbd, key_char, the badge */
+void main_badge_later(int erase);	/* the info line's badge, from the main loop */
+void main_badge_now(void);
 void bell(void);
 /* "980 bytes", "12 KB", "1.4 MB" */
 void size_str(long n, char *out, int size);
