@@ -849,6 +849,15 @@ static short d_choice(short x, short y, short w, char *label)
 	return i;
 }
 
+/* line y moved down a little, for a row whose choice or button the AES's
+   3D look draws 3 pixels bigger all round: without it they cover the
+   frame of the field on the line above */
+static short air_below(short y)
+{
+	short gap = (short)(gl_hchar * 3 / 8);
+	return (short)(y | ((gap < 4 ? 4 : gap) << 8));
+}
+
 /* rows of a part, with some air between them: row n of a part starting
    at line y is n lines and n gaps down (6 pixels with the 16-pixel font) */
 static short row_y0, row_gap;
@@ -1807,9 +1816,9 @@ static SITE *sites_dialog(void)
 	e_name = d_long(x + 10, 2, f_name, 24, (short)sizeof(f_name) - 1);
 	d_text(x, 4, "Server:");
 	e_host = d_long(x + 10, 4, f_host, 28, (short)sizeof(f_host) - 1);
-	d_text(x, 5, "Port:");
-	e_port = d_edit(x + 10, 5, f_port, 5, '9');
-	b_proto = d_choice(x + 17, 5, 21, f_plabel);
+	d_text(x, air_below(5), "Port:");
+	e_port = d_edit(x + 10, air_below(5), f_port, 5, '9');
+	b_proto = d_choice(x + 17, air_below(5), 21, f_plabel);
 	s_on[0] = anon_on;
 	f_anon = d_tick(x, 7, "Log in anonymously", 0);
 	d_text(x, 8, "User:");
@@ -1818,9 +1827,9 @@ static SITE *sites_dialog(void)
 	d_pass(x + 10, 9, f_pass, 22, (short)sizeof(f_pass) - 1);
 	d_text(x, 11, "Server folder:");
 	e_rdir = d_long(x + 15, 11, f_rdir, 23, (short)sizeof(f_rdir) - 1);
-	d_text(x, 12, "Atari folder:");
-	e_ldir = d_long(x + 15, 12, f_ldir, 18, (short)sizeof(f_ldir) - 1);
-	b_ldir = d_button(x + 34, 12, 4, "...", 0);
+	d_text(x, air_below(12), "Atari folder:");
+	e_ldir = d_long(x + 15, air_below(12), f_ldir, 18, (short)sizeof(f_ldir) - 1);
+	b_ldir = d_button(x + 34, air_below(12), 4, "...", 0);
 	tree[b_ldir].ob_flags |= TOUCHEXIT;
 	d_text(x, 14, "Files go:");
 	m_ext = d_add(G_BUTTON, SELECTABLE | RBUTTON, work[wsel].ascii == 0 ? SELECTED : 0, (long)"By type", x + 10, 14, 9, 1);
@@ -2036,10 +2045,10 @@ SITE *dlg_quick(void)
 	d_band(50, " Quick connect");
 	d_text(2, 2, "Server:");
 	e_host = d_long(13, 2, host, 34, (short)sizeof(host) - 1);
-	d_text(2, 3, "Port:");
-	d_edit(13, 3, port, 5, '9');
+	d_text(2, air_below(3), "Port:");
+	d_edit(13, air_below(3), port, 5, '9');
 	proto_label(proto);
-	b_proto = d_choice(20, 3, 21, f_plabel);
+	b_proto = d_choice(20, air_below(3), 21, f_plabel);
 	d_text(2, 5, "User:");
 	d_long(13, 5, user, 30, (short)sizeof(user) - 1);
 	d_text(2, 6, "Password:");
