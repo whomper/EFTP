@@ -108,7 +108,6 @@ static const MBAR_ITEM m_opts[] = {
 	{ "-", 0, 0 },
 	{ "Direct connection (TLS)", 0, C_FALCON },
 	{ "-", 0, 0 },
-	{ "Hebrew keyboard", "F10", C_HEBREW },
 	{ "Protocol log", 0, C_PLOG },
 	{ 0, 0, 0 }
 };
@@ -194,7 +193,6 @@ void menu_update(void)
 	enable(C_CLEARALL, xn > 0);
 	check(C_HIDDEN, opt.hidden);
 	check(C_LOG, show_log);
-	check(C_HEBREW, hebrew_kbd);
 	check(C_PLOG, opt.log);
 	check(C_FALCON, opt.falcon);
 }
@@ -257,12 +255,11 @@ static void set_logging(void)
 		conn_logfile[0] = 0;
 }
 
-/* the Hebrew keyboard switched (common's hebkey.c, F10): the menu's
-   tick, and the badge at the right end of the info line, drawn or gone
-   (the guidelines, 5.3: the words "Hebrew keyboard" gave way to it) */
+/* the Hebrew keyboard switched (common's hebkey.c, F10, which has no
+   menu entry: Erez, 7 Nov 2026): the badge at the right end of the
+   toolbar, drawn or gone (the guidelines, 5.3) */
 static void hebrew_changed(void)
 {
-	menu_update();
 	main_badge_later(!hebrew_kbd);
 }
 
@@ -697,7 +694,6 @@ static void command(short cmd)
 		}
 		break;
 	case C_FONT: font_menu(); break;
-	case C_HEBREW: set_hebrew_kbd(!hebrew_kbd); break;
 	case C_FALCON:
 		if (falcon_mode_set(!opt.falcon))
 			store_save_settings();
