@@ -47,7 +47,6 @@ typedef struct {
 	short timeout;		/* seconds to wait for the server */
 	short keepalive;	/* NOOP every this many seconds while idle, 0 = never */
 	short log;		/* write EFTP.LOG */
-	short hebrew;		/* Hebrew keyboard on at start */
 	short colour;		/* colours, on screens with 16 or more */
 	short hidden;		/* show hidden files (dot files, hidden attribute) */
 	short dirsfirst;	/* folders above files */

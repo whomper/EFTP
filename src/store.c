@@ -130,7 +130,6 @@ static void set_opt(const char *k, const char *v)
 	else if (!strcmp(k, "timeout")) opt.timeout = n < 10 ? 10 : n > 600 ? 600 : n;
 	else if (!strcmp(k, "keepalive")) opt.keepalive = n < 0 ? 0 : n;
 	else if (!strcmp(k, "log")) opt.log = n != 0;
-	else if (!strcmp(k, "hebrew")) opt.hebrew = n != 0;
 	else if (!strcmp(k, "colour") || !strcmp(k, "color")) opt.colour = n != 0;
 	else if (!strcmp(k, "hidden")) opt.hidden = n != 0;
 	else if (!strcmp(k, "dirsfirst")) opt.dirsfirst = n != 0;
@@ -372,7 +371,6 @@ int store_save_settings(void)
 		"KEEPALIVE", "%d", opt.keepalive);
 	put_fmt(&b, "1 = write the conversation with the servers to EFTP.LOG (passwords hidden)",
 		"LOG", "%d", opt.log);
-	put_fmt(&b, "1 = start with the Hebrew keyboard (F10 switches)", "HEBREW", "%d", opt.hebrew);
 	put_fmt(&b, "1 = colours (selection, folders, progress) on screens with 16 or more",
 		"COLOUR", "%d", opt.colour);
 	put_fmt(&b, "1 = show hidden files: names starting with a dot, the hidden attribute",

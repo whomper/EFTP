@@ -779,7 +779,7 @@ short d_do(short edit)
 static char s_zone[40], s_zlabel[42], s_xlabel[42], s_timeout[4], s_keep[4], s_text[40];
 static char s_gate[64], s_gport[6];
 static short s_on[12], s_exists;
-enum { T_TIMES, T_BEEP, T_SHORTEN, T_LOWER, T_COLOUR, T_HIDDEN, T_DIRS, T_LOG, T_HEB, T_FALCON, T_DSP };
+enum { T_TIMES, T_BEEP, T_SHORTEN, T_LOWER, T_COLOUR, T_HIDDEN, T_DIRS, T_LOG, T_FALCON, T_DSP };
 
 #define NTICK 12
 static short tick_box[NTICK], tick_lbl[NTICK], tick_var[NTICK], nticks;
@@ -1100,7 +1100,6 @@ static void settings_load(void)
 	s_on[T_HIDDEN] = opt.hidden;
 	s_on[T_DIRS] = opt.dirsfirst;
 	s_on[T_LOG] = opt.log;
-	s_on[T_HEB] = opt.hebrew;
 	s_on[T_FALCON] = opt.falcon;
 	s_on[T_DSP] = opt.dsp;
 	str_copy(s_gate, opt.gate, sizeof(s_gate));
@@ -1140,7 +1139,6 @@ static void part_look(short x, short y)
 	d_add(G_STRING, 0, 0, (long)"selection, folders, progress", x + 3, ROW(2), 28, 1);
 	d_tick(x, ROW(3), "Show hidden files", T_HIDDEN);
 	d_tick(x, ROW(4), "Folders above files", T_DIRS);
-	d_tick(x, ROW(5), "Start with the Hebrew keyboard", T_HEB);
 }
 
 static void part_connection(short x, short y)
@@ -1310,7 +1308,6 @@ int dlg_settings(void)
 	opt.hidden = s_on[T_HIDDEN];
 	opt.dirsfirst = s_on[T_DIRS];
 	opt.log = s_on[T_LOG];
-	opt.hebrew = s_on[T_HEB];
 	str_copy(opt.gate, s_gate, sizeof(opt.gate));
 	str_trim(opt.gate);
 	opt.gateport = (unsigned short)(atoi(s_gport) > 0 ? atoi(s_gport) : 2121);

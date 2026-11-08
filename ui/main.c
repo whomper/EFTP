@@ -1034,7 +1034,6 @@ int main(void)
 	theme_init();
 	font_apply();
 	hebrew_kbd_hook = hebrew_changed;
-	hebrew_kbd = opt.hebrew;
 	set_logging();
 	net_init();
 	falcon_dsp_init();
