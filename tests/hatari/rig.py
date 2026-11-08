@@ -14,6 +14,12 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "common", "tools"))
 import machines  # noqa: E402
 
+# EFTP is tested alone (guidelines 1.2, Erez, 8 Nov 2026): no other AERA
+# program or accessory beside it. AERA_WITH_ACCS would have machines.py
+# fetch the others' accessories; the family checks (the hub's acc_all.py)
+# are where they run together.
+os.environ.pop("AERA_WITH_ACCS", None)
+
 # the family's test machines (common/tools/machines.py): one EFTP.PRG on
 # every one, TLS.OVL next to it (a Direct connection on the TT and the
 # Falcons; an ST never loads it)
