@@ -146,3 +146,34 @@ EFTP is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari, AT
 - Work on `main` that isn't released stays unreleased.
 - Nothing runs in the background; the session waits for Erez or the hub.
 - Only Erez's explicit word ends this mode, for instance that every app is to take the latest shared code and release. The hub passes it on quoting him.
+
+## UI backlog from Erez's decisions of 9 Nov 2026
+
+AERA-Atari a261597 (`standards/ui/DECISIONS-2026-11-09.md`, MENUS/CONTROLS/WINDOWS, DEVIATIONS rows).
+Not work to start while in maintenance mode: take it with a release made anyway (a fault fix or one
+Erez asked for), the S items freely, the H and M items only when that release is otherwise untouched.
+Each done item: one line to the hub with the commit. "Hub first" = wait until the shared code is in
+`common/`.
+
+1. `Write a log`, in the menu and in Settings (D8, MD3). S.
+2. `Direct connection`, without `(TLS)` (D9, MD6). S.
+3. `Sites... ^K` moves to Options, before Settings; File keeps Quick connect, Disconnect, Quit (D13, MD27).
+4. The file pane's context menu says `Sites...`, not `Connect... ^K` (D14, MD19). S.
+5. Already there: default Skip (D29, C17); buttons 10 wide (D26, C2). S.
+6. About tagline at most 44 characters, wording approved by Erez (D49, W22). S.
+7. `12 KB of 3.4 MB`, `45%`, `2 min left` (D35, W4); the Transfers rows' `100/200KB` stays until decided. S.
+8. Shift+Up/Down in the file panes page by rows - 1 (W6). S, hub first (key_shift).
+9. One minimum window size: the open check (40 x 16) and `WM_SIZED` (50 x 16) agree (D38, W10). S.
+10. Insert opens the context menu; Space still ticks (D16, MD20).
+11. While a run goes, the commands that would start another are greyed and their keys do nothing;
+    Stop stays live (D19).
+12. A black title band in every dialog: Already there, New folder, Rename, pick lists (D22, C4). H.
+13. Pop-ups open with the ticked choice over the button (D27, C8); the padding goes once `popup()` adds
+    its margin (D15, MD18). S, hub first.
+14. One bar per running row drawn with the shared `progbar`, in the shared colours (D48, C22). M.
+15. INF `WINDOW=x,y,w,h`, `PANES=`, `FONT=name,points`, the old keys read once (D43, D44, W18). M.
+    `SORT=` stays.
+16. Keyboard reach in dialogs (D25, C6) M; own `form_loop` onto `dlg_do` (C11) H; window arrows to the
+    pane under the pointer (D37). All hub first.
+
+Settled, nothing to do: Stop acts on the press during a run (D32), the toolbar look (D33), `-DDLG_CLICK`.
