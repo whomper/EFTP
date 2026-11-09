@@ -628,6 +628,16 @@ short aes_count(void)
 	return global[1];
 }
 
+/* an AES that runs several programs at once: ap_count -1, or the MagX or MiNT cookie where a version of the AES
+   (MagiC's) reports something else in ap_count: evnt_multi_'s double click needs it (EFTP, 9 Nov) */
+static int aes_multi(void)
+{
+	static short k = -1;		/* worked out once: the cookies don't change while the program runs, and a cookie walk is a Supexec call */
+	if (k < 0)
+		k = aes_count() < 0 || get_cookie(0x4D616758L) || get_cookie(0x4D694E54L);	/* MagX, MiNT */
+	return k;
+}
+
 /* the GEM file selector; the titled version needs AES 1.4 (TOS 1.04) */
 short fsel_exinput(char *path, char *name, short *button, const char *title)
 {
@@ -842,7 +852,7 @@ short evnt_multi_(short flags, short clicks, short mask, short state,
 	for (;;) {
 		short last = arr_win, which;	/* only the very next event can be its echo */
 		u32 t0 = last >= 0 ? tos_ms() : 0;
-		short two = clicks == 0x101 && aes_count() < 0;
+		short two = clicks == 0x101 && aes_multi();
 		if (flags & MU_MESAG)
 			arr_win = -1;
 		which = evnt_multi_aes(flags, two ? 0x102 : clicks, mask, state, timer, msg, ev);

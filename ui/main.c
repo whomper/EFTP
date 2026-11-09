@@ -255,6 +255,19 @@ static void set_logging(void)
 		conn_logfile[0] = 0;
 }
 
+/* the AES in the log, at start: which way double clicks are counted
+   (common gem.c evnt_multi_ asks a multitasking AES for two clicks).
+   For a report from MagiC, 9 Nov 2026, where nothing here can run */
+static void log_aes(void)
+{
+	char t[100];
+	short magx = get_cookie(0x4D616758L) != 0, mint = get_cookie(0x4D694E54L) != 0;
+	snprintf(t, sizeof(t), "AES %x, ap_count %d, MagX %s, MiNT %s: double clicks counted by %s",
+		 (unsigned)aes_version(), aes_count(), magx ? "yes" : "no", mint ? "yes" : "no",
+		 aes_count() < 0 || magx || mint ? "the AES" : "EFTP");
+	conn_log("EFTP", " -- ", t, (long)strlen(t));
+}
+
 /* the Hebrew keyboard switched (common's hebkey.c, F10, which has no
    menu entry: Erez, 7 Nov 2026): the badge at the right end of the
    toolbar, drawn or gone (the guidelines, 5.3) */
@@ -1035,6 +1048,7 @@ int main(void)
 	font_apply();
 	hebrew_kbd_hook = hebrew_changed;
 	set_logging();
+	log_aes();
 	net_init();
 	falcon_dsp_init();
 	pf_idle = idle;
