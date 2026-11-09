@@ -160,7 +160,7 @@ Each done item: one line to the hub with the commit. "Hub first" = wait until th
 3. `Sites... ^K` moves to Options, before Settings; File keeps Quick connect, Disconnect, Quit (D13, MD27).
 4. The file pane's context menu says `Sites...`, not `Connect... ^K` (D14, MD19). S.
 5. Already there: default Skip (D29, C17); buttons 10 wide (D26, C2). S.
-6. About tagline at most 44 characters, wording approved by Erez (D49, W22). S.
+6. About tagline "File transfer for the ST, TT and Falcon" (39; Erez approved it 9 Nov) (D49, W22). S.
 7. `12 KB of 3.4 MB`, `45%`, `2 min left` (D35, W4); the Transfers rows' `100/200KB` stays until decided. S.
 8. Shift+Up/Down in the file panes page by rows - 1 (W6). S, hub first (key_shift).
 9. One minimum window size: the open check (40 x 16) and `WM_SIZED` (50 x 16) agree (D38, W10). S.
