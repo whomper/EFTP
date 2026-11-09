@@ -76,6 +76,16 @@ into, and halts with "OUT OF INTERNAL MEMORY" when it runs out; FOLDRxxx makes t
 
 ## How it reaches the servers, in detail
 
+Plain FTP goes straight to the server from any Atari. For FTPS and SFTP, like
+[EMail](https://github.com/whomper/EMail) and [ECal](https://github.com/whomper/ECal), EFTP goes one
+of two ways:
+
+```
+ST, STE:     Atari (EFTP) --plain FTP, home LAN--> Raspberry Pi (eftpgate.py) --FTPS or SFTP--> the server
+Falcon, TT:  Atari (EFTP + TLS.OVL: TLS 1.2, RSA on the DSP) --------------------------FTPS--> the server
+             (a Direct connection; or through the Pi, as an ST)
+```
+
 SFTP always goes through the Pi, from a Falcon too, and so does FTPS without a Direct connection. EFTP
 picks the way from the site's **Protocol** (**File > Sites**) and **Options > Settings > Secure**.
 
@@ -224,3 +234,26 @@ of 20 ms or more between its event calls. It starts EFTP, clicks and moves along
 closes Settings, opens a folder of 300 files and a server's folder of 400, scrolls, resizes the
 window and downloads a file. It prints each action's longest stretch against the guidelines' times
 ("Speed": `ST:mono`, `ST:med` and `Falcon-4:16` are its machines) and fails when one is over.
+
+## Source
+
+```
+src/      the FTP core: the protocol and its listings (ftp.c), the transfer queue
+          and names (xfer.c), settings and sites (store.c)
+ui/       the GEM program: the window and its panes, the file lists, the transfers,
+          dialogs, menus, the toolbar, fonts, colours, the About box
+atari/    plat_tos.c: files, folders and time on GEMDOS
+common/   code shared with the other AERA programs (from AERA-Atari): the TOS runtime
+          (start-up, system calls, a small C library, AES/VDI, TCP over STinG/STiK
+          or MiNTnet with a DNS client), the connection, TLS.OVL and its loader,
+          charsets, time zones, the menu bar, help, drag and drop, BearSSL, the
+          DSP RSA, bidi, dates, passwords, the root certificates, build tools
+gateway/  the Raspberry Pi gateways (eftpgate.py is EFTP's) and aera-gateway, their installer:
+          a copy of AERA-Gateway's; change it there, then run tools/sync-gateway.sh
+tests/    unit, fuzz and integration tests, the Hatari test rig
+tools/    the help builder, sync-common.sh, sync-gateway.sh, bump.py, add_to_emuicon.py
+icons/    the desktop icon (RSC and ICN files), from make icons
+docs/     the user guide (GUIDE.md, the source of EFTP.HYP) and pictures
+binary/   what make builds for the Atari (not committed: the releases have it)
+dist/     a release's files, from make dist (not committed)
+```

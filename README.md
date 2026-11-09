@@ -9,18 +9,22 @@ larger, with about 350 KB free (a 1 MB ST with STinG will do), and STinG, STiK, 
 
 **Highlights**
 
-- **Two panes:** this Atari, the server, and the transfers below; drag files across.
-- **Whole folders both ways**, with the time left, and Stop and Retry that resume.
-- **Names TOS can take** (8+3), dates kept, text files by their extension.
-- **FTPS and SFTP** through a Raspberry Pi, or FTPS by a TT or Falcon itself.
-- **A Site Manager** with encrypted passwords, and file management on both sides.
+- **Two panes:** this Atari on the left, the server on the right, the transfers below.
+- **Drag and drop** across, double-click, or Upload and Download in the toolbar.
+- **Whole folders both ways**, listed in full before the first file goes.
+- **A transfer queue** with the speed and the time left, and why a file failed.
+- **Resume:** Stop and Retry go on where a file stopped; a dropped line reconnects.
+- **Names TOS can take:** long names come down as 8+3; dates kept; text by its extension.
+- **FTPS and SFTP:** through AERA-Gateway from any Atari, or FTPS by a TT or Falcon itself.
+- **A Site Manager** with encrypted passwords, and Quick connect for the others.
+- **File management on both sides:** new folder, rename, delete, permissions on the server.
+- **Small:** one program for every Atari, about 250 KB, that runs on a 1 MB ST with STinG.
 
 ![EFTP on a Falcon in 640x480 with 256 colours: the Atari's files on the left, the server's on the right, the transfers below](docs/screenshot.png)
 
 ## Getting started
 
-Download from the **[latest release](https://github.com/whomper/EFTP/releases/latest)**, file by file
-or all in the zip:
+Download the **[latest release](https://github.com/whomper/EFTP/releases/latest)**:
 
 | File | What it is |
 |---|---|
@@ -39,14 +43,12 @@ Under TOS use `FOLDR100.PRG` ([why](docs/GUIDE.md#what-you-need)); set STinG's D
 
 ## How it reaches the servers
 
-```
-ST, STE:     Atari (EFTP) --plain FTP, home LAN--> Raspberry Pi (eftpgate.py) --FTPS or SFTP--> the server
-Falcon, TT:  Atari (EFTP + TLS.OVL: TLS 1.2, RSA on the DSP) --------------------------FTPS--> the server
-             (a Direct connection; or through the Pi, as an ST)
-```
-
-Plain FTP goes straight to the server. [AERA-Gateway](https://github.com/whomper/AERA-Gateway) sets up
-the Pi; the [guide](docs/GUIDE.md#secure-servers-ftps-and-sftp) has the steps.
+Plain FTP goes straight from the Atari to the server. For FTPS and SFTP, EFTP can go through
+[AERA-Gateway](https://github.com/whomper/AERA-Gateway), the family's gateway on a Raspberry Pi on
+your home network: the Atari speaks plain FTP to the Pi, and the Pi speaks FTPS or SFTP to the
+server. It is optional for FTPS on a TT or Falcon, which can make the connection itself (a Direct
+connection); an ST, and SFTP from any Atari, need it. How to set it up is in the
+[Gateway's README](https://github.com/whomper/AERA-Gateway#readme).
 
 ## Building
 
@@ -62,23 +64,17 @@ More in [docs/DEVELOPING.md](docs/DEVELOPING.md).
 ## Source
 
 ```
-src/      the FTP core: protocol, queue, settings
+src/      the FTP core
 ui/       the GEM program
-atari/    files and time on GEMDOS
-common/   shared with the other AERA programs
-gateway/  the Pi gateways (AERA-Gateway's copy)
-tests/    unit, fuzz, integration, Hatari
-docs/     the guide and DEVELOPING.md
+common/   the family's shared code
+tests/    the tests
 ```
+
+The rest: [docs/DEVELOPING.md](docs/DEVELOPING.md#source).
 
 ## Tests
 
-```sh
-make test     # parsers, names, paths, text mode
-make itest    # a real FTP server, FTPS, the gateway
-```
-
-`tests/hatari/` runs EFTP in Hatari ([each check](docs/DEVELOPING.md#tests)).
+`make test` (more, and the Hatari rigs, in [docs/DEVELOPING.md](docs/DEVELOPING.md#tests)).
 
 ## Licence
 
@@ -88,4 +84,4 @@ the gateway uses [paramiko](https://www.paramiko.org/) (LGPL 2.1) on the Pi.
 
 ---
 
-Part of **AERA** for Atari: [ECal](https://github.com/whomper/ECal) · [EContact](https://github.com/whomper/EContact) · [EMail](https://github.com/whomper/EMail) · [EFTP](https://github.com/whomper/EFTP) · [EHypView](https://github.com/whomper/EHypView) · [ClaudeST](https://github.com/whomper/ClaudeST) · [EWeb](https://github.com/whomper/EWeb) · [EUpdate](https://github.com/whomper/EUpdate) · 8-bit: [EDOS](https://github.com/whomper/EDOS) · [EFTP_XL](https://github.com/whomper/EFTP_XL) · Pi: [AERA-Gateway](https://github.com/whomper/AERA-Gateway)
+Part of **AERA** for Atari: [ECal](https://github.com/whomper/ECal) · [EContact](https://github.com/whomper/EContact) · [EMail](https://github.com/whomper/EMail) · [EFTP](https://github.com/whomper/EFTP) · [EHypView](https://github.com/whomper/EHypView) · [ClaudeST](https://github.com/whomper/ClaudeST) · [EWeb](https://github.com/whomper/EWeb) · [EUpdate](https://github.com/whomper/EUpdate) · 8-bit: [EDOS](https://github.com/whomper/EDOS) · [EFTP_XL](https://github.com/whomper/EFTP_XL) · Gateway: [AERA-Gateway](https://github.com/whomper/AERA-Gateway)
