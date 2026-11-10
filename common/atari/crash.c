@@ -200,6 +200,16 @@ static int over_n;
 static unsigned short hooked;	/* the vectors sup_install put the catcher on, by bit */
 static int hk_safe(u32 a);
 
+/* one piece onto over[], ", " between the vectors; by hand, as it runs
+   from etv_term on the ending process's stack (no vsnprintf there) */
+static void over_put(const char *t)
+{
+	if (t[0] != ':' && over_n)
+		over[over_n++] = ',', over[over_n++] = ' ';
+	while (*t && over_n < (int)sizeof(over) - 1)
+		over[over_n++] = *t++;
+}
+
 /* ours off vector v: from the vector itself when ours is on top, else out
    of the XBRA chain of the programs that hooked it after us (the one whose
    "before" slot holds ours gets ours's "before"); supervisor mode. A chain
@@ -219,11 +229,11 @@ static void unhook(long v, long ours, long old, const char *what)
 		long *p = (long *)a;
 		if (p[-3] != 0x58425241L)	/* 'XBRA' */
 			break;
-		if (over_n < (int)sizeof(over) - 24) {
+		if (over_n < (int)sizeof(over) - 48) {
 			u32 id = (u32)p[-2];
 			int i;
-			over_n += snprintf(over + over_n, sizeof(over) - over_n, "%s%s: ", over_n ? ", " : "",
-					   what);
+			over_put(what);
+			over_put(": ");
 			for (i = 24; i >= 0; i -= 8) {
 				char c = (char)(id >> i);
 				over[over_n++] = c > ' ' && c < 127 ? c : '?';
@@ -237,9 +247,10 @@ static void unhook(long v, long ours, long old, const char *what)
 		if (crash_cpu < 20)
 			a &= 0xFFFFFFUL;
 	}
-	if (over_n < (int)sizeof(over) - 40)
-		over_n += snprintf(over + over_n, sizeof(over) - over_n, "%s%s: hooked over, not taken off",
-				   over_n ? ", " : "", what);
+	if (over_n < (int)sizeof(over) - 72) {
+		over_put(what);
+		over_put(": hooked over, not taken off");
+	}
 }
 
 const char *crash_over(void)
