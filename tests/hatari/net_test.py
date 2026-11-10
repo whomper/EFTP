@@ -213,6 +213,13 @@ try:
         avlog = open(os.path.join(hd, "AVLOG.TXT"), errors="replace").read()
         check("AV_PROTOKOLL bits 0016 name EFTP" in avlog, "EFTP told the desktop it takes VA_START")
         check("AV_STARTED" in avlog, "and answered it")
+
+    # Quit while connected, after the transfers: EFTP closes the line and
+    # goes back to the desktop without bombs (Erez, 10 Nov: two bombs as
+    # the window went)
+    r.ctrl("q")
+    time.sleep(12 * SLOW)
+    r.shot("t9-quit")
 finally:
     r.stop()
     m.stop()
