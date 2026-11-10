@@ -922,6 +922,12 @@ static void tip_show(void)
 	tip_on = 1;
 }
 
+/* one step of quitting in the log (Protocol log), on the disk at once */
+static void quit_step(const char *what)
+{
+	conn_log("EFTP", " -- quit: ", what, (long)strlen(what));
+}
+
 /* EFTP crashed and CRASH.LOG is written (common/atari/crash.c): say so
    and leave GEM tidy. Only the AES and VDI: the heap may be what went
    wrong */
@@ -1174,13 +1180,26 @@ int main(void)
 	}
 	conn_log_flush();
 	str_copy(opt.ldir, ldir, sizeof(opt.ldir));
+	/* each step of the way out in the log, written at once: if the
+	   machine bombs after the window has gone (Erez, 10 Nov 2026), the
+	   last line says where */
 	main_close();
+	quit_step("the window closed");
 	store_save_settings();
+	quit_step("settings saved");
 	theme_exit();			/* the palette back as it was */
 	menu_bar(mb.tree, 0);
 	av_exit();
 	v_clsvwk(vdi_h);
+	quit_step("colours, menu bar and VDI given back");
 	crash_remove();
+	{
+		const char *o = crash_over();
+		char t[220];
+		snprintf(t, sizeof(t), "crash catcher off%s%s", *o ? "; hooked over it: " : "", o);
+		quit_step(t);
+	}
 	appl_exit();
+	quit_step("out of the AES");
 	return 0;
 }
