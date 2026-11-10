@@ -140,9 +140,13 @@ try:
     time.sleep(3)
     r.shot("t3-downloaded")
 
-    r.click(LOCAL_X, row(3))                        # C:\GAMES
+    # C:\GAMES's row: ".." first, then the folders by name (an NVDI drive
+    # has BTFONTS and GEMSYS too, so it isn't always the same row)
+    folders = sorted(n.upper() for n in os.listdir(hd) if os.path.isdir(os.path.join(hd, n)))
+    games = row(1 + folders.index("GAMES"))
+    r.click(LOCAL_X, games)
     time.sleep(1.5)
-    r.drag(LOCAL_X, row(3), 450, 260)               # dropped on the server's side
+    r.drag(LOCAL_X, games, 450, 260)                # dropped on the server's side
     up = os.path.join(home, "pub", "atari", "games", "xenon2.prg")
     check(wait_for(lambda: same(up, os.path.join(hd, "GAMES", "XENON2.PRG")), 90), "a folder uploaded by dragging")
     time.sleep(3)
