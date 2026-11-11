@@ -530,6 +530,64 @@ static void seen_draw(void)
 	seen_take();
 }
 
+/* the changed objects drawn a slice at a time, from form_loop's turns
+   (the Site Manager's fields when a site is chosen: ~200 ms of an 8 MHz
+   ST in one go, and a quick double click's second press, read only after
+   it, came too late to count; the hub, 11 Nov 2026). Each slice is
+   about 30 ms; a press or a key between them is read at once */
+static short later_q[DMAX], later_n, later_at;
+
+static void later_slice(void)
+{
+	unsigned long t0 = pf_ms();
+	graf_mouse(M_OFF, 0);
+	do {
+		short o = later_q[later_at++];
+		pending[o] = 0;
+		draw_one(o);
+	} while (later_at < later_n && pf_ms() - t0 < 30);
+	graf_mouse(M_ON, 0);
+	if (later_at >= later_n)
+		later_n = later_at = 0;
+}
+
+/* everything still queued, now (a key, or the dialog closing) */
+static void later_all(void)
+{
+	if (later_n)
+		while (later_n)
+			later_slice();
+}
+
+/* the dialog going: what is queued is dropped */
+static void later_drop(void)
+{
+	while (later_at < later_n)
+		pending[later_q[later_at++]] = 0;
+	later_n = later_at = 0;
+}
+
+static void seen_draw_later(void)
+{
+	short i, n = 0, ch[DMAX];
+	later_all();
+	for (i = 1; i < nobj; i++)
+		if (seen[i].state != tree[i].ob_state || seen[i].spec != tree[i].ob_spec || seen[i].text != text_sum(i))
+			ch[n++] = i;
+	if (n > nobj / 2 || dlg_in_window()) {
+		seen_draw();
+		return;
+	}
+	at_fill();
+	for (i = 0; i < n; i++) {
+		pending[ch[i]] = 1;
+		later_q[i] = ch[i];
+	}
+	later_n = n;
+	later_at = 0;
+	seen_take();
+}
+
 /* a box the AES paints every pixel of, out to its reach (a frame
    outside, no 3D edge, outline or shadow) */
 static int solid(short j)
@@ -686,6 +744,18 @@ static short form_loop(short start)
 	AEVENT e;
 	band_badge();		/* the dialog has just been drawn, whole */
 	while (cont) {
+		if (later_n) {
+			/* a slice of what is still to draw, then a look at the
+			   mouse and keys (seen_draw_later) */
+			dlg_evnt(MU_KEYBD | MU_BUTTON | MU_TIMER, DLG_CLICKS, 1, 1, 0, m, &e);
+			if (!(e.which & (MU_KEYBD | MU_BUTTON))) {
+				later_slice();
+				continue;
+			}
+			if (e.which & MU_KEYBD)
+				later_all();	/* a key: the fields whole before it goes in one */
+			goto got;	/* a press at once: a double click's second (the rest next turn) */
+		}
 		if (next && next != edit) {
 			edit = next;
 			next = 0;
@@ -695,6 +765,7 @@ static short form_loop(short start)
 				objc_edit(tree, edit, 0, &idx, ED_INIT);
 		}
 		dlg_evnt(MU_KEYBD | MU_BUTTON, DLG_CLICKS, 1, 1, 0, m, &e);	/* the closer: Undo */
+	got:
 		if (e.which & MU_KEYBD) {
 			LFIELD *lf = edit ? lf_of(tree, edit) : 0;
 			short ck;
@@ -2026,9 +2097,10 @@ static SITE *sites_dialog(void)
 			dlg_draw(tree, 0);	/* after the alert: all of it */
 			seen_take();
 		} else {
-			seen_draw();		/* a site chosen: its row and fields (5.8: on the press) */
+			seen_draw_later();	/* a site chosen: its fields, a slice a turn (5.8) */
 		}
 	}
+	later_drop();
 	dlg_close();
 	tree[r].ob_state &= ~SELECTED;
 	npw = 0;
