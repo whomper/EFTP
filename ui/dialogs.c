@@ -1486,11 +1486,24 @@ int dlg_ask(const char *title, const char *label, char *buf, short len, short ca
    that stays open: a framed list with arrows to page through it (the
    list is redrawn in place), a click picks a row, OK or a double click
    takes it. */
+/* the old row a press left for the next turn (row_later), taken off */
+static short row_later = -1;
+
+static void old_row_off(void)
+{
+	if (row_later < 0)
+		return;
+	graf_mouse(M_OFF, 0);
+	row_select(row_later, 0);
+	graf_mouse(M_ON, 0);
+	row_later = -1;
+}
+
 static short pick_w(const char *title, const char **items, short n, short lw)
 {
 	static char shown[PROWS][PW + 2], count[40];
 	short first = 0, cur = -1, row[PROWS], box, b_up, b_down, b_ok, b_cancel, f_count;
-	short x, y, w, h, r, i, result = -1, tw = (short)strlen(title);
+	short x, y, w, h, r, i, result = -1, tw = (short)strlen(title), quick = 0;
 
 	if (pick_from > 0 && pick_from < n) {
 		cur = pick_from;
@@ -1518,6 +1531,14 @@ static short pick_w(const char *title, const char **items, short n, short lw)
 	for (;;) {
 		/* fill the rows from `first`; the chosen one inverted */
 		short k;
+		if (quick) {
+			/* a row pressed: its row and the old one are drawn
+			   already, nothing else changed (a double click's second
+			   press must find the program waiting, not redrawing
+			   the list: EMail's Move, Erez 11 Nov 2026) */
+			quick = 0;
+			goto ask;
+		}
 		for (k = 0; k < PROWS; k++) {
 			short it = first + k, len = 0;
 			memset(shown[k], ' ', lw);
@@ -1559,6 +1580,7 @@ static short pick_w(const char *title, const char **items, short n, short lw)
 			dlg_draw(tree, f_count);
 			dlg_draw(tree, b_ok);
 		}
+	ask:
 		r = dlg_do(tree, 0, b_cancel);
 		{
 			int dbl = (r & 0x8000) != 0;
@@ -1585,11 +1607,43 @@ static short pick_w(const char *title, const char **items, short n, short lw)
 				evnt_timer_(120);
 				continue;
 			}
+			quick = 1;	/* a row, or the empty rows below the last */
 			for (k = 0; k < PROWS; k++)
-				if (r == row[k] && first + k < n) {
-					cur = first + k;
-					if (dbl)
-						result = cur;
+				if (r == row[k]) {
+					if (first + k < n) {
+						short was = cur;
+						cur = first + k;
+						if (dbl)
+							result = cur;
+						else if (was != cur) {
+							/* as the Site Manager's: the new row on
+							   the press, then its release taken at
+							   once (left to the next dlg_do, a quick
+							   double click's second press was taken
+							   for it), the old row off meanwhile */
+							graf_mouse(M_OFF, 0);
+							row_select(row[k], SELECTED);
+							graf_mouse(M_ON, 0);
+							row_later = was >= first && was < first + PROWS ? row[was - first] : -1;
+							if (dlg_touch_up_idle(old_row_off) == PRESS_IN) {
+								old_row_off();
+								if (tree[b_ok].ob_state & DISABLED) {
+									tree[b_ok].ob_state &= ~DISABLED;
+									dlg_draw(tree, b_ok);
+								}
+							} else {	/* let go elsewhere: as it was */
+								row_later = -1;
+								cur = was;
+								graf_mouse(M_OFF, 0);
+								row_select(row[k], 0);
+								if (was >= first && was < first + PROWS)
+									row_select(row[was - first], SELECTED);
+								graf_mouse(M_ON, 0);
+							}
+						} else {
+							tree[row[k]].ob_state = SELECTED;
+						}
+					}
 				}
 			if (result >= 0)
 				break;
@@ -1715,19 +1769,6 @@ static void fields_to(SITE *s)
 	str_copy(s->pass, f_pass, sizeof(s->pass));
 	str_copy(s->rdir, f_rdir, sizeof(s->rdir));
 	str_copy(s->ldir, f_ldir, sizeof(s->ldir));
-}
-
-/* the old row a press left for the next turn (row_later), taken off */
-static short row_later = -1;
-
-static void old_row_off(void)
-{
-	if (row_later < 0)
-		return;
-	graf_mouse(M_OFF, 0);
-	row_select(row_later, 0);
-	graf_mouse(M_ON, 0);
-	row_later = -1;
 }
 
 static void rows_fill(short first)
