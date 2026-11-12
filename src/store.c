@@ -283,7 +283,7 @@ static void zone_detect(void)
 /* ---------------- reading and writing ---------------- */
 
 static void settings_sum(unsigned long *sum, long *len);
-/* the settings' checksum (FNV-1a over the plain text, and its length) as
+/* the settings' checksum (FNV-1a over their values, and how many) as
    read or last written: EFTP.INF is written only when they differ */
 static unsigned long saved_sum;
 static long saved_len = -1;
@@ -386,10 +386,8 @@ static void put_secret(SBUF *b, const char *note, const char *key, const char *v
 	put_str(b, note, key, sealed);
 }
 
-/* the INF's text, the settings as they are now; plain: the passwords as
-   they are (only for settings_sum: a sealed one differs each time, its
-   nonce is new) */
-static void build(SBUF *bp, int plain)
+/* the INF's text, the settings as they are now */
+static void build(SBUF *bp)
 {
 	SBUF b = *bp;
 	short i;
@@ -447,10 +445,7 @@ static void build(SBUF *bp, int plain)
 		put_fmt(&b, "1 = log in anonymously (public archives), 0 = with the user and password below",
 			"ANONYMOUS", "%d", s->anon);
 		put_str(&b, "login name", "USER", s->user);
-		if (plain)
-			put_str(&b, "", "PASS", s->pass);
-		else
-			put_secret(&b, "password, encrypted with EFTP.KEY (type it in File > Sites)", "PASS", s->pass);
+		put_secret(&b, "password, encrypted with EFTP.KEY (type it in File > Sites)", "PASS", s->pass);
 		put_str(&b, "the folder on the server to open; empty = where the login starts", "REMOTEDIR", s->rdir);
 		put_str(&b, "the Atari folder to show with it; empty = the one shown before", "LOCALDIR", s->ldir);
 		put_fmt(&b, "files go 0 = as text or binary by their extension, 1 = all as text, 2 = all binary",
@@ -462,22 +457,78 @@ static void build(SBUF *bp, int plain)
 	*bp = b;
 }
 
-/* the settings' checksum (FNV-1a over the plain text, and its length):
-   what was read or last written, to write EFTP.INF only when a setting
-   changed (Erez, 12 Nov 2026; the guidelines, 6.1) */
+/* the sum of what EFTP.INF keeps, value by value (a string up to its
+   end, a number as it is): a few milliseconds, where building the INF's
+   text took an 8 MHz ST about a third of a second at the start. *len
+   counts the values, for a second check */
+static unsigned long sum_h;
+static long sum_n;
+
+static void sum_bytes(const void *p, long n)
+{
+	const unsigned char *c = p;
+	while (n-- > 0)
+		sum_h = (sum_h ^ *c++) * 16777619UL;
+	sum_n++;
+}
+
+static void sum_str(const char *t)
+{
+	sum_bytes(t, (long)strlen(t) + 1);	/* its end too: "ab","c" is not "a","bc" */
+}
+
+#define SUM(v) sum_bytes(&(v), (long)sizeof(v))
+
 static void settings_sum(unsigned long *sum, long *len)
 {
-	SBUF b;
-	unsigned long h = 2166136261UL;
-	long i;
-	sb_init(&b);
-	build(&b, 1);
-	for (i = 0; i < b.len; i++)
-		h = (h ^ (unsigned char)b.s[i]) * 16777619UL;
-	*sum = h;
-	*len = b.len;
-	memset(b.s, 0, b.len);		/* the passwords in plain: gone at once */
-	sb_free(&b);
+	short i;
+	sum_h = 2166136261UL;
+	sum_n = 0;
+	sum_str(opt.tzname);
+	SUM(opt.timeout);
+	SUM(opt.keepalive);
+	SUM(opt.log);
+	SUM(opt.colour);
+	SUM(opt.hidden);
+	SUM(opt.dirsfirst);
+	SUM(opt.exists);
+	SUM(opt.times);
+	SUM(opt.lower);
+	SUM(opt.shorten);
+	SUM(opt.beep);
+	sum_str(opt.text);
+	SUM(opt.main_x);
+	SUM(opt.main_y);
+	SUM(opt.main_w);
+	SUM(opt.main_h);
+	SUM(opt.pane_w);
+	SUM(opt.pane_h);
+	sum_str(opt.font_name[0] ? opt.font_name : "System");	/* as the INF writes it */
+	SUM(opt.font_pt);
+	SUM(opt.hebfont);
+	SUM(opt.sort);
+	sum_str(opt.ldir);
+	SUM(opt.falcon);
+	SUM(opt.dsp);
+	sum_str(opt.gate);
+	SUM(opt.gateport);
+	SUM(nsites);
+	for (i = 0; i < nsites; i++) {
+		const SITE *t = sites[i];
+		unsigned short port = site_port(t);
+		sum_str(t->name);
+		sum_str(t->host);
+		SUM(port);
+		SUM(t->anon);
+		sum_str(t->user);
+		sum_str(t->pass);
+		sum_str(t->rdir);
+		sum_str(t->ldir);
+		SUM(t->ascii);
+		SUM(t->proto);
+	}
+	*sum = sum_h;
+	*len = sum_n;
 }
 
 /* EFTP.INF written, but only when a setting is not as it was read or
@@ -495,7 +546,7 @@ int store_save_settings(void)
 	if (len == saved_len && sum == saved_sum)
 		return 0;
 	sb_init(&b);
-	build(&b, 0);
+	build(&b);
 	r = pf_save(inf_path, b.s, b.len);
 	sb_free(&b);
 	if (r == 0) {
