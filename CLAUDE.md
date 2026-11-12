@@ -149,6 +149,11 @@ EFTP is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari, AT
 
 ## UI backlog from Erez's decisions of 9 Nov 2026
 
+**State, 12 Nov 2026 (the 2.5 alignment candidate, maintenance lifted for it):** done on `main`
+(093097693, 9443153d5): 1-10, 11, 12, 13, 14, 15, 16's keyboard reach in the pick list and the window
+arrows. Left: 16's keyboard reach in the other dialogs (a focus ring) and `form_loop` onto `dlg_do`
+(C11, waiting for the hub's password/eye in `dlg_do`).
+
 AERA-Atari a261597 (`standards/ui/DECISIONS-2026-11-09.md`, MENUS/CONTROLS/WINDOWS, DEVIATIONS rows).
 Not work to start while in maintenance mode: take it with a release made anyway (a fault fix or one
 Erez asked for), the S items freely, the H and M items only when that release is otherwise untouched.
