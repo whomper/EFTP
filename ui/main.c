@@ -43,7 +43,7 @@ static SITE conn_site;			/* the site connected to */
 static void help_key_pressed(void)
 {
 	if (help_key(opt.workdir, "eftp.hyp", 0, "Keys"))
-		dlg_keys();
+		dlg_shortcuts();
 }
 
 /* ---------------- menu ---------------- */
@@ -665,7 +665,7 @@ static void command(short cmd)
 			files_refresh(SIDE_REMOTE);
 		break;
 	case C_HELP: help_key_pressed(); break;
-	case C_KEYS: dlg_keys(); break;
+	case C_KEYS: dlg_shortcuts(); break;
 	case C_SELALL: files_select_all(side); break;
 	case C_COPY:
 		if (side_of(win_focused()) >= 0)

@@ -1738,7 +1738,7 @@ short dlg_pick_list(const char *title, const char **items, short n)
 
 /* ---------------- the keys (Help) ---------------- */
 
-void dlg_keys(void)
+void dlg_shortcuts(void)
 {
 	static const char *lines[] = {
 		"^K  the Site Manager       ^D  disconnect",

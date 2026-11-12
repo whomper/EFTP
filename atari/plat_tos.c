@@ -25,11 +25,7 @@ void (*pf_idle)(void);
  * Nov 2026). Where MiNT or MagiC runs, the program asks for long names
  * (Pdomain(1)) and reads folders with Dopendir and Dreaddir, a file's
  * size, date and kind with Fxattr; on plain TOS as before. */
-#define Pdomain(d)        trap1_ww(0x119, (d))
-#define Dopendir(p, f)    trap1_wlw(0x128, (long)(p), (f))
-#define Dreaddir(n, d, b) trap1_wwll(0x129, (n), (long)(d), (long)(b))
-#define Dclosedir(d)      trap1_wl(0x12b, (long)(d))
-#define Fxattr(f, p, x)   trap1_wwll(0x12c, (f), (long)(p), (long)(x))
+/* Pdomain, Dopendir, Dreaddir, Dclosedir, Fxattr: common's tos.h */
 
 typedef struct {
 	unsigned short mode;

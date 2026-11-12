@@ -164,7 +164,7 @@ int  reconnect(void);			/* the same server and folder again */
 int  dlg_settings(void);
 int  dlg_ask(const char *title, const char *label, char *buf, short len, short cap);	/* shows len, takes cap */
 void dlg_about(void);
-void dlg_keys(void);
+void dlg_shortcuts(void);
 SITE *dlg_sites(void);			/* the site to connect to, or NULL */
 SITE *dlg_quick(void);			/* a quick connect, kept aside; or NULL */
 int  dlg_chmod(const char *name, int mode);	/* the new mode, -1 = cancelled */
