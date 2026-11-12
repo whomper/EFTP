@@ -237,7 +237,7 @@ def no_ovl(w, m):
         plain = pixels(r.shot("noovl-start"))
         r.click(398, 8)                             # Options
         time.sleep(1.5)
-        r.click(470, 91)                            # Direct connection (TLS)
+        r.click(470, 107)                           # Direct connection (D9; Sites... above it, D13)
         r.move(600, 450)
         time.sleep(3)
         alert = pixels(r.shot("noovl-alert"))
