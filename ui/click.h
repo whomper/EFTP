@@ -43,7 +43,10 @@
  * hidden from AESGAP, being inside an AES call). On a single-tasking AES
  * nothing of another program's runs while we make no event call, so
  * press_update_begin skips the lock while the button is down there; a
- * multitasking AES keeps it.
+ * multitasking AES keeps it. It is for the press's own drawing only:
+ * every other redraw keeps wind_update. The AES presses a window's
+ * arrows itself, and with press_update round all its redraws a held
+ * arrow scrolled twice on the Falcon (EHypView 1.38).
  *
  * press_double times the double click itself, from the desktop's setting
  * (evnt_dclick): 1 when the last press_track that came back PRESS_IN was

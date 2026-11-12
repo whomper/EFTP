@@ -78,6 +78,12 @@ static int build(HUFF *h, const unsigned char *len, int n)
 	short offs[16];
 	int i, l, code, left = 1;
 	memset(h->count, 0, sizeof(h->count));
+	/* the table empty first: a code with no symbols (legal for
+	   distances) returns before it is filled, and its tables are
+	   malloc'd now (576929d), so what was there would be read as codes
+	   (EUpdate's fuzz_http: a length past the bits there, nbits -3) */
+	memset(h->fast, 0, sizeof(h->fast));
+	h->first = h->index = 0;
 	for (i = 0; i < n; i++)
 		h->count[len[i]]++;
 	if (h->count[0] == n)
@@ -97,7 +103,6 @@ static int build(HUFF *h, const unsigned char *len, int n)
 	   every slot it prefixes. (A code reversed through rev8: bit by bit,
 	   two shifts by a count each, it took 190,000 cycles a table on an
 	   8 MHz ST, three tables a stream: EWeb's 16 font faces 1.1 s) */
-	memset(h->fast, 0, sizeof(h->fast));
 	code = 0;
 	{
 		int idx = 0;
@@ -533,7 +538,8 @@ struct inflate {
 	HUFF lit, dst;
 	const HUFF *lc, *dc;
 	unsigned char *buf;		/* inflate_piece's window and output, or 0 */
-	long bpos;			/* its next place */
+	long bpos;			/* its next place, from buf + boff */
+	int boff;			/* 0 or 1: where the window starts in buf */
 	unsigned char *win;		/* inflate_read's ring, after the struct; 0 for a piece one */
 };
 
@@ -996,7 +1002,23 @@ void inflate_close(INFLATE *z)
 
 /* ---------------- a piece where it lies ---------------- */
 
-#define PBUF (2 * WIN + 260)	/* the window, a piece, and a match run on */
+#define PBUF (2 * WIN + 261)	/* the window (from its first or second byte), a piece,
+				   and a match run on */
+
+#ifdef INFLATE_ASM
+/* the hot loop in 68000 assembly (atari/inflate_fast.S): the program
+   that builds it defines INFLATE_ASM; the tests here use the C */
+typedef struct {
+	unsigned char *op, *step;
+	const unsigned char *in, *iend;
+	unsigned long bits;
+	long nbits;
+	const unsigned short *fast, *dfast;
+	unsigned char *base;
+	long len;
+} IFAST;
+int inflate_fast(IFAST *f);
+#endif
 
 INFLATE *inflate_open_piece(int (*get)(void *u, unsigned char *buf, long n), void *u)
 {
@@ -1017,15 +1039,23 @@ INFLATE *inflate_open_piece(int (*get)(void *u, unsigned char *buf, long n), voi
 
 long inflate_piece(INFLATE *z, const unsigned char **pp, long max, void (*turn)(void))
 {
-	unsigned char *b = z->buf, *op, *end;
+	unsigned char *b = z->buf + z->boff, *op, *end;
 	if (z->state == Z_BAD) {
 		*pp = b + z->bpos;
 		return -1;
 	}
 	if (max > WIN)
 		max = WIN;
-	if (z->bpos > WIN) {		/* the window to the buffer's foot */
-		memmove(b, b + z->bpos - WIN, WIN);
+	if (z->bpos > WIN) {
+		/* the window to the buffer's foot, from its first or second byte
+		   as the bytes lie: moved a long at a time, not a byte (an odd
+		   piece's end made the 68000's memmove copy 32 KB a byte at a
+		   time each piece: 2 s of a map's page on an ST, 3 Nov 2026) */
+		const unsigned char *from = b + z->bpos - WIN;
+		int off = (int)((unsigned long)from & 1) ^ (int)((unsigned long)z->buf & 1);
+		memmove(z->buf + off, from, WIN);
+		z->boff = off;
+		b = z->buf + off;
 		z->bpos = WIN;
 	}
 	op = b + z->bpos;
@@ -1068,13 +1098,43 @@ long inflate_piece(INFLATE *z, const unsigned char **pp, long max, void (*turn)(
 				if (!z->stored)
 					z->state = z->last ? Z_END : Z_HEAD;
 			} else if (z->state == Z_CODES) {
+				int len, dist, sym;
+				const unsigned char *q;
+				long e;
+#ifdef INFLATE_ASM
+				{
+					IFAST f;
+					int r;
+					f.op = op;
+					f.step = step;
+					f.in = z->in + z->ip;
+					f.iend = z->in + z->il;
+					f.bits = z->bits;
+					f.nbits = z->nbits;
+					f.fast = z->lc->fast;
+					f.dfast = z->dc->fast;
+					f.base = b;
+					r = inflate_fast(&f);
+					op = f.op;
+					z->ip = (int)(f.in - z->in);
+					z->bits = f.bits;
+					z->nbits = (int)f.nbits;
+					if (r == 2)
+						goto bad;
+					if (r == 1) {
+						z->copy = (int)f.len;
+						goto dist;
+					}
+					if (op >= step)
+						break;
+				}
+#else
 				/* the hot loop: the bits in locals, each byte stored once */
 				const unsigned short *fast = z->lc->fast, *dfast = z->dc->fast;
 				unsigned long bits = z->bits;
-				int nbits = z->nbits, len, dist, sym;
-				const unsigned char *in = z->in + z->ip, *iend = z->in + z->il, *q;
+				int nbits = z->nbits;
+				const unsigned char *in = z->in + z->ip, *iend = z->in + z->il;
 				unsigned v, l, x;
-				long e;
 				while (op < step) {
 					while (nbits <= 24 && in < iend) {
 						bits |= (unsigned long)*in++ << nbits;
@@ -1108,7 +1168,7 @@ long inflate_piece(INFLATE *z, const unsigned char **pp, long max, void (*turn)(
 						nbits += 8;
 					}
 					v = nbits >= FAST ? dfast[bits & ((1 << FAST) - 1)] : 0;
-					if (v == 0 || nbits < (int)((v & 15) + dext[v >> 4]) || (v >> 4) >= 30) {
+					if (v == 0 || (v >> 4) >= 30 || nbits < (int)((v & 15) + dext[v >> 4])) {
 						/* not enough here for the distance: the length
 						   back, the symbol again below */
 						z->ip = (int)(in - z->in);
@@ -1136,6 +1196,7 @@ long inflate_piece(INFLATE *z, const unsigned char **pp, long max, void (*turn)(
 				z->nbits = nbits;
 				if (op >= step)
 					break;
+#endif
 				/* a symbol at a time (the input's end, a long code, the
 				   block's end) */
 				sym = z_decode(z, z->lc);
@@ -1167,11 +1228,13 @@ long inflate_piece(INFLATE *z, const unsigned char **pp, long max, void (*turn)(
 					*op++ = *q++;
 				while (--len);
 				continue;
+#ifndef INFLATE_ASM
 			bad_locals:
 				z->ip = (int)(in - z->in);
 				z->bits = bits;
 				z->nbits = nbits;
 				goto bad;
+#endif
 			} else
 				break;
 		}

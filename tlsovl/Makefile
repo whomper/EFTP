@@ -30,6 +30,9 @@ CFLAGS  := -m68030 -Os -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic
            -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables -Wall -Wno-pointer-sign \
            -nostdinc -isystem $(GCCINC) -I$(C)/atari/include -Isrc -I$(C)/src -I$(C)/atari -I$(C)/ui \
            -I$(BSSL)/inc -DTLSOVL_BUILD -DTLS_030 -DLIBC_NO_HEAP -DTLSOVL_VERSION=\"$(VERSION)\"
+# a build that writes where its time goes into the program's log (src/trail.h):
+#   make B=build-trail TRAILFLAG=-DTLS_TRAIL
+CFLAGS  += $(TRAILFLAG)
 LDFLAGS := -m68030 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,ovl.ld \
            -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments
 
@@ -39,9 +42,9 @@ OBJS    := $(addprefix $(B)/,$(notdir $(SRC:.c=.o))) $(B)/mont030.o $(B)/i31_mon
 BSSLOBJ := $(patsubst $(BSSL)/src/%.c,$(B)/bssl/%.o,$(BSSLSRC))
 HDRS    := $(wildcard src/*.h $(C)/src/*.h $(C)/atari/*.h $(C)/atari/include/*.h $(C)/dsp/*.h)
 
-all: $(B)/TLS.OVL
+all: $(B)/tls.ovl
 
-$(B)/TLS.OVL: $(B)/tlsovl.elf $(C)/tools/elf2tos.py
+$(B)/tls.ovl: $(B)/tlsovl.elf $(C)/tools/elf2tos.py
 	python3 $(C)/tools/elf2tos.py $< $@
 
 $(B)/tlsovl.elf: $(OBJS) $(B)/libbearssl.a ovl.ld
@@ -73,14 +76,14 @@ $(B)/%.o: $(C)/atari/%.c $(HDRS) | $(B)
 $(B):
 	mkdir -p $@
 
-check: $(B)/TLS.OVL
-	@cmp $(B)/TLS.OVL TLS.OVL && echo "TLS.OVL $(VERSION): the committed file is its sources' build"
+check: $(B)/tls.ovl
+	@cmp $(B)/tls.ovl tls.ovl && echo "TLS.OVL $(VERSION): the committed file is its sources' build"
 
-release: $(B)/TLS.OVL
-	@if cmp -s $(B)/TLS.OVL TLS.OVL; then echo "TLS.OVL unchanged"; else \
-	  if [ -f TLS.OVL ] && [ "$$(dd if=TLS.OVL bs=1 skip=36 count=7 2>/dev/null | tr -d '\0')" = "$(VERSION)" ]; then \
+release: $(B)/tls.ovl
+	@if cmp -s $(B)/tls.ovl tls.ovl; then echo "TLS.OVL unchanged"; else \
+	  if [ -f tls.ovl ] && [ "$$(dd if=tls.ovl bs=1 skip=36 count=7 2>/dev/null | tr -d '\0')" = "$(VERSION)" ]; then \
 	    echo "raise VERSION first: TLS.OVL $(VERSION) is out already"; exit 1; fi; \
-	  cp $(B)/TLS.OVL TLS.OVL; echo "TLS.OVL $(VERSION) made: commit it with VERSION"; fi
+	  cp $(B)/tls.ovl tls.ovl; echo "TLS.OVL $(VERSION) made: commit it with VERSION"; fi
 
 test:
 	$(MAKE) -C $(C)/tests/tlsovl test

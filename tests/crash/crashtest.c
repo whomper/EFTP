@@ -50,11 +50,16 @@ static void put(const char *path, const char *s, long n)
 	}
 }
 
+static unsigned short *emu_block;
+static void emu_unhook(void);
+
 static void cleanup(const char *what)
 {
 	char s[100];
 	snprintf(s, sizeof(s), "cleanup: %s\r\n", what);
 	put("C:\\CLEANUP.TXT", s, strlen(s));
+	if (emu_block)
+		Supexec(emu_unhook);	/* (its block goes with the program) */
 	nf_debug("CRASHT cleanup\n");
 }
 
@@ -114,17 +119,20 @@ static void sup_vectors(void)
 		vecs[i] = *(volatile long *)(long)(i * 4);
 }
 
-/* e: an FPU emulator's handler: addq.l #2,2(sp) (past the instruction);
-   moveq #42,d0; rte */
-static const unsigned short fpu_emu[] = { 0x54AF, 0x0002, 0x702A, 0x4E73 };
-static unsigned short *emu_block;
+/* e: an FPU emulator's handler, with its XBRA ('XBRA', 'FPEM', the old
+   handler): addq.l #2,2(sp) (past the instruction); moveq #42,d0; rte */
+static const unsigned short fpu_emu[] = { 0x5842, 0x5241, 0x4650, 0x454D, 0, 0,
+					  0x54AF, 0x0002, 0x702A, 0x4E73 };
+/* e: another program's line F, outside this one's code: .short 0xFE00
+   (coprocessor 7: none); rts */
+static const unsigned short their_line_f[] = { 0xFE00, 0x4E75 };
 static long old11, now11;
 static volatile long *volatile v11 = (volatile long *)0x2CL;
 
 static void emu_hook(void)
 {
 	old11 = *v11;
-	*v11 = (long)emu_block;
+	*v11 = (long)(emu_block + 6);	/* (past its XBRA) */
 }
 
 static void emu_unhook(void)
@@ -205,6 +213,36 @@ static void xbra_unhook(void)
 	*v70 = *(long *)(xbra_block + 4);
 }
 
+/* o: another program hooks vector 2 and etv_term over the catcher, with
+   XBRA ('OVER'), and stays: crash_remove takes the catcher out of both
+   chains (each 'OVER' block's old becomes what was there before the
+   catcher), and crash_over names them. Otherwise the vectors lead into
+   the program's memory after it has gone */
+static unsigned short *ov2, *ovt;
+static long orig2, origt, now2, nowt, old2, oldt;
+static volatile long *volatile v2 = (volatile long *)0x8L, *volatile vt = (volatile long *)0x408L;
+static void ov_before(void)
+{
+	orig2 = *v2;
+	origt = *vt;
+}
+static void ov_hook(void)
+{
+	*(long *)(ov2 + 4) = *v2;
+	*v2 = (long)(ov2 + 6);
+	*(long *)(ovt + 4) = *vt;
+	*vt = (long)(ovt + 6);
+}
+static void ov_look(void)
+{
+	now2 = *v2;
+	nowt = *vt;
+	old2 = *(long *)(ov2 + 4);
+	oldt = *(long *)(ovt + 4);
+	*v2 = orig2;		/* the test's own blocks off again */
+	*vt = origt;
+}
+
 int main(void)
 {
 	char inf[8];
@@ -269,7 +307,25 @@ int main(void)
 	}
 	if (Fopen("C:\\STAGE1.TXT", 0) >= 0 && (xbra_block = outside(xbra_code, sizeof xbra_code)))
 		Supexec(xbra_hook);
+	if (kind == 'o') {
+		if (!(ov2 = outside(xbra_code, sizeof xbra_code)) || !(ovt = outside(xbra_code, sizeof xbra_code)))
+			return 1;
+		ov2[2] = ovt[2] = 0x4F56;	/* 'OVER' */
+		ov2[3] = ovt[3] = 0x4552;
+		Supexec(ov_before);
+	}
 	crash_install("C:\\", "CrashTest", "1.0");
+	if (kind == 'o') {
+		char t[240];
+		Supexec(ov_hook);
+		crash_remove();
+		Supexec(ov_look);
+		snprintf(t, sizeof(t), "CRASHT over %s %s: %s\n",
+			 now2 == (long)(ov2 + 6) && old2 == orig2 ? "bus-ok" : "bus-wrong",
+			 nowt == (long)(ovt + 6) && oldt == origt ? "term-ok" : "term-wrong", crash_over());
+		nf_debug(t);
+		return 0;
+	}
 	if (xbra_block)
 		Supexec(xbra_unhook);
 	crash_cleanup = cleanup;
@@ -322,16 +378,29 @@ int main(void)
 			crash_remove();
 			return 0;
 		}
+		{
+			char t[120];
+			snprintf(t, sizeof(t), "CRASHT vectors: %s\n", crash_vectors());
+			nf_debug(t);
+		}
 		__asm__ volatile(".short 0xFE00");	/* coprocessor 7: none */
 		break;
 	}
 	case 'e': {
-		long r;
-		__asm__ volatile("moveq #0,%%d0\n\t.short 0xFE00\n\tmove.l %%d0,%0" : "=d"(r) : : "d0");
-		crash_remove();
-		Supexec(emu_unhook);
+		/* another program's line F is the emulator's (42 in d0); this
+		   one's, in its own code, which has no FPU instruction, a crash
+		   (the vector named for the log: Erez's 11 bombs of 1 Nov 2026
+		   left no CRASH.LOG, vector 11 not being TOS's there) */
+		long (*f)(void) = (long (*)(void))outside(their_line_f, sizeof their_line_f);
+		long r = 0;
+		char t[120];
+		if (f)
+			__asm__ volatile("moveq #0,%%d0\n\tjsr (%1)\n\tmove.l %%d0,%0" : "=d"(r) : "a"(f) : "d0", "d1", "a0", "a1");
 		nf_debug(r == 42 ? "CRASHT emulator ok\n" : "CRASHT emulator wrong\n");
-		return 0;
+		snprintf(t, sizeof(t), "CRASHT vectors: %s\n", crash_vectors());
+		nf_debug(t);
+		__asm__ volatile(".short 0xFE00");
+		break;
 	}
 	case 'w': {
 		void (*f)(void) = (void (*)(void))outside(wild, sizeof wild);
@@ -356,5 +425,7 @@ int main(void)
 	}
 	nf_debug("CRASHT no crash\n");
 	crash_remove();
+	if (emu_block)
+		Supexec(emu_unhook);	/* (TOS 1.0x: the emulator ran it) */
 	return 2;
 }

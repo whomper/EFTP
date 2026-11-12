@@ -27,7 +27,10 @@
 
 /* shared with crash.S */
 short crash_busy, crash_cpu, crash_fvec, crash_newsr;
-long crash_regs[15], crash_usp, crash_old[12], crash_old_term;
+long crash_regs[15], crash_usp;
+extern long crash_old_term;		/* crash.S, in crash_term's XBRA header */
+extern long *const crash_slot[12];	/* crash.S: each entry's XBRA "before" slot */
+#define crash_old(i) (*crash_slot[i])
 long crash_stack_top;
 void crash_e2(void), crash_e3(void), crash_e4(void), crash_e5(void),
      crash_e6(void), crash_e7(void), crash_e8(void), crash_e11(void), crash_term(void);
@@ -39,9 +42,9 @@ void (*crash_cleanup)(const char *what);
 void (*crash_report)(const char *text, long n);
 extern short _is_acc;			/* crt0.S */
 
-/* the vectors caught: 2 to 8, and 11 (line F) where TOS's own handler
-   is on it (sup_install): with an FPU's, an emulator's or a 68040/68060
-   package's, the program's FPU instructions are theirs */
+/* the vectors caught: 2 to 8, and 11 (line F) but on TOS 1.0x
+   (sup_install); a line F outside the program's code goes on to the
+   handler before ours (crash_e11) */
 static void (*const entry[12])(void) = {
 	0, 0, crash_e2, crash_e3, crash_e4, crash_e5, crash_e6, crash_e7, crash_e8, 0, 0, crash_e11
 };
@@ -53,6 +56,7 @@ static const char *const names[12] = {
 #define CAUGHT(i) ((i) >= 2 && (i) <= 11 && entry[i] != 0)
 
 static int installed;
+static int term_set;		/* MiNT: crash_term put on the process's own etv_term (Setexc 0x102) */
 static const char *app = "the program", *app_version = "";
 static char path[220];
 static char note[80];
@@ -142,7 +146,7 @@ long crash_take(unsigned short *f, long vec)
 {
 	const unsigned short *s = !crash_cpu && vec <= 3 ? f + 4 : f;
 	long size;
-	u32 pc = (u32)s[1] << 16 | s[2], old = (u32)crash_old[vec];
+	u32 pc = (u32)s[1] << 16 | s[2], old = (u32)crash_old(vec);
 	/* a 68000 (and 68010) uses 24 bits of an address: TOS 1.x's own
 	   handlers carry the vector's number in the top byte ($08FC0B0A) */
 	u32 at = crash_cpu < 20 ? old & 0xFFFFFFUL : old;
@@ -189,17 +193,84 @@ static volatile long *low(long a)
 	return p;
 }
 
+/* who had hooked a vector over ours by the time the program ended
+   (crash_over): "bus error: NVDI" and so on */
+static char over[160];
+static int over_n;
+static unsigned short hooked;	/* the vectors sup_install put the catcher on, by bit */
+static int hk_safe(u32 a);
+
+/* one piece onto over[], ", " between the vectors; by hand, as it runs
+   from etv_term on the ending process's stack (no vsnprintf there) */
+static void over_put(const char *t)
+{
+	if (t[0] != ':' && over_n)
+		over[over_n++] = ',', over[over_n++] = ' ';
+	while (*t && over_n < (int)sizeof(over) - 1)
+		over[over_n++] = *t++;
+}
+
+/* ours off vector v: from the vector itself when ours is on top, else out
+   of the XBRA chain of the programs that hooked it after us (the one whose
+   "before" slot holds ours gets ours's "before"); supervisor mode. A chain
+   without XBRA on top of ours can't be walked: noted, as an unhook that
+   failed leaves the vector leading into the program's memory */
+static void unhook(long v, long ours, long old, const char *what)
+{
+	u32 a = (u32)*low(v);
+	int n;
+	if (a == (u32)ours) {
+		*low(v) = old;
+		return;
+	}
+	if (crash_cpu < 20)
+		a &= 0xFFFFFFUL;
+	for (n = 0; n < 16 && hk_safe(a); n++) {
+		long *p = (long *)a;
+		if (p[-3] != 0x58425241L)	/* 'XBRA' */
+			break;
+		if (over_n < (int)sizeof(over) - 48) {
+			u32 id = (u32)p[-2];
+			int i;
+			over_put(what);
+			over_put(": ");
+			for (i = 24; i >= 0; i -= 8) {
+				char c = (char)(id >> i);
+				over[over_n++] = c > ' ' && c < 127 ? c : '?';
+			}
+		}
+		if ((u32)p[-1] == (u32)ours || (crash_cpu < 20 && ((u32)p[-1] & 0xFFFFFFUL) == (u32)ours)) {
+			p[-1] = old;			/* out of the chain */
+			return;
+		}
+		a = (u32)p[-1];
+		if (crash_cpu < 20)
+			a &= 0xFFFFFFUL;
+	}
+	if (over_n < (int)sizeof(over) - 72) {
+		over_put(what);
+		over_put(": hooked over, not taken off");
+	}
+}
+
+const char *crash_over(void)
+{
+	return over;
+}
+
 /* the vectors as they were; supervisor mode */
 void crash_restore(void)
 {
 	int i;
 	if (!installed)
 		return;
+	over_n = 0;
 	for (i = 2; i <= 11; i++)
-		if (CAUGHT(i) && *low(i * 4L) == (long)entry[i])
-			*low(i * 4L) = crash_old[i];
-	if (*low(0x408L) == (long)crash_term)
-		*low(0x408L) = crash_old_term;
+		if (CAUGHT(i) && (hooked & (1 << i)))
+			unhook(i * 4L, (long)entry[i], crash_old(i), names[i]);
+	unhook(0x408L, (long)crash_term, crash_old_term, "etv_term");
+	over[over_n] = 0;
+	hooked = 0;
 	installed = 0;
 }
 
@@ -213,41 +284,72 @@ static int tos_default(int i, int j)
 	       ((b >> 24) == (u32)j && a == ((b & 0xFFFFFFUL) | (u32)i << 24));
 }
 
-/* TOS 1.0x's own line F: at every start its AES copies its dispatcher
-   into RAM (the copy rewrites itself) and puts it on vector 11. It runs
-   line F from ROM only, so a line F in the program's code is a crash; and
-   a stray one there must not reach the dispatcher, which jumps through a
-   table or pops the supervisor stack. Known by its first words (TOS 1.04:
-   move.w (sp)+,d2; movea.l (sp)+,a0; move.w (a0)+,d1; btst #0,d1); an
-   emulator over it isn't */
-static int tos1_aes_line_f(void)
+/* TOS 1.0x: its ROM calls its own routines through line F (its AES
+   copies a dispatcher into RAM at every start and puts it on vector 11),
+   from the AES and the VDI and from interrupts. Known by the version
+   alone, whoever is on vector 11: an FPU emulator over the dispatcher
+   passes those calls on to it, and the hook would cost an ST the same
+   4 to 7% of its time */
+static int tos1x(void)
 {
-	static const unsigned short first[4] = { 0x341F, 0x205F, 0x3218, 0x0801 };
 	const unsigned char *h = (const unsigned char *)*low(0x4F2L);	/* _sysbase */
-	const unsigned short *p = (const unsigned short *)(*low(0x2CL) & 0xFFFFFFL);
-	int i;
-	if (h == 0 || *(const unsigned short *)(h + 2) >= 0x0200 || ((long)p & 1))
-		return 0;
-	for (i = 0; i < 4; i++)
-		if (p[i] != first[i])
-			return 0;
-	return 1;
+	return h != 0 && *(const unsigned short *)(h + 2) < 0x0200;
+}
+
+/* the vectors left to another handler, or chained after one, for the
+   app's log (crash_vectors): "" when every one is ours over TOS's own */
+static char vec_note[96];
+static int hk_safe(u32 a);
+
+/* vector 11's handler before ours, by its XBRA name if it has one
+   (supervisor mode) */
+static void vec_note_line_f(void)
+{
+	u32 a = (u32)*low(0x2CL);
+	if (crash_cpu < 20)
+		a &= 0xFFFFFFUL;
+	if (hk_safe(a) && ((const long *)a)[-3] == 0x58425241L) {	/* 'XBRA' */
+		u32 id = (u32)((const long *)a)[-2];
+		char n[5];
+		int i;
+		for (i = 0; i < 4; i++) {
+			char c = (char)(id >> (24 - 8 * i));
+			n[i] = c > ' ' && c < 127 ? c : '?';
+		}
+		n[4] = 0;
+		snprintf(vec_note, sizeof(vec_note), "line F chained after XBRA '%s' ($%06lX)", n,
+			 (unsigned long)a);
+	} else {
+		snprintf(vec_note, sizeof(vec_note), "line F chained after $%06lX (no XBRA)", (unsigned long)a);
+	}
+}
+
+const char *crash_vectors(void)
+{
+	return vec_note;
 }
 
 static void sup_install(void)
 {
 	volatile long *rec = low(0x380L);
 	long in = *low(0x4A2L), block;
-	/* line F only while vector 11 has TOS's own handler on it: the one
-	   that bombs, or TOS 1.0x's AES dispatcher. A software FPU emulator or
-	   a 68040's or 68060's FPU package (CT60) keeps it, as the program's
-	   FPU instructions are theirs to run. Looked at before vectors 3 and 7
-	   are ours. Not on TOS 1.0x either (the guidelines' Speed): its ROM
-	   calls its own routines through line F, from the AES and the VDI, so
-	   the hook was on 4 to 7% of all an ST's time (EFTP's profiles, 26 Oct
-	   2026); a line F in the program, which no AERA program has, then
-	   bombs as before */
-	int i, line_f = (tos_default(11, 7) || tos_default(11, 3)) && !tos1_aes_line_f();
+	/* line F (vector 11), but not on TOS 1.0x (the guidelines' Speed):
+	   its ROM calls its own routines through line F, from the AES and
+	   the VDI, so the hook was on 4 to 7% of all an ST's time (EFTP's
+	   profiles, 26 Oct 2026); a line F in the program then bombs as
+	   before. Elsewhere it is taken whoever holds it: TOS's own handler,
+	   or an FPU emulator's, a 68040's or 68060's FPU package (CT60), a
+	   driver's. crash_e11 takes a line F only in the program's code,
+	   which has no FPU instruction (no AERA program has one in its
+	   TEXT; EWeb's are in EWEBJS.OVL); any other goes on to the handler
+	   before ours at once. The one it was is named for the app's log
+	   (crash_vectors): 0.57's 11 bombs on Erez's Falcon left no
+	   CRASH.LOG, vector 11 not being TOS's there */
+	int i, tos1 = tos1x(), own11 = tos_default(11, 7) || tos_default(11, 3);
+	if (tos1)
+		snprintf(vec_note, sizeof(vec_note), "line F left to TOS 1.0x (its ROM calls through it)");
+	else if (!own11)
+		vec_note_line_f();
 	if (rec[0] == 0x12345678L) {		/* proc_lives: TOS saw bombs */
 		for (i = 0; i < 27; i++)
 			prev[i] = rec[i];
@@ -259,11 +361,12 @@ static void sup_install(void)
 	block = in - savptr_nested;
 	savptr_user = block > 0 && block <= 128 ? in + block : 0;
 	for (i = 2; i <= 11; i++) {
-		if (i == 11 && !line_f)
+		if (i == 11 && tos1)
 			continue;
 		if (CAUGHT(i)) {
-			crash_old[i] = *low(i * 4L);
+			crash_old(i) = *low(i * 4L);
 			*low(i * 4L) = (long)entry[i];
+			hooked |= 1 << i;
 		}
 	}
 	crash_old_term = *low(0x408L);	/* etv_term */
@@ -460,7 +563,25 @@ void crash_install(const char *workdir, const char *name, const char *version)
 	long *bp = (long *)_BasePage;
 	int n;
 	char *mem;
-	if (installed || _is_acc || get_cookie(0x4D694E54L) || get_cookie(0x4D616758L))	/* MiNT, MagX */
+	if (installed || term_set || _is_acc)
+		return;
+	if (get_cookie(0x4D694E54L)) {		/* MiNT: it catches crashes itself, but not the end of a process
+						   killed by a signal for programs that put a handler on etv_term */
+		/* etv_term is the process's own there, set by Setexc(0x102) and by nothing else: a write to $408
+		   (what crash_install does on TOS) is never called, even at a plain Pterm (rig, FreeMiNT 1.17).
+		   crash_term goes on it, so that a handler a program puts on the vector after this, with
+		   Setexc(0x102) too, finds it as the one before it, and chains to it as on TOS: crash_term
+		   restores nothing here (installed stays 0) and goes on to the vector it found, if there was
+		   one. A SIGKILL calls no etv_term at all; SIGTERM, SIGBUS and Pterm do */
+		long old = Setexc(0x102, -1L);
+		if (old != (long)crash_term) {
+			crash_old_term = old;
+			Setexc(0x102, (long)crash_term);
+			term_set = 1;
+		}
+		return;
+	}
+	if (get_cookie(0x4D616758L))		/* MagX */
 		return;
 	if (!rep) {
 		mem = (char *)Malloc(CRASH_STACK + REP_SIZE);
@@ -477,7 +598,7 @@ void crash_install(const char *workdir, const char *name, const char *version)
 	n = snprintf(path, sizeof(path), "%s", workdir);
 	if (n > 0 && path[n - 1] != '\\' && n < (int)sizeof(path) - 1)
 		path[n++] = '\\', path[n] = 0;
-	strncat(path, "CRASH.LOG", sizeof(path) - strlen(path) - 1);
+	strncat(path, "crash.log", sizeof(path) - strlen(path) - 1);
 	crash_cpu = (short)get_cookie(0x5F435055L);	/* _CPU: 0 on a plain ST */
 	text_lo = (u32)bp[2];
 	text_hi = text_lo + (u32)bp[3];
@@ -523,6 +644,12 @@ void crash_install(const char *workdir, const char *name, const char *version)
 
 void crash_remove(void)
 {
+	if (term_set) {		/* MiNT: ours off the vector if it is the one on it (a program's own over it stays) */
+		if (Setexc(0x102, -1L) == (long)crash_term)
+			Setexc(0x102, crash_old_term);
+		term_set = 0;
+		return;
+	}
 	Supexec(crash_restore);
 }
 

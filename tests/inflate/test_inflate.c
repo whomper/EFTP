@@ -165,6 +165,17 @@ int main(void)
 					}
 				}
 	}
+	/* a dynamic block whose distance code has no symbols, its tables
+	   malloc'd: refused, never a code read from what malloc left (a
+	   shift by -3: EUpdate's fuzz_http, 1 Nov 2026; UBSan) */
+	{
+		static const unsigned char gz[] = { 0x1f, 0x8b, 0x08, 0x00, 0xff, 0x52, 0x00, 0x20, 0x4f, 0x4b, 0x6d, 0x00, 0x00, 0x00, 0x0d, 0x0a, 0x43, 0x6f, 0x6e, 0x74, 0x20, 0x32, 0x30, 0x30, 0x20, 0x4f, 0x4b, 0x0d, 0x1f, 0x0a, 0x43, 0x6f };
+		SBUF o;
+		memset(&o, 0, sizeof(o));
+		inflate_gzip(gz, (long)sizeof(gz), &o, 1L << 20);
+		free(o.s);
+		checks++;
+	}
 	/* damaged: random bytes refused or ended, never a crash (ASan) */
 	{
 		int t;
