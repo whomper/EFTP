@@ -188,3 +188,13 @@ Each done item: one line to the hub with the commit. "Hub first" = wait until th
     The INF's notes still say "File > Sites": Options > Sites since 2.5.
 
 Settled, nothing to do: Stop acts on the press during a run (D32), the toolbar look (D33), `-DDLG_CLICK`.
+
+## Feature list (Erez's ideas, not started)
+
+Kept so they are not forgotten. Nothing here is work until Erez says so.
+
+- **TUW-TCP** (Erez, 12 Nov 2026; a tester asked): EFTP speaks to the network through STinG (and
+  MiNTnet's sockets); TUW-TCP would be a third stack. Assessed as moderate work: a new transport in the
+  shared connection layer (AERA-Atari, `common/`), so the whole family could use it; nobody here has it
+  on real hardware to test. Erez doesn't have it either. First ask the tester why STinG doesn't suit
+  them. Do nothing until Erez decides.
