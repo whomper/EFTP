@@ -22,7 +22,7 @@
 void dlg_about(void)
 {
 	static char net[80], server[80], mem[80];
-	ABOUT a = { "EFTP", ftp_version, "File transfer for the Atari ST, TT and Falcon", { net, server, mem }, { 0, 0, 0 },
+	ABOUT a = { "EFTP", ftp_version, "File transfer for the ST, TT and Falcon", { net, server, mem }, { 0, 0, 0 },
 		    icon_bits, icon16_px, icon16_rgb, icon256_px, icon256_rgb };
 	/* 1: the network, how secure sites are reached, online while a
 	   server is connected (TLS.OVL's version and the DSP are in

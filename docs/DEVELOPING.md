@@ -19,7 +19,7 @@ released, and what each test does. The user guide is [GUIDE.md](GUIDE.md).
    (`EFTP.INF`, `EFTP.KEY`) in the folder `EFTP.PRG` is in, however it is started, so one of its
    own keeps them together. To update, copy a new release's files over these; the settings stay.
 2. Load STinG (or run MiNT with MiNTnet).
-3. Start EFTP, choose **File > Sites** (^K), make a site with the server's name and your login,
+3. Start EFTP, choose **Options > Sites** (^K), make a site with the server's name and your login,
    and press **Connect**. Afterwards **Connect** in the toolbar lists your sites: one click
    connects.
 4. Press **Help** in EFTP for the guide.
@@ -87,7 +87,7 @@ Falcon, TT:  Atari (EFTP + TLS.OVL: TLS 1.2, RSA on the DSP) -------------------
 ```
 
 SFTP always goes through the Pi, from a Falcon too, and so does FTPS without a Direct connection. EFTP
-picks the way from the site's **Protocol** (**File > Sites**) and **Options > Settings > Secure**.
+picks the way from the site's **Protocol** (**Options > Sites**) and **Options > Settings > Secure**.
 
 - **Through the Pi.** `gateway/eftpgate.py` is an FTP server for the Atari that speaks FTPS (Python's
   ftplib, resuming the TLS session on every data connection) or SFTP (paramiko) to the server named

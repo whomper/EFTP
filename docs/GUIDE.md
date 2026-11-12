@@ -135,7 +135,7 @@ again for the other way round.
 **Connect** in the toolbar lists your sites: click one and EFTP
 connects to it. Under them are **Sites...** and **Quick connect...**.
 
-**File > Sites** (^K) opens the Site Manager: your sites on the left,
+**Options > Sites** (^K) opens the Site Manager: your sites on the left,
 the chosen one's settings on the right. Double-click a site, or choose
 it and press Connect.
 
@@ -199,7 +199,7 @@ Falcon, TT:  Falcon (EFTP.PRG, TLS 1.2, RSA on the DSP) ------------------------
   mode), permissions.
 - **A Direct connection.** On a TT or Falcon EFTP speaks FTPS itself,
   TLS 1.2 with BearSSL, as EMail and ECal do. Switch it on with
-  **Options > Direct connection (TLS)** or in Settings > Secure. It
+  **Options > Direct connection** or in Settings > Secure. It
   needs a 68020 or better (a TT or Falcon), and `TLS.OVL` and
   `CACERT.PEM` next to `EFTP.PRG`, with `ROOTS.DAT` to start faster;
   EFTP loads `TLS.OVL` as you switch it on, and says so at once if it
@@ -210,7 +210,7 @@ Falcon, TT:  Falcon (EFTP.PRG, TLS 1.2, RSA on the DSP) ------------------------
   for them, which saves the slow part of the handshake (and which many
   servers insist on).
 
-Give the site its real server name and choose its Protocol in File >
+Give the site its real server name and choose its Protocol in Options >
 Sites; EFTP decides the way from the Protocol and the settings. The
 status line says which: "Connected to ftp.example.org - TLS 1.2,
 ECDHE-RSA, ChaCha20-Poly1305", or "... through the Pi - SFTP", and the
@@ -328,7 +328,7 @@ other side:
 
 - **Ask** (the first time): EFTP shows the file, the size of both, and
   asks: **Replace**, **Resume** (go on where the copy there stopped,
-  when it is smaller) or **Skip**; tick "The same for the others" to
+  when it is smaller) or **Skip**, the default (Return); tick "The same for the others" to
   answer for the rest of the transfer; Esc stops the transfer there,
   the file left as it is
 - **Replace it**, **Resume where it stopped**, **Skip it**: always
@@ -402,7 +402,7 @@ Options > Settings (^,), in five parts:
   Dialogs and buttons are in 3D wherever the AES draws 3D (TOS 4,
   MagiC, N.AES, XaAES), as every other program's are
 - **Connection**: the time zone, how long to wait for the server, how
-  often to keep the line open, and a protocol log (`EFTP.LOG`, with the
+  often to keep the line open, and a log (`EFTP.LOG`, with the
   passwords left out; at quit it names the four longest waits, for the
   author)
 - **Secure**: a Direct connection (TLS on this Atari) and the DSP, and
@@ -419,8 +419,8 @@ font when it has none. If the Hebrew in a bitmap font shows as other
 letters, set HEBFONT= in EFTP.INF: 1 for fonts with ISO-8859-8
 Hebrew, 2 for DOS 862, 0 for the Atari's own places.
 
-**Options > Direct connection (TLS)** switches it on and off, the
-same as the tick in Settings > Secure, and **Options > Protocol log**
+**Options > Direct connection** switches it on and off, the
+same as the tick in Settings > Secure, and **Options > Write a log**
 the log, the same as the tick in Settings > Connection.
 
 F10 switches to the Israeli keyboard for typing Hebrew names, in a
@@ -467,7 +467,7 @@ Undo or the Stop button stops it.
 - **"Can't open the data connection"**: a firewall between you and the
   server blocks the extra connections FTP makes for every list and
   file. EFTP only connects out (passive mode); the server must allow
-  that. Options > Settings > Connection > Write a protocol log, then
+  that. Options > Write a log, then
   `EFTP.LOG` shows the conversation.
 - **A transfer stays at 0%**: STinG's own settings (its TCP receive
   window and MTU).
@@ -520,7 +520,7 @@ itself: each setting has a note above it saying what it is and what the
 numbers mean, and an empty line after it. EFTP writes it again whenever settings change, with the
 notes. Passwords are encrypted with `EFTP.KEY`; type one in plain text
 in `PASS=` and EFTP encrypts it the next time it saves. Without
-`EFTP.KEY` the passwords can't be read: type them again in File > Sites.
+`EFTP.KEY` the passwords can't be read: type them again in Options > Sites.
 When EFTP.KEY can't be written (a locked disk, a full one, a folder in its
 place), the passwords go into EFTP.INF as they are, and EFTP says so once
 each time it starts; once EFTP.KEY can be written, they are encrypted the

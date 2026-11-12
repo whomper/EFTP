@@ -1110,7 +1110,7 @@ static void rclick(WIN *w, short mx, short my)
 	if (my < w->work.y + w->head_h)
 		return;
 	if (side == SIDE_REMOTE && !ftp) {
-		lab[n] = "Connect...       ^K";
+		lab[n] = "Sites...         ^K";
 		cmd[n++] = C_SITES;
 		lab[n] = "Quick connect...";
 		cmd[n++] = C_QUICK;

@@ -35,7 +35,7 @@ Download the **[latest release](https://github.com/whomper/EFTP/releases/latest)
 
 1. Copy `EFTP.PRG` and `EFTP.HYP` (and on a TT or Falcon the TLS files) into a folder of their own.
 2. Load STinG, or run MiNT with MiNTnet.
-3. Start EFTP, choose **File > Sites** (^K), make a site and press **Connect**.
+3. Start EFTP, choose **Options > Sites** (^K), make a site and press **Connect**.
 4. Press **Help** for the guide.
 
 Under TOS use `FOLDR100.PRG` ([why](docs/GUIDE.md#what-you-need)); set STinG's Delay for the machine

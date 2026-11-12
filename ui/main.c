@@ -55,7 +55,6 @@ static const MBAR_ITEM m_desk[] = {
 	{ 0, 0, 0 }
 };
 static const MBAR_ITEM m_file[] = {
-	{ "Sites...", "^K", C_SITES },
 	{ "Quick connect...", 0, C_QUICK },
 	{ "Disconnect", "^D", C_DISCONNECT },
 	{ "-", 0, 0 },
@@ -101,14 +100,16 @@ static const MBAR_ITEM m_xfer[] = {
 	{ "Server messages", "^L", C_LOG },
 	{ 0, 0, 0 }
 };
+/* sites in Options, before Settings, as accounts in every app (D13);
+   Settings, Font, a line, the ticks (MENUS 1.5) */
 static const MBAR_ITEM m_opts[] = {
+	{ "Sites...", "^K", C_SITES },
 	{ "Settings...", "^,", C_SETTINGS },
 	{ "Font...", 0, C_FONT },
+	{ "-", 0, 0 },
 	{ "Show hidden files", 0, C_HIDDEN },
-	{ "-", 0, 0 },
-	{ "Direct connection (TLS)", 0, C_FALCON },
-	{ "-", 0, 0 },
-	{ "Protocol log", 0, C_PLOG },
+	{ "Direct connection", 0, C_FALCON },
+	{ "Write a log", 0, C_PLOG },
 	{ 0, 0, 0 }
 };
 static const MBAR_ITEM m_help[] = {
@@ -922,7 +923,7 @@ static void tip_show(void)
 	tip_on = 1;
 }
 
-/* one step of quitting in the log (Protocol log), on the disk at once */
+/* one step of quitting in the log (Write a log), on the disk at once */
 static void quit_step(const char *what)
 {
 	conn_log("EFTP", " -- quit: ", what, (long)strlen(what));

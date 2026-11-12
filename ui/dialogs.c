@@ -1224,7 +1224,7 @@ static void part_connection(short x, short y)
 	d_add(G_STRING, 0, 0, (long)"Keep the line open, every", x, ROW(2), 25, 1);
 	d_field(x + FX, ROW(2), s_keep, 3, '9');
 	d_add(G_STRING, 0, 0, (long)"s", x + FX + 4, ROW(2), 1, 1);
-	d_tick(x, ROW(3), "Write a protocol log (EFTP.LOG)", T_LOG);
+	d_tick(x, ROW(3), "Write a log (EFTP.LOG)", T_LOG);
 }
 
 /* FTPS and SFTP, as EMail's and ECal's Connection: TLS on the Atari, or
@@ -1409,9 +1409,11 @@ int dlg_exists(XITEM *x, long have, int *all)
 	d_text(2, 2, l2);
 	d_text(2, 3, l3);
 	f_all = d_tick(2, 5, "The same for the others", 0);
-	b_skip = d_button(2, 8, 12, "Skip", EXIT);
-	b_res = d_button(16, 8, 12, "Resume", EXIT);
-	d_button(30, 8, 12, "Replace", EXIT | DEFAULT);
+	/* the safe one, Skip, is the default, at the right (6.2, D29);
+	   buttons 10 wide (D26) */
+	d_button(10, 8, 10, "Replace", EXIT);
+	b_res = d_button(22, 8, 10, "Resume", EXIT);
+	b_skip = d_button(34, 8, 10, "Skip", EXIT | DEFAULT);
 	d_end();
 	if (have >= x->size && x->size >= 0)
 		tree[b_res].ob_state |= DISABLED;	/* nothing left to come */

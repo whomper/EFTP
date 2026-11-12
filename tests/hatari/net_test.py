@@ -160,7 +160,7 @@ try:
           "the folder's new file came")             # then xenon2.prg asks
     time.sleep(6)
     r.shot("t5-exists")
-    r.click(200, 297 - HIGH // 2)                   # Skip
+    r.key(K["RETURN"])                              # Skip, the default (D29)
     time.sleep(4 * PAUSE)                            # the batch ends, the panes are read again
     check("RETR /pub/atari/games/xenon2.prg" not in open(elog, errors="replace").read(),
           "Skip: the file that was there didn't come again")
