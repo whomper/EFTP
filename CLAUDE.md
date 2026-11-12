@@ -182,4 +182,9 @@ Each done item: one line to the hub with the commit. "Hub first" = wait until th
 16. Keyboard reach in dialogs (D25, C6) M; own `form_loop` onto `dlg_do` (C11) H; window arrows to the
     pane under the pointer (D37). All hub first.
 
+17. EFTP.INF written only when a setting changed (Erez 12 Nov; guidelines 6.1, AERA-Atari a4b8a1a): today
+    every quit rewrites it. Fix at the next release made anyway, with a test (quit twice with nothing
+    changed: the file untouched, its date kept; one change: written once); the commit names the rule.
+    The INF's notes still say "File > Sites": Options > Sites since 2.5.
+
 Settled, nothing to do: Stop acts on the press during a run (D32), the toolbar look (D33), `-DDLG_CLICK`.
