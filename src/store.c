@@ -283,7 +283,7 @@ static void zone_detect(void)
 /* ---------------- reading and writing ---------------- */
 
 static void settings_sum(unsigned long *sum, long *len);
-/* the settings' checksum (FNV-1a over their values, and how many) as
+/* the settings' checksum (over their values, and how many) as
    read or last written: EFTP.INF is written only when they differ */
 static unsigned long saved_sum;
 static long saved_len = -1;
@@ -460,7 +460,8 @@ static void build(SBUF *bp)
 /* the sum of what EFTP.INF keeps, value by value (a string up to its
    end, a number as it is): a few milliseconds, where building the INF's
    text took an 8 MHz ST about a third of a second at the start. *len
-   counts the values, for a second check */
+   counts the values, for a second check. Shifts and adds, not FNV's
+   32-bit multiply: that cost the ST 15 ms at the start */
 static unsigned long sum_h;
 static long sum_n;
 
@@ -468,7 +469,7 @@ static void sum_bytes(const void *p, long n)
 {
 	const unsigned char *c = p;
 	while (n-- > 0)
-		sum_h = (sum_h ^ *c++) * 16777619UL;
+		sum_h = ((sum_h << 5) + sum_h) ^ *c++;	/* h * 33: no multiply, which a 68000 does by a call */
 	sum_n++;
 }
 
@@ -482,7 +483,7 @@ static void sum_str(const char *t)
 static void settings_sum(unsigned long *sum, long *len)
 {
 	short i;
-	sum_h = 2166136261UL;
+	sum_h = 5381;
 	sum_n = 0;
 	sum_str(opt.tzname);
 	SUM(opt.timeout);
