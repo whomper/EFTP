@@ -122,13 +122,58 @@ void font_reselect(void)
 	text_font(vdi_h, cur_id, cw, ch);
 }
 
+/* a font's name as the VDI gives it, its trailing spaces cut */
+static void trimmed_name(short index, char *out)
+{
+	short n;
+	char name[34];
+	memset(name, 0, sizeof(name));
+	vqt_name(vdi_h, index, name);
+	name[32] = 0;
+	n = (short)strlen(name);
+	while (n > 0 && name[n - 1] == ' ')
+		n--;
+	name[n] = 0;
+	strcpy(out, name);
+}
+
+/* the INF keeps the font by its name (FONT=name,points; D44): the id for
+   opt.font_name now, or the name for opt.font_id (an INF with the old
+   FONT=id,points, read once) */
+static void font_by_name(void)
+{
+	short i, n = gdos_fonts > 0 ? gdos_fonts : 0;
+	char name[34];
+	if (opt.font_id == 1 || (!opt.font_id && !strcmp(opt.font_name, "System"))) {
+		opt.font_id = 1;
+		str_copy(opt.font_name, "System", sizeof(opt.font_name));
+		return;
+	}
+	for (i = 2; i <= n + 1; i++) {
+		short id;
+		memset(name, 0, sizeof(name));
+		id = vqt_name(vdi_h, i, name);
+		trimmed_name(i, name);
+		if (opt.font_id ? id == opt.font_id : !strcmp(name, opt.font_name)) {
+			opt.font_id = id;
+			str_copy(opt.font_name, name, sizeof(opt.font_name));
+			return;
+		}
+	}
+	opt.font_id = 1;		/* not on this machine: the system font */
+	opt.font_pt = 0;
+	str_copy(opt.font_name, "System", sizeof(opt.font_name));
+}
+
 void font_apply(void)
 {
 	if (opt.font_id != 1 && gdos_fonts < 0 && vq_gdos())
 		gdos_fonts = vst_load_fonts(vdi_h, 0);
+	font_by_name();
 	if (!set_font(opt.font_id, opt.font_pt)) {
 		opt.font_id = 1;
 		opt.font_pt = 0;
+		str_copy(opt.font_name, "System", sizeof(opt.font_name));
 		set_font(1, 0);
 	}
 }
@@ -184,6 +229,7 @@ static void take(fontsel *s)
 {
 	opt.font_id = s->id;
 	opt.font_pt = s->pt;
+	opt.font_name[0] = 0;	/* font_apply names it */
 	bold_forget();		/* the titles kept were in the old font */
 	font_apply();
 	store_save_settings();

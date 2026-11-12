@@ -448,7 +448,8 @@ end of the toolbar (left of Stop) and of a dialog's title.
 | ^R, Esc        | read the lists again                           |
 | Undo           | in a dialog or an alert: Cancel                |
 | Esc            | in a dialog: empty the field; no field: Cancel |
-| Space, Insert  | select the file under the cursor and move on   |
+| Space          | select the file under the cursor and move on   |
+| Insert         | the file's menu, as a right click on it         |
 | ^L             | server messages / transfers                    |
 | ^,             | Settings                                       |
 | F10            | Hebrew keyboard                                |

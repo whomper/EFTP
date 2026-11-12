@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include "ui.h"
 #include "panebar.h"
-#include "theme.h"
+#include "colours.h"
 #include "conn.h"
 #include "secret.h"
 #include "../src/plat.h"
@@ -26,6 +26,7 @@
 #include "mbar.h"
 #include "dialog.h"
 #include "notify.h"
+#include "tooltip.h"
 #include "../src/version.h"
 
 short vdi_h, cw, ch, scr_w, scr_h, desk_x, desk_y, desk_w, desk_h, planes;
@@ -171,6 +172,20 @@ void menu_update(void)
 {
 	int side = focus_side(), n = (int)files_count(side);
 	int nl = (int)files_count(SIDE_LOCAL), nr = (int)files_count(SIDE_REMOTE);
+	static int was_running;
+	if (running || was_running) {
+		/* while a run goes nothing in the menus can start: they are
+		   greyed, their keys dropped; Stop (and Esc) stay (D19) */
+		const MBAR_TITLE *t;
+		const MBAR_ITEM *it;
+		for (t = bar; t->title; t++)
+			for (it = t->items; it->text; it++)
+				if (it->cmd)
+					enable(it->cmd, !running);
+		was_running = running;
+		if (running)
+			return;
+	}
 	enable(C_CUT, 0);		/* in dialogs only: no text in the window */
 	enable(C_COPY, side_of(win_focused()) >= 0);
 	enable(C_PASTE, 0);
@@ -700,7 +715,7 @@ static void command(short cmd)
 			set_logging();
 			ftp_timeout = opt.timeout;
 			store_save_settings();
-			theme_init();
+			colours_init();
 			files_refresh(SIDE_LOCAL);
 			if (ftp)
 				files_refresh(SIDE_REMOTE);
@@ -858,69 +873,21 @@ static void work_dir(char *out, int size)
 		out[strlen(out) - 1] = 0;
 }
 
-/* ---------------- tooltips (as ECal's) ----------------
- * shown when the mouse rests on a toolbar button or a name too long for
- * its column, gone when it moves, a key is pressed or a button clicked */
-static short tip_on, tip_tried, hover_x = -1, hover_y = -1;
-static unsigned long hover_at;
-static GRECT tip_r;
+/* ---------------- tooltips ----------------
+ * common's tooltip.c (D18): on a toolbar button or a name too long for its
+ * column (win_tip), after the pointer rests 700 ms; BubbleGEM where it
+ * runs. hover_x/y: the pointer at the last move */
+static short hover_x = -1, hover_y = -1;
 
-static void tip_hide(void)
+static int tip_line_rtl(const char *t, short n)
 {
-	if (!tip_on)
-		return;
-	tip_on = 0;
-	win_redraw_area(&tip_r);
+	return line_rtl(t, n);
 }
 
-static void tip_show(void)
+static void tip_repaint(const GRECT *r)
 {
-	char text[200], *l2;
-	short n1, n2, n;
-	GRECT r, scr;
-	tip_tried = 1;
-	if (!win_tip(hover_x, hover_y, text, sizeof(text)))
-		return;
-	l2 = strchr(text, '|');
-	if (l2)
-		*l2++ = 0;
-	n1 = (short)strlen(text);
-	n2 = l2 ? (short)strlen(l2) : 0;
-	if (n1 > 60)
-		n1 = 60;
-	if (n2 > 60)
-		n2 = 60;
-	n = n1 > n2 ? n1 : n2;
-	r.w = (n + 2) * cw;
-	r.h = (l2 ? 2 : 1) * ch + 6;
-	r.x = hover_x + cw;
-	r.y = hover_y + ch + 2;
-	/* on the screen: to the left or above the mouse at the edges */
-	if (r.x + r.w > desk_x + desk_w)
-		r.x = hover_x - r.w - cw / 2;
-	if (r.x < desk_x)
-		r.x = desk_x;
-	if (r.y + r.h > desk_y + desk_h)
-		r.y = hover_y - r.h - 2;
-	if (r.y < desk_y)
-		r.y = desk_y;
-	tip_r = r;
-	tip_r.w++;
-	tip_r.h++;
-	scr.x = scr.y = 0;
-	scr.w = scr_w;
-	scr.h = scr_h;
-	wind_update(BEG_UPDATE);
-	graf_mouse(M_OFF, 0);
-	clip_on(&scr);
-	fill(&r, 0);
-	frame(&r, 1);
-	text_at(r.x + cw, r.y + 3, text, n1, n1, (line_rtl(text, n1) ? TX_RIGHT : 0));
-	if (l2)
-		text_pen_at(pen[P_DIM], r.x + cw, r.y + 3 + ch, l2, n2, n2, TX_LTR);
-	graf_mouse(M_ON, 0);
-	wind_update(END_UPDATE);
-	tip_on = 1;
+	GRECT t = *r;
+	win_redraw_area(&t);
 }
 
 /* one step of quitting in the log (Write a log), on the disk at once */
@@ -1051,7 +1018,7 @@ int main(void)
 	dlg_redraw_hook = win_redraw_msg;	/* EFTP's window drawn while one is open */
 	if (get_cookie(0x5F435055L) < 20)	/* _CPU: a Direct connection needs a 68020 */
 		opt.falcon = 0;
-	theme_init();
+	colours_init();
 	font_apply();
 	hebrew_kbd_hook = hebrew_changed;
 	set_logging();
@@ -1083,37 +1050,29 @@ int main(void)
 
 	crash_offer("EFTP", "in EFTP's folder");
 	if (store_lost_passwords)
-		alert(1, "[1][EFTP.KEY is missing or new: type the passwords again in File > Sites.][ OK ]");
+		alert(1, "[1][EFTP.KEY is missing or new: type the passwords again in Options > Sites.][ OK ]");
+	tip_init(tip_repaint);
+	tip_rtl = tip_line_rtl;
 	evnt_set_m1(1, 0, 0, 1, 1);
 
 	while (!quit) {
-		short which, hovering;
-		unsigned long wait = 1000;
+		short which;
 		evnt_set_m1(1, hover_x, hover_y, 1, 1);
-		hovering = !tip_tried && hover_x >= 0 && !main_iconified;
-		if (hovering)
-			wait = 100;
 		/* 0x101/3/0: wake on any button press, left or right, at once:
 		   one click asked for (the guidelines' 5.8; asking for two held
 		   every press back for the double-click time). A list times its
 		   double clicks itself (common's click.c) */
 		main_badge_now();	/* the Hebrew keyboard's badge, when asked for */
-		which = evnt_multi_(MU_MESAG | MU_KEYBD | MU_BUTTON | MU_TIMER | MU_M1, 0x101, 3, 0, wait, msg, &ev);
+		which = evnt_multi_(MU_MESAG | MU_KEYBD | MU_BUTTON | MU_TIMER | MU_M1, 0x101, 3, 0, tip_wait(1000), msg, &ev);
 		aes_profile_tag((which & MU_MESAG) ? (msg[0] == WM_REDRAW ? "redraw" : msg[0] == MN_SELECTED ?
 				"menu" : "message") : (which & MU_KEYBD) ? "key" : (which & MU_BUTTON) ? "click" :
 				(which & MU_M1) ? "hover" : "timer");
-		if (which & (MU_M1 | MU_KEYBD | MU_BUTTON | MU_MESAG)) {
+		if ((which & MU_M1) && !main_iconified) {
 			short k;
-			if ((which & MU_M1) && !main_iconified) {
-				graf_mkstate(&hover_x, &hover_y, &k, &k);
-				win_hover(hover_x, hover_y);
-			}
-			hover_at = pf_ms();
-			tip_tried = (which & (MU_KEYBD | MU_BUTTON)) != 0;
-			tip_hide();
-		} else if (hovering && pf_ms() - hover_at >= 700UL) {
-			tip_show();
+			graf_mkstate(&hover_x, &hover_y, &k, &k);
+			win_hover(hover_x, hover_y);
 		}
+		tip_tick(which, main_iconified ? -1 : hover_x, hover_y, win_tip);
 		if ((which & MU_MESAG) && notify_message(msg))
 			which &= ~MU_MESAG;	/* BGEM.NG's */
 		if (which & MU_MESAG) {

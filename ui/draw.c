@@ -7,7 +7,7 @@
  */
 #include <string.h>
 #include "ui.h"
-#include "theme.h"
+#include "colours.h"
 #include "bidi.h"
 #include "text.h"
 

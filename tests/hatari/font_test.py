@@ -61,7 +61,7 @@ with open(inf, "w", newline="") as f:
 
 CONNECT, SITE1 = (50, 73), (60, 92)             # the toolbar's Connect, its first site
 OPTIONS = (404, 8)                              # the menu bar's Options
-FONT = (420, 44)                                # its second entry, Font...
+FONT = (420, 60)                                # its third entry, Font... (Sites... first, D13)
 fails = []
 
 

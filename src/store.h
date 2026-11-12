@@ -59,6 +59,7 @@ typedef struct {
 	short main_x, main_y, main_w, main_h;	/* the window, 0 = not yet placed */
 	short pane_w, pane_h;	/* the Atari pane's width, the file panes' height */
 	short font_id, font_pt;	/* text font: VDI font id (1 = system) and size */
+	char font_name[34];	/* its name, as the INF keeps it (FONT=name,points); "System" for id 1 */
 	short hebfont;		/* where the font has its Hebrew letters: HEB_* */
 	char ldir[200];		/* the Atari folder shown last */
 	short sort;		/* 0 name, 1 size, 2 date; +8 reversed */

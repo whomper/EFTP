@@ -12,7 +12,8 @@
 #include <stdlib.h>
 #include "ui.h"
 #include "notify.h"
-#include "theme.h"
+#include "progbar.h"
+#include "colours.h"
 #include "util.h"
 #include "charset.h"
 
@@ -20,6 +21,18 @@ short show_log;
 static long qsel = -1;			/* the row chosen with the mouse */
 static short state_col;			/* where the state column starts, in characters */
 static long last_run = -1;		/* the row whose bar was drawn last */
+
+/* the time a job has left, the family's way (D35): "42 s left",
+   "2 min left" (rounded up), "1 h 5 min left" */
+static void left_fmt(long secs, char *out, int size)
+{
+	if (secs < 60)
+		snprintf(out, size, "%ld s left", secs);
+	else if (secs < 3600)
+		snprintf(out, size, "%ld min left", (secs + 59) / 60);
+	else
+		snprintf(out, size, "%ld h %ld min left", secs / 3600, (secs % 3600 + 59) / 60);
+}
 
 /* ---------------- the server's messages ---------------- */
 
@@ -63,7 +76,7 @@ static unsigned long run_t0;		/* when queue_run started */
 typedef struct {
 	long k, all;		/* files started (or done) and files in all */
 	long bdone, btotal;	/* bytes */
-	char left[24];		/* "12:34 left" for the whole run, or "" */
+	char left[24];		/* "2 min left" for the whole run, or "" */
 } RUNSUM;
 
 /* the files of this run: the ones waiting and the ones it started.
@@ -107,10 +120,7 @@ static void run_sum(RUNSUM *r)
 	if (bps <= 0)
 		return;
 	secs = rest / bps + 1;
-	if (secs >= 3600)
-		snprintf(r->left, sizeof(r->left), "%ld:%02ld:%02ld left", secs / 3600, secs / 60 % 60, secs % 60);
-	else
-		snprintf(r->left, sizeof(r->left), "%ld:%02ld left", secs / 60, secs % 60);
+	left_fmt(secs, r->left, sizeof(r->left));
 }
 
 /* ---------------- titles ---------------- */
@@ -169,7 +179,7 @@ static void speed_str(long bytes, unsigned long ms, char *out, int size)
 		snprintf(out, size, "%ld.%ld MB/s", bps / (1024L * 1024), (bps % (1024L * 1024)) * 10 / (1024L * 1024));
 }
 
-/* "0:42 left", from the speed so far */
+/* "42 s left", from the speed so far */
 static void left_str(XITEM *x, char *out, int size)
 {
 	unsigned long ms = pf_ms() - x->t0;
@@ -182,10 +192,7 @@ static void left_str(XITEM *x, char *out, int size)
 		return;
 	rest = x->size - x->done;
 	secs = rest / bps + 1;
-	if (secs >= 3600)
-		snprintf(out, size, "%ld:%02ld:%02ld left", secs / 3600, secs / 60 % 60, secs % 60);
-	else
-		snprintf(out, size, "%ld:%02ld left", secs / 60, secs % 60);
+	left_fmt(secs, out, size);
 }
 
 static short percent(long done, long size)
@@ -297,9 +304,9 @@ static void draw_white(WIN *w, GRECT *clip)
 			done.x++;
 			done.y++;
 			done.h -= 2;
-			done.w = (short)((long)(bar.w - 2) * pct / 100);
-			if (done.w > 0)
-				fill(&done, colour ? pen[up ? P_UP : P_DOWN] : 1);
+			done.w = bar.w - 2;
+			if (pct > 0)	/* the family's bar (progbar, D48), a bar a running row */
+				progbar_fill(vdi_h, done.x, done.y, done.w, done.h, 0, (short)((long)PB_FULL * pct / 100));
 			speed_str(x->done, pf_ms() - x->t0, sp, sizeof(sp));
 			{
 				char lt[24];
@@ -457,6 +464,7 @@ void queue_run(void)
 	running = 1;
 	conn_stop = 0;
 	toolbar_redraw();
+	menu_update();		/* the menus greyed while it runs (D19) */
 	queue_changed(-1);
 	for (attempt = 0;; attempt++) {
 		aes_profile_tag("transfer");
@@ -565,7 +573,7 @@ static void rclick(WIN *w, short mx, short my)
 	}
 	lab[n] = show_log ? "Show the transfers    ^L" : "Show server messages  ^L";
 	cmd[n++] = C_LOG;
-	r = popup(mx, my, lab, n);
+	r = popup_m(mx, my, lab, n);
 	if (r < 0)
 		return;
 	if (cmd[r] == -1) {

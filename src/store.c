@@ -123,6 +123,8 @@ static void set_site(SITE *s, const char *k, const char *v)
 			   !strcasecmp(v, "ftps") ? PR_FTPS : PR_FTP;
 }
 
+static int window_seen;		/* WINDOW= read: an old MAIN= gives way */
+
 static void set_opt(const char *k, const char *v)
 {
 	short n = (short)atoi(v);
@@ -139,9 +141,31 @@ static void set_opt(const char *k, const char *v)
 	else if (!strcmp(k, "shorten")) opt.shorten = n != 0;
 	else if (!strcmp(k, "beep")) opt.beep = n != 0;
 	else if (!strcmp(k, "text")) str_copy(opt.text, v, 39);	/* what Settings can show */
-	else if (!strcmp(k, "main")) shorts(v, &opt.main_x, 4);
-	else if (!strcmp(k, "panes")) shorts(v, &opt.pane_w, 2);
-	else if (!strcmp(k, "font")) shorts(v, &opt.font_id, 2);
+	/* WINDOW=, PANES= and FONT=name,points are the family's (D43, D44);
+	   MAIN= and FONT=id,points, the old ones, are read once and give
+	   way to the new where both are there */
+	else if (!strcmp(k, "window")) {
+		shorts(v, &opt.main_x, 4);
+		window_seen = 1;
+	} else if (!strcmp(k, "main")) {
+		if (!window_seen)
+			shorts(v, &opt.main_x, 4);
+	} else if (!strcmp(k, "panes")) shorts(v, &opt.pane_w, 2);
+	else if (!strcmp(k, "font")) {
+		if (*v >= '0' && *v <= '9') {		/* the old FONT=id,points */
+			shorts(v, &opt.font_id, 2);
+			opt.font_name[0] = 0;		/* found from the id when the fonts are loaded */
+		} else {
+			const char *c = strrchr(v, ',');
+			long len = c ? (long)(c - v) : (long)strlen(v);
+			if (len > (long)sizeof(opt.font_name) - 1)
+				len = sizeof(opt.font_name) - 1;
+			memcpy(opt.font_name, v, len);
+			opt.font_name[len] = 0;
+			opt.font_pt = c ? (short)atoi(c + 1) : 0;
+			opt.font_id = !strcmp(opt.font_name, "System") ? 1 : 0;	/* 0: by its name, later */
+		}
+	}
 	else if (!strcmp(k, "hebfont")) opt.hebfont = n >= 0 && n <= 2 ? n : 0;
 	else if (!strcmp(k, "localdir")) str_copy(opt.ldir, v, sizeof(opt.ldir));
 	else if (!strcmp(k, "sort")) opt.sort = n;
@@ -387,11 +411,11 @@ int store_save_settings(void)
 	put_str(&b, "extensions of files sent as text (line ends converted); all others go as they are",
 		"TEXT", opt.text);
 	put_fmt(&b, "the window: x,y,width,height in pixels; 0,0,0,0 = let EFTP place it",
-		"MAIN", "%d,%d,%d,%d", opt.main_x, opt.main_y, opt.main_w, opt.main_h);
+		"WINDOW", "%d,%d,%d,%d", opt.main_x, opt.main_y, opt.main_w, opt.main_h);
 	put_fmt(&b, "dividers: the Atari pane's width, the file panes' height, in pixels",
 		"PANES", "%d,%d", opt.pane_w, opt.pane_h);
-	put_fmt(&b, "text font: GDOS font id (1 = system font), size (system font: 0, 8 small, 16 large)",
-		"FONT", "%d,%d", opt.font_id, opt.font_pt);
+	put_fmt(&b, "text font: its name (System = the system font), size in points (system font: 0, 8 small, 16 large)",
+		"FONT", "%s,%d", opt.font_name[0] ? opt.font_name : "System", opt.font_pt);
 	put_fmt(&b, "where a bitmap font keeps its Hebrew letters: 0 = Atari places, 1 = ISO-8859-8, 2 = DOS 862",
 		"HEBFONT", "%d", opt.hebfont);
 	put_fmt(&b, "sort the lists by 0 name, 1 size, 2 date; add 8 for the other way round",

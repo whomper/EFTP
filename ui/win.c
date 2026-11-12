@@ -18,7 +18,8 @@
 #include <stdio.h>
 #include "ui.h"
 #include "click.h"
-#include "theme.h"
+#include "colours.h"
+#include "arrowed.h"
 #include "text.h"
 #include "util.h"
 #include "bidi.h"
@@ -144,6 +145,12 @@ static int enabled(int i)
    4 and EmuTOS the window is flat, and so is its toolbar (5.1) */
 static OBJECT tool_tree[1 + NBUT];
 static char tool_text[NBUT][16];
+
+/* the smallest the window may be, one number for opening it at its saved
+   place and for WM_SIZED (D38): wide enough for the toolbar's buttons
+   (50 cells), the two panes and the Transfers under them (16 lines) */
+#define MIN_W (50 * cw)
+#define MIN_H (16 * ch)
 
 static void tool_layout(void)
 {
@@ -356,7 +363,7 @@ static void connect_menu(GRECT *b)
 		lab[n++] = "-";
 	lab[n++] = "Sites...         ^K";
 	lab[n++] = "Quick connect...";
-	r = popup(b->x, b->y + b->h, lab, n);
+	r = popup_m(b->x, b->y + b->h, lab, n);
 	if (r < 0)
 		return;
 	if (r < nsites)
@@ -999,7 +1006,7 @@ void main_open(void)
 		return;
 	}
 	/* the saved place, if it still fits this screen */
-	if (wd < 40 * cw || ht < 16 * ch || x < 0 || y < desk_y ||
+	if (wd < MIN_W || ht < MIN_H || x < 0 || y < desk_y ||
 	    x + wd > desk_x + desk_w + 4 || y + ht > desk_y + desk_h + 4) {
 		x = desk_x;
 		y = desk_y;
@@ -1430,16 +1437,29 @@ void win_message(short *msg)
 		if (!running)
 			main_closed();
 		break;
-	case WM_ARROWED:		/* the AES's sliders: the pane at the right */
+	case WM_ARROWED:		/* the pane under the pointer, else the sliders' (D37) */
 		if (!main_iconified) {
-			long rows = win_rows(aes_pane), t = aes_pane->top;
+			WIN *const all[3] = { &w_local, &w_remote, &w_queue };
+			ARROW_PANE ap[3];
+			short n = 0, i;
+			WIN *pw;
+			for (i = 0; i < 3; i++)
+				if (all[i]->total > win_rows(all[i])) {	/* it has scrolling to do */
+					ap[n].r = all[i]->work;
+					ap[n++].id = i;
+				}
+			i = arrow_target(ap, n, aes_pane == &w_local ? 0 : aes_pane == &w_remote ? 1 : 2);
+			pw = all[i];
+			{
+			long rows = win_rows(pw), t = pw->top;
 			switch (msg[4]) {
 			case WA_UPPAGE: t -= rows - 1; break;
 			case WA_DNPAGE: t += rows - 1; break;
 			case WA_UPLINE: t--; break;
 			case WA_DNLINE: t++; break;
 			}
-			win_scroll_to(aes_pane, t);
+			win_scroll_to(pw, t);
+			}
 		}
 		break;
 	case WM_VSLID:
@@ -1479,10 +1499,10 @@ void win_message(short *msg)
 			wind_set(main_h, WF_CURRXYWH, msg[4], msg[5], msg[6], msg[7]);
 			break;
 		}
-		if (msg[6] < 50 * cw)
-			msg[6] = 50 * cw;
-		if (msg[7] < 16 * ch)
-			msg[7] = 16 * ch;
+		if (msg[6] < MIN_W)
+			msg[6] = MIN_W;
+		if (msg[7] < MIN_H)
+			msg[7] = MIN_H;
 		place8(&msg[4], msg[5], &msg[6], msg[7]);
 		wind_set(main_h, WF_CURRXYWH, msg[4], msg[5], msg[6], msg[7]);
 		get_main_work();

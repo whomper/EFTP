@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include "ui.h"
 #include "click.h"
-#include "theme.h"
+#include "colours.h"
 #include "util.h"
 #include "charset.h"
 #include "clip.h"
@@ -437,17 +437,21 @@ static void drive_menu(WIN *w, short mx, short my)
 		char c = (char)('A' + d);
 		if (!(map & (1L << d)))
 			continue;
-		lab[n][0] = ldir[0] && (ldir[0] & ~0x20) == c ? '\x08' : ' ';
-		lab[n][1] = c;
-		lab[n][2] = ':';
-		lab[n][3] = 0;
+		{
+			short k = 0;
+			if (ldir[0] && (ldir[0] & ~0x20) == c)
+				lab[n][k++] = '\x08';	/* the tick in popup_m's margin */
+			lab[n][k++] = c;
+			lab[n][k++] = ':';
+			lab[n][k] = 0;
+		}
 		drv[n] = c;
 		l[n] = lab[n];
 		n++;
 	}
 	if (!n)
 		return;
-	r = popup(mx, w->work.y, l, n);
+	r = popup_m(mx, w->work.y, l, n);
 	if (r >= 0) {
 		char p[3];
 		p[0] = drv[r];
@@ -1114,7 +1118,7 @@ static void rclick(WIN *w, short mx, short my)
 		cmd[n++] = C_SITES;
 		lab[n] = "Quick connect...";
 		cmd[n++] = C_QUICK;
-		r = popup(mx, my, lab, n);
+		r = popup_m(mx, my, lab, n);
 		if (r >= 0)
 			ui_command(cmd[r]);
 		return;
@@ -1152,7 +1156,7 @@ static void rclick(WIN *w, short mx, short my)
 	cmd[n++] = C_SELALL;
 	lab[n] = "Refresh          ^R";
 	cmd[n++] = C_REFRESH;
-	r = popup(mx, my, lab, n);
+	r = popup_m(mx, my, lab, n);
 	if (r < 0)
 		return;
 	if (cmd[r] == -1)
@@ -1166,16 +1170,19 @@ static int key(WIN *w, short kstate, short k)
 	int side = side_of(w);
 	SIDE *s = &sd[side];
 	short scan = KEY_SCAN(k);
-	long rows = win_rows(w), last = s->l.n + s->up - 1;
+	/* a page is rows - 1, one row of context kept, as the bars page (W6);
+	   Shift known by key_shift, as a busy system loses kstate */
+	long rows = win_rows(w), last = s->l.n + s->up - 1, page = rows > 1 ? rows - 1 : 1;
+	int sh = key_shift(kstate, k);
 	switch (scan) {
 	case 0x48:	/* up (shift: a page) */
-		select_only(s, s->cur < 0 ? 0 : s->cur - ((kstate & 3) ? rows : 1));
+		select_only(s, s->cur < 0 ? 0 : s->cur - (sh ? page : 1));
 		return 1;
 	case 0x50:	/* down */
-		select_only(s, s->cur < 0 ? 0 : s->cur + ((kstate & 3) ? rows : 1));
+		select_only(s, s->cur < 0 ? 0 : s->cur + (sh ? page : 1));
 		return 1;
 	case 0x47:	/* Clr/Home: first, shift: last */
-		select_only(s, (kstate & 3) ? last : 0);
+		select_only(s, sh ? last : 0);
 		return 1;
 	case 0x1c:	/* Return: open the folder, send the file */
 	case 0x72:
@@ -1186,8 +1193,13 @@ static int key(WIN *w, short kstate, short k)
 		if (s->up)
 			side == SIDE_LOCAL ? local_cd("..") : remote_cd("..");
 		return 1;
-	case 0x52:	/* Insert, Space: the cursor's row in or out, then down */
-	case 0x39:
+	case 0x52:	/* Insert: the row's menu, at the cursor's row (D16, MENUS 3.3) */
+		{
+			long r = s->cur >= w->top && s->cur < w->top + rows ? s->cur - w->top : 0;
+			rclick(w, w->work.x + 4 * cw, w->work.y + w->head_h + (short)r * ch + ch / 2);
+		}
+		return 1;
+	case 0x39:	/* Space: the cursor's row in or out, then down */
 		if (entry(s, s->cur)) {
 			long row = s->cur;
 			s->mark[row - s->up] = !s->mark[row - s->up];

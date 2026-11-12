@@ -18,7 +18,7 @@
 #include "tz.h"
 #include "clip.h"
 #include "field.h"
-#include "theme.h"
+#include "colours.h"
 #include "text.h"
 #include "tls.h"
 
@@ -831,6 +831,8 @@ static short form_loop(short start)
 short d_do(short edit)
 {
 	short x, y, w, h, r;
+	if (band > 0)
+		dlg_band(band);		/* a window's title stands for it (D22) */
 	dlg_open(tree, &x, &y, &w, &h);
 	r = form_loop(edit) & 0x7fff;
 	dlg_close();
@@ -1044,7 +1046,11 @@ static short pick_over(const char *title, const char **items, short n, short lw,
 	nested = 1;			/* the settings' long fields stay */
 	tree = tree_b;
 	ted = ted_b;
-	i = pick_w(title, items, n, lw);
+	{
+		short keep_band = band;	/* the picker has its own band (D22) */
+		i = pick_w(title, items, n, lw);
+		band = keep_band;
+	}
 	tree = tree_a;
 	ted = ted_a;
 	nested = 0;
@@ -1088,11 +1094,11 @@ static void exists_pick(short btn)
 	const char *items[5];
 	short bx, by, i;
 	for (i = 0; i < 5; i++) {
-		snprintf(lab[i], sizeof(lab[i]), "%c %s", i == s_exists ? '\x08' : ' ', exists_names[i]);
+		snprintf(lab[i], sizeof(lab[i]), "%s%s", i == s_exists ? "\x08" : "", exists_names[i]);
 		items[i] = lab[i];
 	}
 	objc_offset(tree, btn, &bx, &by);
-	i = popup(bx, by, items, 5);
+	i = popup_over(bx, by, items, 5, s_exists);	/* the ticked row over the button (D27) */
 	if (i >= 0)
 		s_exists = i;
 	exists_label();
@@ -1405,6 +1411,7 @@ int dlg_exists(XITEM *x, long have, int *all)
 	s_on[0] = 0;
 	nticks = 0;
 	d_begin(46, 11);
+	d_band(46, " Already there");	/* every dialog its black band (D22) */
 	d_add(G_STRING, 0, 0, (long)l1, 2, 1, (short)strlen(l1), 1);
 	d_text(2, 2, l2);
 	d_text(2, 3, l3);
@@ -1420,6 +1427,7 @@ int dlg_exists(XITEM *x, long have, int *all)
 	{
 		short xx, y, w, h;
 		dlg_name("Already there");
+		dlg_band(band);
 		dlg_open(tree, &xx, &y, &w, &h);
 		for (;;) {
 			/* no button here does nothing: Esc and Undo give -1, and
@@ -1537,7 +1545,11 @@ int dlg_ask(const char *title, const char *label, char *buf, short len, short ca
 		len = 46;
 	str_copy(field, buf, cap + 1);
 	d_begin(len + 6 > 40 ? len + 6 : 40, 8);
-	d_add(G_STRING, 0, 0, (long)title, 2, 1, (short)strlen(title), 1);
+	{
+		static char bt[60];
+		snprintf(bt, sizeof(bt), " %s", title);
+		d_band(len + 6 > 40 ? len + 6 : 40, bt);	/* every dialog its black band (D22) */
+	}
 	d_text(2, 3, label);
 	f = d_long(2, 4, field, len, cap);
 	d_button((len + 6 > 40 ? len + 6 : 40) - 24, 6, 10, "Cancel", EXIT);
@@ -1572,6 +1584,99 @@ static void old_row_off(void)
 	row_later = -1;
 }
 
+/* the pick list's state, for its keys (pick_keys) */
+static struct {
+	OBJECT *tree;
+	char (*shown)[PW + 2];
+	const char **items;
+	short *row, first, cur, n, lw, box, b_up, b_down, b_ok, f_count;
+	char *count;
+} pk;
+
+/* the rows from pk.first, the chosen one inverted; the count, the arrows
+   and OK as they should be */
+static void pick_fill(void)
+{
+	short k;
+	for (k = 0; k < PROWS; k++) {
+		short it = pk.first + k, len = 0;
+		memset(pk.shown[k], ' ', pk.lw);
+		pk.shown[k][pk.lw] = 0;
+		tree[pk.row[k]].ob_state = 0;
+		if (it < pk.n) {
+			const char *s = pk.items[it];
+			len = (short)strlen(s);
+			if (len > pk.lw - 2)
+				len = pk.lw - 2;
+			/* GEM draws in storage order: lay Hebrew out first */
+			if (bidi_has_rtl(s, len))
+				bidi_visual(s, len, bidi_is_rtl(s, len), pk.shown[k] + 1);
+			else
+				memcpy(pk.shown[k] + 1, s, len);
+			heb_font_map(pk.shown[k] + 1, len, opt.hebfont);
+			if (it == pk.cur)
+				tree[pk.row[k]].ob_state = SELECTED;
+		}
+	}
+	if (pk.n > PROWS)
+		snprintf(pk.count, 40, "%d-%d of %d", pk.first + 1,
+			 pk.first + PROWS < pk.n ? pk.first + PROWS : pk.n, pk.n);
+	else
+		snprintf(pk.count, 40, pk.n == 1 ? "1 to choose from" : "%d to choose from", pk.n);
+	tree[pk.b_up].ob_state = pk.first > 0 ? 0 : DISABLED;
+	tree[pk.b_down].ob_state = pk.first + PROWS < pk.n ? 0 : DISABLED;
+	tree[pk.b_ok].ob_state = pk.cur >= 0 ? 0 : DISABLED;
+}
+
+/* the keyboard's reach in the list (D25, 5.10): Up and Down move the
+   choice a row (Shift: a page of rows - 1), Clr/Home to the first
+   (Shift: the last); Return is OK, as before. Only the rows that change
+   are drawn, the list when it pages */
+static int pick_keys(OBJECT *t, short key, short kstate, short edit, short *field)
+{
+	short scan = (key >> 8) & 0xff, to = pk.cur, sh = (short)key_shift(kstate, key);
+	(void)edit;
+	(void)field;
+	if (t != pk.tree || pk.n <= 0)
+		return 0;
+	switch (scan) {
+	case 0x48: to = pk.cur < 0 ? 0 : pk.cur - (sh ? PROWS - 1 : 1); break;
+	case 0x50: to = pk.cur < 0 ? 0 : pk.cur + (sh ? PROWS - 1 : 1); break;
+	case 0x47: to = sh ? pk.n - 1 : 0; break;
+	default: return 0;
+	}
+	if (to < 0)
+		to = 0;
+	if (to >= pk.n)
+		to = pk.n - 1;
+	if (to == pk.cur)
+		return 1;
+	if (to >= pk.first && to < pk.first + PROWS) {
+		short was = pk.cur, okd = (tree[pk.b_ok].ob_state & DISABLED) != 0;
+		pk.cur = to;
+		if (was >= pk.first && was < pk.first + PROWS) {
+			tree[pk.row[was - pk.first]].ob_state = 0;
+			dlg_draw(tree, pk.row[was - pk.first]);
+		}
+		tree[pk.row[to - pk.first]].ob_state = SELECTED;
+		dlg_draw(tree, pk.row[to - pk.first]);
+		if (okd) {
+			tree[pk.b_ok].ob_state &= ~DISABLED;
+			dlg_draw(tree, pk.b_ok);
+		}
+		return 1;
+	}
+	pk.cur = to;
+	pk.first = to - to % PROWS;
+	pick_fill();
+	dlg_draw(tree, pk.box);
+	dlg_draw(tree, pk.b_up);
+	dlg_draw(tree, pk.b_down);
+	dlg_draw(tree, pk.f_count);
+	dlg_draw(tree, pk.b_ok);
+	return 1;
+}
+
 static short pick_w(const char *title, const char **items, short n, short lw)
 {
 	static char shown[PROWS][PW + 2], count[40];
@@ -1589,7 +1694,11 @@ static short pick_w(const char *title, const char **items, short n, short lw)
 	if (tw > lw + 2)
 		lw = tw > PW ? PW : tw - 2;
 	d_begin(lw + 8, PROWS + 8);
-	d_add(G_STRING, 0, 0, (long)title, 2, 1, (short)strlen(title), 1);
+	{
+		static char bt[60];
+		snprintf(bt, sizeof(bt), " %s", title);
+		d_band(lw + 8, bt);	/* every dialog its black band (D22) */
+	}
 	box = d_add(G_BOX, 0, 0, 0x00FF1100L, 2, 3, lw, PROWS);
 	for (i = 0; i < PROWS; i++)
 		row[i] = d_add(G_STRING, TOUCHEXIT, 0, (long)shown[i], 2, 3 + i, lw, 1);
@@ -1600,6 +1709,18 @@ static short pick_w(const char *title, const char **items, short n, short lw)
 	b_cancel = d_button(lw - 18, PROWS + 6, 10, "Cancel", EXIT);
 	b_ok = d_button(lw - 6, PROWS + 6, 10, "OK", EXIT | DEFAULT);
 	d_end();
+	pk.tree = tree;
+	pk.shown = shown;
+	pk.items = items;
+	pk.row = row;
+	pk.n = n;
+	pk.lw = lw;
+	pk.box = box;
+	pk.b_up = b_up;
+	pk.b_down = b_down;
+	pk.b_ok = b_ok;
+	pk.f_count = f_count;
+	pk.count = count;
 
 	for (;;) {
 		/* fill the rows from `first`; the chosen one inverted */
@@ -1612,37 +1733,13 @@ static short pick_w(const char *title, const char **items, short n, short lw)
 			quick = 0;
 			goto ask;
 		}
-		for (k = 0; k < PROWS; k++) {
-			short it = first + k, len = 0;
-			memset(shown[k], ' ', lw);
-			shown[k][lw] = 0;
-			tree[row[k]].ob_state = 0;
-			if (it < n) {
-				const char *s = items[it];
-				len = (short)strlen(s);
-				if (len > lw - 2)
-					len = lw - 2;
-				/* GEM draws in storage order: lay Hebrew out first */
-				if (bidi_has_rtl(s, len))
-					bidi_visual(s, len, bidi_is_rtl(s, len), shown[k] + 1);
-				else
-					memcpy(shown[k] + 1, s, len);
-				heb_font_map(shown[k] + 1, len, opt.hebfont);
-				if (it == cur)
-					tree[row[k]].ob_state = SELECTED;
-			}
-		}
-		if (n > PROWS)
-			snprintf(count, sizeof(count), "%d-%d of %d", first + 1,
-				 first + PROWS < n ? first + PROWS : n, n);
-		else
-			snprintf(count, sizeof(count), n == 1 ? "1 to choose from" : "%d to choose from", n);
-		tree[b_up].ob_state = first > 0 ? 0 : DISABLED;
-		tree[b_down].ob_state = first + PROWS < n ? 0 : DISABLED;
-		tree[b_ok].ob_state = cur >= 0 ? 0 : DISABLED;
+		pk.first = first;
+		pk.cur = cur;
+		pick_fill();
 		if (result == -1) {
 			/* first time round: open the dialog */
 			dlg_name(title);
+			dlg_band(band);
 			dlg_open(tree, &x, &y, &w, &h);
 			result = -2;
 		} else {
@@ -1654,7 +1751,13 @@ static short pick_w(const char *title, const char **items, short n, short lw)
 			dlg_draw(tree, b_ok);
 		}
 	ask:
+		pk.first = first;
+		pk.cur = cur;
+		dlg_keys = pick_keys;
 		r = dlg_do(tree, 0, b_cancel);
+		dlg_keys = 0;
+		first = pk.first;	/* the keys may have moved them */
+		cur = pk.cur;
 		{
 			int dbl = (r & 0x8000) != 0;
 			r &= 0x7fff;
@@ -1754,14 +1857,14 @@ void dlg_shortcuts(void)
 		"Shift+click  one more      Control+click  a range",
 		"Space  select and move on  a letter: to that name",
 		"^L  server messages        F10 Hebrew keyboard",
-		"^,  Settings",
+		"^,  Settings               Insert  the file's menu",
 		"During a transfer: Esc or Stop ends it",
 		"^U, ^Q  quit               Help  the user guide",
 		"The file keys act on the pane with the keyboard"
 	};
 	short i, n = (short)(sizeof(lines) / sizeof(lines[0]));
 	d_begin(54, n + 6);
-	d_add(G_STRING, 0, 0, (long)"Keys", 2, 1, 4, 1);
+	d_band(54, " Keys");
 	for (i = 0; i < n; i++)
 		d_text(3, 3 + i, lines[i]);
 	d_button(42, n + 4, 10, "OK", EXIT | DEFAULT);
@@ -1808,11 +1911,11 @@ static int proto_pick(short btn, short proto, char *port)
 	const char *items[4];
 	short bx, by, i;
 	for (i = 0; i < 4; i++) {
-		snprintf(lab[i], sizeof(lab[i]), "%c %s", i == proto ? '\x08' : ' ', proto_items[i]);
+		snprintf(lab[i], sizeof(lab[i]), "%s%s", i == proto ? "\x08" : "", proto_items[i]);
 		items[i] = lab[i];
 	}
 	objc_offset(tree, btn, &bx, &by);
-	i = popup(bx, by, items, 4);		/* over the button (5.7) */
+	i = popup_over(bx, by, items, 4, proto);	/* the ticked row over the button (D27) */
 	if (i < 0 || i == proto)
 		return proto;
 	if (!port[0] || atoi(port) == proto_port(proto))
