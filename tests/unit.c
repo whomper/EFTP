@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "../src/ftp.h"
 #include "../src/xfer.h"
 #include "../src/store.h"
@@ -236,6 +237,51 @@ static void test_sort(void)
 	}
 }
 
+
+/* EFTP.INF is written only when a setting changed (Erez, 12 Nov 2026;
+   the guidelines, 6.1): a save with nothing different writes no file */
+static int inf_there(const char *path)
+{
+	return access(path, F_OK) == 0;
+}
+
+static void test_inf_on_change(void)
+{
+	char dir[] = "/tmp/eftp-inf-XXXXXX", inf[300];
+	SITE *s;
+	if (!mkdtemp(dir)) {
+		CHECK(0);
+		return;
+	}
+	snprintf(inf, sizeof(inf), "%s/eftp.inf", dir);
+	store_init(dir);
+	s = site_new();
+	CHECK(s != 0);
+	if (!s)
+		return;
+	strcpy(s->name, "Test");
+	strcpy(s->host, "ftp.example.org");
+	strcpy(s->pass, "secret");
+	CHECK(store_save_settings() == 0);
+	CHECK(inf_there(inf));			/* the first: written */
+	unlink(inf);
+	CHECK(store_save_settings() == 0);
+	CHECK(!inf_there(inf));			/* nothing changed: no file written */
+	opt.sort ^= 1;
+	CHECK(store_save_settings() == 0);
+	CHECK(inf_there(inf));			/* a setting changed: written */
+	unlink(inf);
+	CHECK(store_save_settings() == 0);
+	CHECK(!inf_there(inf));			/* and once only */
+	strcpy(s->pass, "other");
+	CHECK(store_save_settings() == 0);
+	CHECK(inf_there(inf));			/* a password changed: written (sealed, its nonce new each time) */
+	unlink(inf);
+	snprintf(inf, sizeof(inf), "%s/eftp.key", dir);
+	unlink(inf);
+	rmdir(dir);
+}
+
 int main(void)
 {
 	test_unix();
@@ -246,6 +292,7 @@ int main(void)
 	test_paths();
 	test_text();
 	test_sort();
+	test_inf_on_change();
 	printf("%d checks, %d failed\n", checks, fails);
 	return fails != 0;
 }

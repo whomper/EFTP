@@ -282,6 +282,12 @@ static void zone_detect(void)
 
 /* ---------------- reading and writing ---------------- */
 
+static void settings_sum(unsigned long *sum, long *len);
+/* the settings' checksum (FNV-1a over the plain text, and its length) as
+   read or last written: EFTP.INF is written only when they differ */
+static unsigned long saved_sum;
+static long saved_len = -1;
+
 int store_init(const char *workdir)
 {
 	char *buf, *line, *next;
@@ -341,6 +347,7 @@ int store_init(const char *workdir)
 			}
 		}
 		free(buf);
+		settings_sum(&saved_sum, &saved_len);	/* as read: written again only when changed */
 	}
 	if (!opt.tzname[0] || !tz_find(opt.tzname))
 		zone_detect();		/* written with the next save */
@@ -379,12 +386,13 @@ static void put_secret(SBUF *b, const char *note, const char *key, const char *v
 	put_str(b, note, key, sealed);
 }
 
-int store_save_settings(void)
+/* the INF's text, the settings as they are now; plain: the passwords as
+   they are (only for settings_sum: a sealed one differs each time, its
+   nonce is new) */
+static void build(SBUF *bp, int plain)
 {
-	SBUF b;
+	SBUF b = *bp;
 	short i;
-	int r;
-	sb_init(&b);
 	sb_adds(&b, "; EFTP settings, written by EFTP.PRG. Lines starting with ; are notes.\r\n"
 		    "; Most of these are set in Options > Settings; see EFTP.HYP (Help).\r\n"
 		    "; 1 means on, 0 means off.\r\n\r\n[OPTIONS]\r\n\r\n");
@@ -439,7 +447,10 @@ int store_save_settings(void)
 		put_fmt(&b, "1 = log in anonymously (public archives), 0 = with the user and password below",
 			"ANONYMOUS", "%d", s->anon);
 		put_str(&b, "login name", "USER", s->user);
-		put_secret(&b, "password, encrypted with EFTP.KEY (type it in File > Sites)", "PASS", s->pass);
+		if (plain)
+			put_str(&b, "", "PASS", s->pass);
+		else
+			put_secret(&b, "password, encrypted with EFTP.KEY (type it in File > Sites)", "PASS", s->pass);
 		put_str(&b, "the folder on the server to open; empty = where the login starts", "REMOTEDIR", s->rdir);
 		put_str(&b, "the Atari folder to show with it; empty = the one shown before", "LOCALDIR", s->ldir);
 		put_fmt(&b, "files go 0 = as text or binary by their extension, 1 = all as text, 2 = all binary",
@@ -448,8 +459,49 @@ int store_save_settings(void)
 			"PROTOCOL", s->proto == PR_SFTP ? "sftp" : s->proto == PR_FTPSI ? "ftps-implicit" :
 				    s->proto == PR_FTPS ? "ftps" : "ftp");
 	}
+	*bp = b;
+}
+
+/* the settings' checksum (FNV-1a over the plain text, and its length):
+   what was read or last written, to write EFTP.INF only when a setting
+   changed (Erez, 12 Nov 2026; the guidelines, 6.1) */
+static void settings_sum(unsigned long *sum, long *len)
+{
+	SBUF b;
+	unsigned long h = 2166136261UL;
+	long i;
+	sb_init(&b);
+	build(&b, 1);
+	for (i = 0; i < b.len; i++)
+		h = (h ^ (unsigned char)b.s[i]) * 16777619UL;
+	*sum = h;
+	*len = b.len;
+	memset(b.s, 0, b.len);		/* the passwords in plain: gone at once */
+	sb_free(&b);
+}
+
+/* EFTP.INF written, but only when a setting is not as it was read or
+   last written: quitting, closing a dialog or Settings' OK with nothing
+   changed opens no file, writes nothing, and the file's date stays
+   (Erez, 12 Nov 2026; the guidelines, 6.1). 0 when the file is as the
+   settings are (pf_save's: 0 written) */
+int store_save_settings(void)
+{
+	SBUF b;
+	unsigned long sum;
+	long len;
+	int r;
+	settings_sum(&sum, &len);
+	if (len == saved_len && sum == saved_sum)
+		return 0;
+	sb_init(&b);
+	build(&b, 0);
 	r = pf_save(inf_path, b.s, b.len);
 	sb_free(&b);
+	if (r == 0) {
+		saved_sum = sum;
+		saved_len = len;
+	}
 	return r;
 }
 
