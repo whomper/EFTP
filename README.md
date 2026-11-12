@@ -18,7 +18,7 @@ larger, with about 350 KB free (a 1 MB ST with STinG will do), and STinG, STiK, 
 - **FTPS and SFTP:** through AERA-Gateway from any Atari, or FTPS by a TT or Falcon itself.
 - **A Site Manager** with encrypted passwords, and Quick connect for the others.
 - **File management on both sides:** new folder, rename, delete, permissions on the server.
-- **Small:** one program for every Atari, about 250 KB, that runs on a 1 MB ST with STinG.
+- **Small:** one program for every Atari, about 260 KB, that runs on a 1 MB ST with STinG.
 
 ![EFTP on a Falcon in 640x480 with 256 colours: the Atari's files on the left, the server's on the right, the transfers below](docs/screenshot.png)
 
