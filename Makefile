@@ -56,8 +56,14 @@ ifdef PROFILE
 OBJDIR  := build/prof
 CFLAGS  += -DAES_PROFILE=$(PROFILE)
 endif
+# the main flows' hot loops first, right after the startup objects: the
+# 68030's 256-byte instruction cache sees them in the same places whatever
+# else grows (the guidelines' Speed, the link order; Erez 13 Nov 2026).
+# local_names, the sort and the folder listing (xfer), the list parser
+# and flist_add (ftp), a pane's rows (files) and the text (draw)
+HOT     := xfer ftp files draw
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/crash_s.o \
-           $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CORE) $(ATARI) $(UI)))
+           $(addprefix $(OBJDIR)/,$(addsuffix .o,$(HOT) $(filter-out $(HOT),$(CORE) $(ATARI) $(UI))))
 OBJS    := $(OBJS0)
 HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
            common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h)
