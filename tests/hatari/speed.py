@@ -346,7 +346,7 @@ try:
     measure("back up to /pub (Backspace)", 300, lambda: r.key(K["BACKSPACE"]), quiet=4, most=60)
     r.type("z")
     time.sleep(1 * SLOW)
-    big = os.path.join(hd, "ZBIG.BIN")
+    big = os.path.join(hd, "MANY", "ZBIG.BIN")     # into the folder the Atari pane shows
     size = server.FILES["pub/zbig.bin"]
 
     def download():
