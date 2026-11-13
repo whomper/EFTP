@@ -303,7 +303,11 @@ try:
         wait_for(lambda: elog_has("CWD /pub"), 60 * SLOW)
     measure("connected, /pub listed", 300, connect, quiet=3, most=90)
     r.shot("7-connected")
-    r.click(REMOTE_X, ROW0 + 2 * 16)    # the keyboard to the server pane: a row, whatever the font (FONT=)
+    # the keyboard to the server pane by its first row, whatever the font
+    # (FONT=): a letter goes to the next name after the cursor with it, so
+    # from the third row (many, under atari) "m" went on to music, a folder
+    # of one file, and the rows below timed that (13 Nov 2026)
+    r.click(REMOTE_X, ROW0)
     time.sleep(1 * SLOW)
     r.type("m")
     time.sleep(1 * SLOW)
@@ -312,6 +316,8 @@ try:
         r.key(K["RETURN"])
         wait_for(lambda: elog_has("CWD /pub/many") or elog_has("CWD many"), 30 * SLOW)
     measure("server folder of 400 opened", 300, open_many, quiet=4, most=180)
+    if not (elog_has("CWD /pub/many") or elog_has("CWD many")):
+        sys.exit("speed.py: /pub/many wasn't opened: the rows that follow would time another folder")
     r.shot("8-remote-many")
     presses("server: a line scrolled", 50, K["DOWN"], 18)
     presses("server: a page scrolled", 150, K["DOWN"], 3, shift=True)
