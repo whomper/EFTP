@@ -316,6 +316,16 @@ try:
     presses("server: a line scrolled", 50, K["DOWN"], 18)
     presses("server: a page scrolled", 150, K["DOWN"], 3, shift=True)
 
+    # one file down from the folder of 400 (the row the cursor is on): the
+    # start works out the Atari names of the whole folder, long names
+    # shortened to 8+3 (local_names)
+    def download_one():
+        at = len(open(elog, errors="replace").read())
+        r.key(K["RETURN"])
+        wait_for(lambda: re.search(r"RETR [^\n]*\n(?:.*\n)*?.* 226 ", open(elog, errors="replace").read()[at:]),
+                 60 * SLOW)
+    measure("a file from the folder of 400: its start", 300, download_one, quiet=3, most=90)
+
     # a download: its progress in the transfers pane
     measure("back up to /pub (Backspace)", 300, lambda: r.key(K["BACKSPACE"]), quiet=4, most=60)
     r.type("z")
