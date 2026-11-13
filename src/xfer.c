@@ -307,6 +307,32 @@ static long stem_at(NAMESET *t, const char *stem)
 	return i;
 }
 
+/* BASE.EXT (BASE without an extension), and BASE's first keep letters
+   with ~k: by hand, as snprintf took an 8 MHz ST some 2 ms each, five a
+   name (13 Nov 2026) */
+static void join_83(char *out, const char *base, const char *ext)
+{
+	strcpy(out, base);
+	if (ext[0]) {
+		strcat(out, ".");
+		strcat(out, ext);
+	}
+}
+
+static void tilde_83(char *out, const char *base, int keep, int k)
+{
+	char *p = out;
+	while (*base && keep-- > 0)
+		*p++ = *base++;
+	*p++ = '~';
+	if (k >= 100)
+		*p++ = (char)('0' + k / 100);
+	if (k >= 10)
+		*p++ = (char)('0' + k / 10 % 10);
+	*p++ = (char)('0' + k % 10);
+	*p = 0;
+}
+
 char *local_names(FLIST *l)
 {
 	char *names = malloc((l->n ? l->n : 1) * LNAME);
@@ -328,7 +354,7 @@ char *local_names(FLIST *l)
 		}
 		{
 			int cut = make_83(src, base, ext);
-			snprintf(out, LNAME, ext[0] ? "%s.%s" : "%s", base, ext);
+			join_83(out, base, ext);
 			if (!cut && !(fast ? set_has(&t, names, out) : taken(names, i, out))) {
 				if (fast)
 					set_add(&t, i, out);
@@ -341,7 +367,9 @@ char *local_names(FLIST *l)
 			long st = -1;
 			if (fast) {
 				char stem[13];
-				snprintf(stem, sizeof(stem), "%s.%s", base, ext);
+				strcpy(stem, base);
+				strcat(stem, ".");
+				strcat(stem, ext);
 				st = stem_at(&t, stem);
 				from = t.last[st] + 1;
 			}
@@ -350,8 +378,8 @@ char *local_names(FLIST *l)
 			for (k = from; k < 1000; k++) {
 				char b[12];
 				int keep = k < 10 ? 6 : k < 100 ? 5 : 4;
-				snprintf(b, sizeof(b), "%.*s~%d", keep, base, k);
-				snprintf(out, LNAME, ext[0] ? "%s.%s" : "%s", b, ext);
+				tilde_83(b, base, keep, k);
+				join_83(out, b, ext);
 				if (!(fast ? set_has(&t, names, out) : taken(names, i, out)))
 					break;
 			}
