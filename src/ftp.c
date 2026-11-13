@@ -29,17 +29,50 @@ void flist_init(FLIST *l)
 {
 	l->e = 0;
 	l->n = l->cap = 0;
+	l->chunks = 0;
+	l->at = 0;
+	l->left = 0;
 }
 
 void flist_free(FLIST *l)
 {
-	long i;
-	for (i = 0; i < l->n; i++) {
-		free(l->e[i].name);
-		free(l->e[i].disp);
+	void *c = l->chunks;
+	while (c) {
+		void *next = *(void **)c;
+		free(c);
+		c = next;
 	}
 	free(l->e);
 	flist_init(l);
+}
+
+/* s copied into the list's blocks: 1 KB first (a short folder), then
+   4 KB at a time, or as much as a longer name needs */
+#define CHUNK_FIRST 1024
+#define CHUNK_MORE 4096
+
+static char *flist_dup(FLIST *l, const char *s)
+{
+	long n = (long)strlen(s) + 1;
+	char *p;
+	if (n > l->left) {
+		long size = l->chunks ? CHUNK_MORE : CHUNK_FIRST;
+		void **c;
+		if (n + (long)sizeof(void *) > size)
+			size = n + (long)sizeof(void *);
+		c = malloc((size_t)size);
+		if (!c)
+			return 0;
+		*c = l->chunks;
+		l->chunks = c;
+		l->at = (char *)(c + 1);
+		l->left = size - (long)sizeof(void *);
+	}
+	p = l->at;
+	memcpy(p, s, (size_t)n);
+	l->at += n;
+	l->left -= n;
+	return p;
 }
 
 FENTRY *flist_add(FLIST *l, const char *name, const char *disp)
@@ -55,13 +88,10 @@ FENTRY *flist_add(FLIST *l, const char *name, const char *disp)
 	}
 	e = &l->e[l->n];
 	memset(e, 0, sizeof(*e));
-	e->name = strdup(name);
-	e->disp = strdup(disp ? disp : name);
-	if (!e->name || !e->disp) {
-		free(e->name);
-		free(e->disp);
-		return 0;
-	}
+	e->name = flist_dup(l, name);
+	e->disp = e->name ? flist_dup(l, disp ? disp : name) : 0;
+	if (!e->name || !e->disp)
+		return 0;	/* what was copied stays in the block, freed with the list */
 	e->size = -1;
 	e->mtime = CT_NONE;
 	e->hidden = name[0] == '.';

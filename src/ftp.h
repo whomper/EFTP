@@ -33,9 +33,16 @@ typedef struct {
 	char perm[12];		/* "rwxr-xr-x" (Unix servers), or "" */
 } FENTRY;
 
+/* a folder's entries; their names live in a few blocks of the list's
+   own (chunks), freed with it: one malloc and one free a block, not two
+   of each an entry (600 free()s took an 8 MHz ST 135 ms, 13 Nov 2026).
+   An entry's name and disp are never freed or grown on their own */
 typedef struct {
 	FENTRY *e;
 	long n, cap;
+	void *chunks;		/* the blocks, each starting with the one before */
+	char *at;		/* where the next name goes in the newest */
+	long left;		/* bytes free there */
 } FLIST;
 
 void flist_init(FLIST *l);

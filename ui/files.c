@@ -361,11 +361,8 @@ static void remote_load_keep(const char *keep)
 		} else {
 			long i, o = 0;
 			for (i = 0; i < s->l.n; i++) {
-				if (s->l.e[i].hidden && !opt.hidden) {
-					free(s->l.e[i].name);
-					free(s->l.e[i].disp);
-					continue;
-				}
+				if (s->l.e[i].hidden && !opt.hidden)
+					continue;	/* its names stay in the list's blocks */
 				s->l.e[o++] = s->l.e[i];
 			}
 			s->l.n = o;

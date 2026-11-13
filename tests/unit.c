@@ -282,6 +282,66 @@ static void test_names_same(void)
 	flist_free(&l);
 }
 
+/* a list's names in its own blocks (13 Nov 2026): every name and disp as
+   given, through the blocks' ends, a name longer than a block, and a sort */
+static void make_name(char *out, long i, int disp)
+{
+	int len = i == 1500 ? 5000 : (int)(i % 97) + 1, k;
+	sprintf(out, "%c%05ld-", disp ? 'D' : 'n', i);
+	for (k = 7; k < len + 7; k++)
+		out[k] = (char)('a' + (i + k) % 26);
+	out[k] = 0;
+}
+
+static void test_flist_blocks(void)
+{
+	static char a[5100], b[5100];
+	FLIST l;
+	long i, bad = -1, chunks = 0;
+	void *c;
+	flist_init(&l);
+	for (i = 0; i < 3000; i++) {
+		make_name(a, i, 0);
+		make_name(b, i, 1);
+		CHECK(flist_add(&l, a, b) != 0 || !"added");
+	}
+	flist_add(&l, "same", 0);
+	for (c = l.chunks; c; c = *(void **)c)
+		chunks++;
+	checks++;
+	if (chunks < 2 || chunks > 200) {
+		fails++;
+		printf("FAIL flist blocks: %ld of them for 3000 names\n", chunks);
+	}
+	for (i = 0; i < 3000 && bad < 0; i++) {
+		make_name(a, i, 0);
+		make_name(b, i, 1);
+		if (strcmp(l.e[i].name, a) || strcmp(l.e[i].disp, b))
+			bad = i;
+	}
+	CHECK(bad < 0);
+	CHECKS(l.e[3000].name, "same");
+	CHECKS(l.e[3000].disp, "same");
+	opt.sort = 0;
+	opt.dirsfirst = 0;
+	flist_sort(&l);		/* entries move; their names stay where they are */
+	for (i = 0, bad = -1; i < l.n && bad < 0; i++) {
+		long k = l.e[i].name[0] == 'n' ? atol(l.e[i].name + 1) : 3000;
+		if (k < 3000) {
+			make_name(a, k, 0);
+			make_name(b, k, 1);
+			if (strcmp(l.e[i].name, a) || strcmp(l.e[i].disp, b))
+				bad = i;
+		} else if (strcmp(l.e[i].name, "same")) {
+			bad = i;
+		}
+	}
+	CHECK(bad < 0);
+	flist_free(&l);
+	CHECK(l.n == 0 && !l.chunks && !l.e);
+	flist_free(&l);		/* twice: nothing left to free */
+}
+
 static void test_names(void)
 {
 	FLIST l;
@@ -455,6 +515,7 @@ int main(void)
 	test_pasv();
 	test_names();
 	test_names_same();
+	test_flist_blocks();
 	test_paths();
 	test_text();
 	test_sort();
