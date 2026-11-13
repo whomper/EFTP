@@ -241,12 +241,81 @@ static int taken(const char *names, long n, const char *name)
 	return 0;
 }
 
+/* The names made so far, found by a hash of their letters as strcasecmp
+   compares them: taken() looked at every name before, for each name and
+   each ~k tried, and a server folder of 400 long names that share their
+   start (atari-demo-001.zip, ...) made it hundreds of thousands of
+   comparisons. Each 8+3 stem also keeps the last ~k it gave: every one
+   below it was taken then, and names are only added, so the search goes
+   on from there and gives the same name as before. The order and every
+   name are as taken() made them (tests/unit.c compares the two). */
+typedef struct {
+	unsigned short *slot;	/* a name's number + 1, 0 = free */
+	char (*stem)[13];	/* BASE.EXT a slot's stem is kept for */
+	short *last;		/* the last ~k that stem gave */
+	long mask;
+} NAMESET;
+
+static unsigned long fold_hash(const char *s)
+{
+	unsigned long h = 5381;
+	while (*s)
+		h = ((h << 5) + h) ^ (unsigned long)tolower((unsigned char)*s++);
+	return h;
+}
+
+static int set_open(NAMESET *t, long n)
+{
+	long size = 16;
+	while (size < 2 * n)
+		size <<= 1;
+	t->mask = size - 1;
+	t->slot = calloc((size_t)size, sizeof(*t->slot) + sizeof(*t->stem) + sizeof(*t->last));
+	if (!t->slot)
+		return 0;
+	t->stem = (char (*)[13])(t->slot + size);
+	t->last = (short *)(t->stem + size);
+	return 1;
+}
+
+static int set_has(const NAMESET *t, const char *names, const char *name)
+{
+	long i = (long)(fold_hash(name) & (unsigned long)t->mask);
+	for (; t->slot[i]; i = (i + 1) & t->mask)
+		if (!strcasecmp(names + (t->slot[i] - 1) * LNAME, name))
+			return 1;
+	return 0;
+}
+
+static void set_add(NAMESET *t, long k, const char *name)
+{
+	long i = (long)(fold_hash(name) & (unsigned long)t->mask);
+	while (t->slot[i])
+		i = (i + 1) & t->mask;
+	t->slot[i] = (unsigned short)(k + 1);
+}
+
+/* the stem's slot (case as made: make_83 gives capitals) */
+static long stem_at(NAMESET *t, const char *stem)
+{
+	long i = (long)(fold_hash(stem) & (unsigned long)t->mask);
+	for (; t->stem[i][0]; i = (i + 1) & t->mask)
+		if (!strcmp(t->stem[i], stem))
+			return i;
+	str_copy(t->stem[i], stem, sizeof(t->stem[i]));
+	t->last[i] = 0;
+	return i;
+}
+
 char *local_names(FLIST *l)
 {
 	char *names = malloc((l->n ? l->n : 1) * LNAME);
+	NAMESET t;
+	int fast;
 	long i;
 	if (!names)
 		return 0;
+	fast = opt.shorten && l->n < 65535L && set_open(&t, l->n);
 	for (i = 0; i < l->n; i++) {
 		char *out = names + i * LNAME, base[12], ext[4];
 		const char *src = l->e[i].disp;
@@ -260,22 +329,40 @@ char *local_names(FLIST *l)
 		{
 			int cut = make_83(src, base, ext);
 			snprintf(out, LNAME, ext[0] ? "%s.%s" : "%s", base, ext);
-			if (!cut && !taken(names, i, out))
+			if (!cut && !(fast ? set_has(&t, names, out) : taken(names, i, out))) {
+				if (fast)
+					set_add(&t, i, out);
 				continue;
+			}
 		}
 		/* shortened, or the same as one before: NAME~1, NAME~2 ... */
 		{
-			int k;
-			for (k = 1; k < 1000; k++) {
+			int k, from = 1;
+			long st = -1;
+			if (fast) {
+				char stem[13];
+				snprintf(stem, sizeof(stem), "%s.%s", base, ext);
+				st = stem_at(&t, stem);
+				from = t.last[st] + 1;
+			}
+			if (from >= 1000)
+				from = 999;	/* all taken: the last tried, as before */
+			for (k = from; k < 1000; k++) {
 				char b[12];
 				int keep = k < 10 ? 6 : k < 100 ? 5 : 4;
 				snprintf(b, sizeof(b), "%.*s~%d", keep, base, k);
 				snprintf(out, LNAME, ext[0] ? "%s.%s" : "%s", b, ext);
-				if (!taken(names, i, out))
+				if (!(fast ? set_has(&t, names, out) : taken(names, i, out)))
 					break;
+			}
+			if (fast) {
+				t.last[st] = (short)(k < 1000 ? k : 999);
+				set_add(&t, i, out);
 			}
 		}
 	}
+	if (fast)
+		free(t.slot);
 	return names;
 }
 

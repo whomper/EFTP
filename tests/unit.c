@@ -7,6 +7,7 @@
  */
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include "../src/ftp.h"
@@ -115,6 +116,170 @@ static void test_pasv(void)
 	CHECK(!ftp_parse_pasv("Entering Passive Mode (1,2,3)", ip, &port));
 	CHECK(ftp_parse_epsv("Entering Extended Passive Mode (|||6446|)", &port) && port == 6446);
 	CHECK(!ftp_parse_epsv("Entering Extended Passive Mode", &port));
+}
+
+
+/* local_names as it was before its hash (2.6), word for word: the new
+   one must give the same names in the same order */
+static int old_bad_char(unsigned char c)
+{
+	return c < 32 || strchr("\\/:*?\"<>|+,;=[] ", c) != 0;
+}
+
+/* name.ext in 8+3 capitals, what TOS can't take as '_'; 1 if it had
+   to be cut short (then it gets a ~1, as Windows does) */
+static int old_make_83(const char *src, char *base, char *ext)
+{
+	const char *dot = strrchr(src, '.');
+	int nb = 0, ne = 0, cut = 0;
+	const char *p;
+	if (dot == src)			/* ".profile": no extension */
+		dot = 0;
+	for (p = src; *p && (!dot || p < dot); p++) {
+		unsigned char c = (unsigned char)*p;
+		if (c == '.' && p == src)
+			continue;	/* the leading dot of a hidden file */
+		if (c == '.' || old_bad_char(c))
+			c = '_';
+		if (nb < 8)
+			base[nb++] = (char)toupper(c);
+		else
+			cut = 1;
+	}
+	if (dot)
+		for (p = dot + 1; *p; p++) {
+			unsigned char c = (unsigned char)*p;
+			if (old_bad_char(c))
+				c = '_';
+			if (ne < 3)
+				ext[ne++] = (char)toupper(c);
+			else
+				cut = 1;
+		}
+	if (!nb)
+		base[nb++] = '_';
+	base[nb] = 0;
+	ext[ne] = 0;
+	return cut;
+}
+
+static int old_taken(const char *names, long n, const char *name)
+{
+	long i;
+	for (i = 0; i < n; i++)
+		if (!strcasecmp(names + i * LNAME, name))
+			return 1;
+	return 0;
+}
+
+static char *old_local_names(FLIST *l)
+{
+	char *names = malloc((l->n ? l->n : 1) * LNAME);
+	long i;
+	if (!names)
+		return 0;
+	for (i = 0; i < l->n; i++) {
+		char *out = names + i * LNAME, base[12], ext[4];
+		const char *src = l->e[i].disp;
+		if (!opt.shorten) {
+			int k = 0;
+			for (; *src && k < LNAME - 1; src++)
+				out[k++] = old_bad_char((unsigned char)*src) && *src != ' ' ? '_' : *src;
+			out[k] = 0;
+			continue;
+		}
+		{
+			int cut = old_make_83(src, base, ext);
+			snprintf(out, LNAME, ext[0] ? "%s.%s" : "%s", base, ext);
+			if (!cut && !old_taken(names, i, out))
+				continue;
+		}
+		/* shortened, or the same as one before: NAME~1, NAME~2 ... */
+		{
+			int k;
+			for (k = 1; k < 1000; k++) {
+				char b[12];
+				int keep = k < 10 ? 6 : k < 100 ? 5 : 4;
+				snprintf(b, sizeof(b), "%.*s~%d", keep, base, k);
+				snprintf(out, LNAME, ext[0] ? "%s.%s" : "%s", b, ext);
+				if (!old_taken(names, i, out))
+					break;
+			}
+		}
+	}
+	return names;
+}
+
+
+static void names_same(FLIST *l, const char *what)
+{
+	char *a = old_local_names(l), *b = local_names(l);
+	long i, bad = -1;
+	for (i = 0; i < l->n && bad < 0; i++)
+		if (strcmp(a + i * LNAME, b + i * LNAME))
+			bad = i;
+	checks++;
+	if (bad >= 0) {
+		fails++;
+		printf("FAIL local_names %s: entry %ld: %s, was %s\n", what, bad, b + bad * LNAME, a + bad * LNAME);
+	}
+	free(a);
+	free(b);
+}
+
+static void test_names_same(void)
+{
+	static const char *const words[] = { "atari", "demo", "falcon", "music", "sndh", "game", "tool", "disk",
+		"pic", "font", "patch", "readme", "source", "driver", "cpx", "acc" };
+	static const char *const exts[] = { "zip", "lzh", "txt", "st", "msa", "prg", "", "jpeg", "tar.gz" };
+	FLIST l;
+	char nm[80];
+	unsigned long r = 1;
+	int round, i, sh;
+	for (round = 0; round < 6; round++) {
+		int n = round == 5 ? 2000 : 50 + round * 120;
+		flist_init(&l);
+		for (i = 0; i < n; i++) {
+			r = r * 1103515245UL + 12345UL;
+			switch ((r >> 16) % 6) {
+			case 0:		/* the speed rig's long names */
+				snprintf(nm, sizeof(nm), "%s-%s-%03d.%s", words[(r >> 8) % 16], words[(r >> 12) % 16], i,
+					 exts[(r >> 20) % 6]);
+				break;
+			case 1:		/* 8+3 already, some the same but for case */
+				snprintf(nm, sizeof(nm), "%s%d.%s", (r >> 9) & 1 ? "FILE" : "file", (int)((r >> 10) % 40),
+					 exts[(r >> 20) % 9]);
+				break;
+			case 2:		/* names that look like what shortening makes */
+				snprintf(nm, sizeof(nm), "%.6s~%d.%s", words[(r >> 8) % 16], (int)((r >> 12) % 12) + 1,
+					 exts[(r >> 20) % 6]);
+				break;
+			case 3:		/* the same long name over and over, past ~9 and ~99 */
+				snprintf(nm, sizeof(nm), "screenshot-%d.png", (int)((r >> 8) % 300));
+				break;
+			case 4:		/* hidden files, odd letters, no extension */
+				snprintf(nm, sizeof(nm), ".%s rc+%d", words[(r >> 8) % 16], (int)((r >> 12) % 30));
+				break;
+			default:	/* letters above 127 */
+				snprintf(nm, sizeof(nm), "\xd7\xa9%s\xc4%d.%s", words[(r >> 8) % 16], (int)((r >> 12) % 50),
+					 exts[(r >> 20) % 9]);
+			}
+			flist_add(&l, nm, 0);
+		}
+		for (sh = 0; sh < 2; sh++) {
+			opt.shorten = (short)sh;
+			snprintf(nm, sizeof(nm), "round %d, shorten %d", round, sh);
+			names_same(&l, nm);
+		}
+		flist_free(&l);
+	}
+	/* one stem past ~999: every ~k taken, as before */
+	flist_init(&l);
+	for (i = 0; i < 1005; i++)
+		flist_add(&l, "averylongname.txt", 0);
+	opt.shorten = 1;
+	names_same(&l, "past ~999");
+	flist_free(&l);
 }
 
 static void test_names(void)
@@ -289,6 +454,7 @@ int main(void)
 	test_mlsd();
 	test_pasv();
 	test_names();
+	test_names_same();
 	test_paths();
 	test_text();
 	test_sort();
