@@ -332,10 +332,13 @@ try:
     # one file down from the folder of 400 (the row the cursor is on): the
     # start works out the Atari names of the whole folder, long names
     # shortened to 8+3 (local_names)
+    ftpd_log = os.path.join(work, "ftpd.log")
+
     def download_one():
-        at = len(open(elog, errors="replace").read())
+        # the server's own log says it was sent (EFTP.LOG writes its 226
+        # line later, in a batch)
         r.key(K["RETURN"])
-        must(lambda: re.search(r"RETR [^\n]*\n(?:.*\n)*?.* 226 ", open(elog, errors="replace").read()[at:]),
+        must(lambda: "RETR /pub/many/" in open(ftpd_log, errors="replace").read().replace(home, ""),
              60 * SLOW, "the file from the folder of 400")
     measure("a file from the folder of 400: its start", 300, download_one, quiet=3, most=90)
 
