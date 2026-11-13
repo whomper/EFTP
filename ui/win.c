@@ -26,6 +26,7 @@
 #include "iconify.h"
 #include "panebar.h"
 #include "offdraw.h"
+#include "offpage.h"
 #include "dialog.h"
 
 WIN w_local, w_remote, w_queue;
@@ -1121,6 +1122,63 @@ static void scroll_rows(WIN *w, long d)
 		short m = nbatch;
 		nbatch = 0;
 		draw_areas(batch, batch_steady, m);
+	}
+	if (offpage_handle() && k <= 3) {
+		/* Under EdDI (NVDI), a scroll of up to 3 rows: the strips that
+		   come in drawn on the off-screen bitmap (offpage) first, then
+		   the rows moved and the strips copied straight after, the mouse
+		   hidden once. Before, the rows were moved and the strips drawn
+		   after, on the screen, and until they were the old rows showed
+		   in them a second time (Erez's video, 13 Nov 2026; ECal
+		   3d7d968). A page is drawn as before: its strip is most of the
+		   pane, and drawing it there and copying it took a stock Falcon
+		   15-20 ms more (120 -> 140); NVDI's own row copy tears over a
+		   few refreshes either way */
+		GRECT st[2];
+		short ns = 0, i, keep = vdi_h, p[8], h = (n - k) * lh;
+		if (d > 0) {
+			st[0] = a;
+			st[0].y = a.y + (n - k) * lh;
+			st[0].h = a.y + a.h - st[0].y;
+			ns = 1;
+		} else {
+			st[0] = a;
+			st[0].h = k * lh;
+			st[1] = a;
+			st[1].y = a.y + n * lh;
+			st[1].h = a.y + a.h - st[1].y;
+			ns = st[1].h > 0 ? 2 : 1;
+		}
+		vdi_h = offpage_handle();
+		fill_forget();
+		font_on(vdi_h);
+		for (i = 0; i < ns; i++) {
+			clip_on(&st[i]);
+			draw_main(&st[i]);
+		}
+		vdi_h = keep;
+		fill_forget();
+		p[0] = p[4] = a.x;
+		p[2] = p[6] = a.x + a.w - 1;
+		p[1] = a.y + (d > 0 ? k * lh : 0);
+		p[3] = p[1] + h - 1;
+		p[5] = a.y + (d > 0 ? 0 : k * lh);
+		p[7] = p[5] + h - 1;
+		if (!held)
+			graf_mouse(M_OFF, 0);
+		clip_on(&a);
+		scr_rows(vdi_h, p);
+		for (i = 0; i < ns; i++)
+			offpage_copy(vdi_h, st[i].x, st[i].y, st[i].w, st[i].h);
+		clip_on(&a);	/* offpage_copy left the VDI's clip on the last strip */
+		if (batching) {
+			held = 1;
+		} else if (!held) {
+			graf_mouse(M_ON, 0);
+			if (!pressing)
+				wind_update(END_UPDATE);
+		}
+		return;
 	}
 	{
 		short p[8], h = (n - k) * lh;

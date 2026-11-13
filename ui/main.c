@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ui.h"
+#include "offpage.h"
 #include "panebar.h"
 #include "colours.h"
 #include "conn.h"
@@ -294,6 +295,8 @@ static void log_aes(void)
 	snprintf(t, sizeof(t), "AES %x, ap_count %d, MagX %s, MiNT %s: double clicks counted by %s",
 		 (unsigned)aes_version(), aes_count(), magx ? "yes" : "no", mint ? "yes" : "no",
 		 aes_count() < 0 || magx || mint ? "the AES" : "EFTP");
+	conn_log("EFTP", " -- ", t, (long)strlen(t));
+	snprintf(t, sizeof(t), "scrolling drawn off the screen: %s", offpage_state());
 	conn_log("EFTP", " -- ", t, (long)strlen(t));
 }
 
@@ -1033,6 +1036,10 @@ int main(void)
 		opt.falcon = 0;
 	colours_init();
 	font_apply();
+	/* under EdDI (NVDI) a screen-sized off-screen bitmap for scrolling
+	   (win.c's scroll_rows), only when 1 MB stays free beside it for
+	   STinG and the transfers (300 KB of a 4 MB Falcon in 256 colours) */
+	offpage_init(vdi_h, scr_w, scr_h, planes, 1024L * 1024);
 	hebrew_kbd_hook = hebrew_changed;
 	set_logging();
 	log_aes();
@@ -1045,6 +1052,7 @@ int main(void)
 	queue_init();
 	if (mbar_build(&mb, bar, gl_wchar, gl_hchar, scr_w, scr_h)) {
 		form_alert(1, "[3][EFTP: not enough memory.][ Quit ]");
+		offpage_exit();
 		v_clsvwk(vdi_h);
 		appl_exit();
 		return 1;
@@ -1161,6 +1169,7 @@ int main(void)
 	store_save_settings();
 	quit_step("settings saved");
 	theme_exit();			/* the palette back as it was */
+	offpage_exit();
 	menu_bar(mb.tree, 0);
 	av_exit();
 	v_clsvwk(vdi_h);

@@ -209,6 +209,7 @@ void menu_update(void);
 void font_apply(void);		/* opt.font_id/pt -> cw, ch */
 void font_sys_push(void);	/* the system font, for a popup or the About box */
 void font_sys_pop(void);	/* back to the window's font */
+void font_on(short h);		/* the window's font on another workstation too */
 void font_reselect(void);	/* the text font again, after drawing in another */
 #define HM_MAP     0
 #define HM_UNICODE 1

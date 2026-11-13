@@ -112,6 +112,28 @@ static int set_font(short id, short pt)
 	return 1;
 }
 
+/* the window's font also on another workstation h (the scroll's
+   off-screen bitmap, win.c), set again only when it changed: two VDI
+   calls on each side of every scroll were part of its cost (13 Nov 2026) */
+void font_on(short h)
+{
+	static short on_h, on_id = -1, on_pt = -1;
+	short w, hh;
+	if (h == on_h && on_id == cur_id && on_pt == cur_pt)
+		return;
+	if (cur_id == 1) {
+		vst_font(h, 1);
+		vst_height(h, cur_pt == 8 ? 6 : cur_pt == 16 ? 13 : (gl_hchar >= 16 ? 13 : 6), &w, &hh);
+	} else {
+		vst_font(h, cur_id);
+		vst_point(h, cur_pt, &w, &hh);
+	}
+	vst_alignment(h, 0, 5);
+	on_h = h;
+	on_id = cur_id;
+	on_pt = cur_pt;
+}
+
 /* back to the text font after drawing in another */
 void font_reselect(void)
 {
