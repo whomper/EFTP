@@ -978,6 +978,12 @@ void win_show(void)
 
 /* 1 when EFTP's window is behind another or iconified: news then goes as
    a notification (the guidelines, 4.5) */
+/* the window has had its first redraw: before it, nothing is drawn */
+int win_drawn(void)
+{
+	return main_h > 0 && main_shown;
+}
+
 int win_hidden(void)
 {
 	short top, d;

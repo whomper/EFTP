@@ -70,6 +70,7 @@ short win_x0(WIN *w);				/* a pane's text, from */
 short win_cols(WIN *w);				/* and its width */
 void win_message(short *msg);			/* WM_* handling */
 void win_show(void);				/* in front, from its icon too */
+int win_drawn(void);				/* open and drawn once: a turn can't draw it twice */
 int win_hidden(void);				/* behind another, or iconified */
 WIN *win_focused(void);				/* the pane with the keyboard */
 int  win_is_top(void);				/* the window is in front */

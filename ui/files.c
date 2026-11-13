@@ -275,6 +275,13 @@ static void loaded(SIDE *s, const char *keep)
 	side_info_forget(side_of(s->w));
 	reset_marks(s);		/* for the new list: the sort gives the screen turns */
 	flist_sort(&s->l);
+	/* a turn between the sort's end and the drawing: the two were one
+	   stretch, 230 ms on a stock Falcon with 300 files, 270 on an ST.
+	   What a redraw draws meanwhile is the list as it is now, and its
+	   cached columns go with the reset below. Not before the window's
+	   first redraw: the start drew it twice (+135 ms on a Falcon) */
+	if (pf_idle && win_drawn())
+		pf_idle();
 	reset_marks(s);		/* and again: what was drawn meanwhile isn't kept */
 	s->cur = s->up ? 0 : (s->l.n ? 0 : -1);
 	if (keep && *keep)
