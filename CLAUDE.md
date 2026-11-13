@@ -147,6 +147,11 @@ EFTP is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari, AT
 - Nothing runs in the background; the session waits for Erez or the hub.
 - Only Erez's explicit word ends this mode, for instance that every app is to take the latest shared code and release. The hub passes it on quoting him.
 
+State: lifted on 13 Nov 2026 for Erez's speed round (2.7, 2.8, 2.9) and back since 2.9 (Erez, 13 Nov: "stop with the
+performance improvements and place the applications back in maintenance"). From then on a speed change ships only if
+no row of the speed rig is slower beyond one tick (5 ms), paired on Falcon-4:256 with NVDI (guidelines, Speed,
+AERA-Atari 098183d).
+
 ## UI backlog from Erez's decisions of 9 Nov 2026
 
 **State, 12 Nov 2026: released in 2.5** (maintenance was lifted for it and is back since; the hub, 12 Nov)
