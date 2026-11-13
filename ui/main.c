@@ -148,18 +148,31 @@ static short obj_of(short cmd)
 	return cmd >= 0 && cmd <= C_KEYS ? o[cmd] : -1;
 }
 
+/* a menu item greyed or ticked in the menu's tree itself, as the AES's
+   menu_ienable and menu_icheck do for an item (TOS, EmuTOS, MagiC and
+   XaAES read the item's state when its menu drops down; a title is never
+   changed here): one AES call an item cost an 8 MHz ST 80 ms when a run
+   greyed some 30 of them at its start and again at its end (13 Nov 2026) */
 static void enable(short cmd, int on)
 {
 	short i = obj_of(cmd);
-	if (i >= 0 && !(mb.tree[i].ob_state & DISABLED) != !!on)
-		menu_ienable(mb.tree, i, on ? 1 : 0);
+	if (i >= 0) {
+		if (on)
+			mb.tree[i].ob_state &= ~DISABLED;
+		else
+			mb.tree[i].ob_state |= DISABLED;
+	}
 }
 
 static void check(short cmd, int on)
 {
 	short i = obj_of(cmd);
-	if (i >= 0 && !(mb.tree[i].ob_state & CHECKED) != !on)
-		menu_icheck(mb.tree, i, on ? 1 : 0);
+	if (i >= 0) {
+		if (on)
+			mb.tree[i].ob_state |= CHECKED;
+		else
+			mb.tree[i].ob_state &= ~CHECKED;
+	}
 }
 
 static int focus_side(void)
