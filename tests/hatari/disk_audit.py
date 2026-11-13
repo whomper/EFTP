@@ -101,7 +101,8 @@ def run(job):
         r.click(60, 92)                             # Test server, /pub
         # the server logs to the first job's ftpd.log (logging is set up once)
         seen = open(FTPD_LOG).read().count("USER 'atari' logged in")
-        wait_for(lambda: open(FTPD_LOG).read().count("USER 'atari' logged in") > seen, 60)
+        if not wait_for(lambda: open(FTPD_LOG).read().count("USER 'atari' logged in") > seen, 60):
+            sys.exit("disk_audit.py: %s: EFTP didn't log in; its disk counts would be another job's" % job)
         time.sleep(8 * min(slow, 3))
         if job in ("dl", "folder"):
             r.click(REMOTE_X, row(2), double=True)  # /pub/audit

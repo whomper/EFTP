@@ -176,6 +176,13 @@ def wait_for(cond, secs):
     return False
 
 
+def must(cond, secs, what):
+    """wait_for, but a wait that runs out stops the rig: the rows after it
+    would time something else (the folder of 400 was music's, 13 Nov 2026)"""
+    if not wait_for(cond, secs):
+        sys.exit("speed.py: %s didn't happen in %d s" % (what, secs))
+
+
 def elog_has(s):
     try:
         return s in open(elog, errors="replace").read()
@@ -300,7 +307,7 @@ try:
             r.click(*CONNECT)
             time.sleep(1.5 * SLOW)
             r.click(*SITE1)
-        wait_for(lambda: elog_has("CWD /pub"), 60 * SLOW)
+        must(lambda: elog_has("CWD /pub"), 60 * SLOW, "the connection to /pub")
     measure("connected, /pub listed", 300, connect, quiet=3, most=90)
     r.shot("7-connected")
     # the keyboard to the server pane by its first row, whatever the font
@@ -328,8 +335,8 @@ try:
     def download_one():
         at = len(open(elog, errors="replace").read())
         r.key(K["RETURN"])
-        wait_for(lambda: re.search(r"RETR [^\n]*\n(?:.*\n)*?.* 226 ", open(elog, errors="replace").read()[at:]),
-                 60 * SLOW)
+        must(lambda: re.search(r"RETR [^\n]*\n(?:.*\n)*?.* 226 ", open(elog, errors="replace").read()[at:]),
+             60 * SLOW, "the file from the folder of 400")
     measure("a file from the folder of 400: its start", 300, download_one, quiet=3, most=90)
 
     # a download: its progress in the transfers pane
@@ -341,7 +348,7 @@ try:
 
     def download():
         r.key(K["RETURN"])
-        wait_for(lambda: os.path.exists(big) and os.path.getsize(big) == size, 120 * SLOW)
+        must(lambda: os.path.exists(big) and os.path.getsize(big) == size, 120 * SLOW, "the download of zbig.bin")
     measure("a download, %d KB: its progress" % (size // 1000), 100, download, quiet=3, most=200)
     r.shot("9-downloaded")
 finally:
