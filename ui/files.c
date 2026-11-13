@@ -870,7 +870,8 @@ static void open_row(SIDE *s, int side, long row)
 void files_transfer(int side)
 {
 	SIDE *s = &sd[side];
-	long i, added = 0;
+	long i, added = 0, before;
+	void (*keep)(long);
 	if (running || !ftp) {
 		if (!ftp)
 			alert(1, "[1][Connect to a server first.][ OK ]");
@@ -880,10 +881,17 @@ void files_transfer(int side)
 		return;
 	if (!check_line())
 		return;
+	/* the Transfers pane drawn once for them all, not whole for each one
+	   added: a file took 70 ms on a stock Falcon, 90 on an ST, and the
+	   run then drew it again (400 chosen: 400 times) */
+	keep = xfer_changed;
+	xfer_changed = 0;
+	before = xn;
 	if (side == SIDE_REMOTE) {
 		char *names = local_names(&s->l);
 		char rp[XRPATH], lp[300];
 		if (!ldir[0]) {
+			xfer_changed = keep;
 			alert(1, "[1][Open a drive or a folder on|the left to copy into.][ OK ]");
 			free(names);
 			return;
@@ -913,8 +921,11 @@ void files_transfer(int side)
 				added++;
 		}
 	}
+	xfer_changed = keep;
 	if (added)
-		queue_run();
+		queue_run();		/* which draws the pane, with its new rows */
+	else if (xn != before && keep)
+		keep(-1);		/* old rows of the same files went */
 }
 
 /* a file or folder on the Atari, named by its path (VA_START from the
