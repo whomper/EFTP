@@ -485,6 +485,14 @@ void queue_run(void)
 			}
 		queue_changed(-1);
 	}
+	/* a turn between the run's last work (the "already there?" listing
+	   let go: 135 ms on an 8 MHz ST) and the drawing below, which were
+	   one stretch; an Esc in it stops nothing now, as the run is over */
+	{
+		int stopped = conn_stop;
+		ui_poll();
+		conn_stop = stopped;
+	}
 	running = 0;
 	win_batch(1);		/* the pane, its header and the toolbar in one pass */
 	for (i = 0; i < xn; i++)
