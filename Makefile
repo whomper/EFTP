@@ -69,7 +69,7 @@ HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
            common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h)
 
 # what goes onto the Atari: binary/ (built, never committed)
-all: binary/eftp.prg binary/tls.ovl binary/roots.dat
+all: binary/eftp.prg binary/tls.ovl binary/tlsfb.ovl binary/roots.dat
 
 binary/eftp.prg: $(OBJDIR)/eftp.elf common/tools/elf2tos.py | binary
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
@@ -79,6 +79,10 @@ build/prof/EFTP.PRG: $(OBJDIR)/eftp.elf common/tools/elf2tos.py
 # Every file of a release, and every name EFTP gives its own files, in
 # lowercase (the guidelines, 6.6: a MiNT ext2 drive tells the cases apart)
 binary/tls.ovl: common/tlsovl/tls.ovl | binary
+	cp $< $@
+# and its ColdFire build, which a FireBee loads instead (the _CF_ cookie;
+# Erez, 15 Nov 2026): copied, never built here either
+binary/tlsfb.ovl: common/tlsovl/tlsfb.ovl | binary
 	cp $< $@
 
 # the version: VERSION holds the last release (major.minor, e.g. 1.31),
@@ -230,7 +234,7 @@ itest: $(OBJDIR)/ftp-cli
 # a release's files: each one in dist/, and all of them in
 # dist/eftp-x.y.zip (the icons in icons/), for the release workflow; every
 # name in lowercase (6.6), the icons' too
-DIST    := binary/eftp.prg binary/tls.ovl binary/cacert.pem binary/roots.dat binary/eftp.hyp
+DIST    := binary/eftp.prg binary/tls.ovl binary/tlsfb.ovl binary/cacert.pem binary/roots.dat binary/eftp.hyp
 ICONS   := icons/EFTP.RSC icons/EFTPNV.RSC icons/EFTP.ICN icons/EFTPMK.ICN
 dist: all help
 	rm -rf dist
