@@ -95,8 +95,10 @@ def rows(shot, x0, x1):
     px = im.load()
 
     def bar(x, y):
+        # the selection's blue: (0,0,170) in 16 colours, (0,121,219) in 256
+        # under NVDI (2.11 and later alike)
         r, g, b = px[x, y]
-        return b > 120 and r < 90 and g < 90
+        return b > 120 and r < 90 and g < 150
 
     def ink(x, y):
         r, g, b = px[x, y]
