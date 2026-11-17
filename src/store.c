@@ -442,7 +442,7 @@ static void build(SBUF *bp)
 	put_fmt(&b, "the gateway's port", "GATEPORT", "%u", opt.gateport);
 	for (i = 0; i < nsites; i++) {
 		SITE *s = sites[i];
-		sb_adds(&b, "; one [SITE] part per server, up to 24; File > Sites edits them\r\n"
+		sb_adds(&b, "; one [SITE] part per server, up to 24; Options > Sites edits them\r\n"
 			    "[SITE]\r\n\r\n");
 		put_str(&b, "the site's name in the list", "NAME", s->name);
 		put_str(&b, "the server: a name (ftp.example.org) or an IP address", "HOST", s->host);
@@ -451,7 +451,7 @@ static void build(SBUF *bp)
 		put_fmt(&b, "1 = log in anonymously (public archives), 0 = with the user and password below",
 			"ANONYMOUS", "%d", s->anon);
 		put_str(&b, "login name", "USER", s->user);
-		put_secret(&b, "password, encrypted with EFTP.KEY (type it in File > Sites)", "PASS", s->pass);
+		put_secret(&b, "password, encrypted with EFTP.KEY (type it in Options > Sites)", "PASS", s->pass);
 		put_str(&b, "the folder on the server to open; empty = where the login starts", "REMOTEDIR", s->rdir);
 		put_str(&b, "the Atari folder to show with it; empty = the one shown before", "LOCALDIR", s->ldir);
 		put_fmt(&b, "files go 0 = as text or binary by their extension, 1 = all as text, 2 = all binary",
