@@ -35,7 +35,7 @@ CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
            -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -Wall -Wno-pointer-sign \
            -DFTP_TOS -DDLG_CPU -DDLG_CLICK -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include \
            -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/ui -Icommon/third_party/bearssl/inc
-LDFLAGS := -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/atari/link.ld \
+LDFLAGS := -Wl,-u,hotpad -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/atari/link.ld \
            -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments -Wl,--gc-sections
 
 # BearSSL 0.6, for the tests on this computer: on the Atari the TLS is
@@ -68,8 +68,16 @@ PROFILE ?= 20
 # sync moved a file's start in the folder of 400 575 -> 585 ms on
 # Falcon-4:256 with NVDI; with them here, 570-580)
 HOT     := xfer ftp files draw win text offpage conn charset
+# then a pad (common/atari/codepad.S) that keeps the code after the hot
+# block where 2.11's speed was measured, modulo 256: common's conn.c grew by
+# 426 bytes (17 Nov 2026) and moved all of it by 170, a file's start in the
+# folder of 400 575 -> 595 ms on Falcon-4:256 with NVDI (with the pad:
+# 575-580). When a hot object grows, set HOTPAD so str_copy keeps its place
+# modulo 256 (0x...3e, as at 8864e9d) and run the speed pair against 2.11
+HOTPAD  := 86
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/crash_s.o \
-           $(addprefix $(OBJDIR)/,$(addsuffix .o,$(HOT) $(filter-out $(HOT),$(CORE) $(ATARI) $(UI))))
+           $(addprefix $(OBJDIR)/,$(addsuffix .o,$(HOT))) $(OBJDIR)/hotpad.o \
+           $(addprefix $(OBJDIR)/,$(addsuffix .o,$(filter-out $(HOT),$(CORE) $(ATARI) $(UI))))
 OBJS    := $(OBJS0)
 HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
            common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h)
@@ -131,6 +139,8 @@ icons:
 $(OBJDIR)/eftp.elf: $(OBJS) $(OBJDIR)/build.o common/atari/link.ld
 	$(CC) $(LDFLAGS) -Wl,-Map,$@.map -o $@ $(OBJS) $(OBJDIR)/build.o -lgcc
 
+$(OBJDIR)/hotpad.o: common/atari/codepad.S Makefile | $(OBJDIR)
+	$(CC) -m68000 -DPAD_NAME=hotpad -DPAD_TEXT=$(HOTPAD) -DPAD_RO=0 -DPAD_DATA=0 -DPAD_BSS=0 -c -o $@ $<
 $(OBJDIR)/%.o: src/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 $(OBJDIR)/%.o: atari/%.c $(HDRS) | $(OBJDIR)
