@@ -86,14 +86,11 @@ build/prof/gem.o: common/atari/gem.c $(HDRS) build/prof/profile
 	$(CC) $(CFLAGS) -DAES_PROFILE=$(PROFILE) -c -o $@ $<
 build/prof/main.o: ui/main.c $(HDRS) build/prof/profile
 	$(CC) $(CFLAGS) -DAES_PROFILE=$(PROFILE) -c -o $@ $<
-# tos.o is left out of the comparison: the timed main and gem call
-# nf_debug, which sits before the arithmetic in common's tos.c, so inside
-# tos.o the rest moves; a pad after it puts everything that follows back
 build/prof/eftp.elf: build/eftp.elf $(TIMED) build/build.o common/tools/profpad.py common/atari/codepad.S
 	python3 common/tools/profpad.py --ship build/eftp.elf --out $@ \
 	    --cpu=-m68000 --dir build/prof/pads \
 	    --exclude build/main.o --exclude build/prof/main.o \
-	    --exclude build/gem.o --exclude build/prof/gem.o --exclude build/tos.o \
+	    --exclude build/gem.o --exclude build/prof/gem.o \
 	    -- $(CC) $(LDFLAGS) $(TIMED) build/build.o -lgcc
 # PROFILE's value, written again only when it changes: the two objects
 # are built again then
