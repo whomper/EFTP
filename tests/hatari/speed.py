@@ -149,8 +149,20 @@ def measure(action, limit, do, quiet=1.5, most=30):
     """do the action; its longest stretch from the lines that came"""
     settle(0.8)
     at = len(log_text())
+    # EFTP_PROFILE=<the action's start> EFTP_PROFILE_SYM=<nm -n of the timed
+    # build's ELF>: Hatari's profiler on for that action alone, its lists in
+    # hatari.log (a measurement for the hub; the times then don't count)
+    prof = os.environ.get("EFTP_PROFILE") and action.startswith(os.environ["EFTP_PROFILE"])
+    if prof:
+        r.cmd("hatari-debug", "symbols", os.environ["EFTP_PROFILE_SYM"], "TEXT", "TEXT", "TEXT")
+        r.cmd("hatari-debug", "profile", "on")
     do()
     settle(quiet, most)
+    if prof:
+        r.cmd("hatari-debug", "profile", "off")
+        for c in ("stats", "symbols 60", "counts 40"):
+            r.cmd("hatari-debug", "profile", *c.split())
+            time.sleep(1)
     g = gaps(at)
     worst = max([ms for ms, _ in g] or [0])
     results.append((action, worst, limit, sorted(set(t for _, t in g))))
