@@ -121,7 +121,7 @@ def rows(shot, x0, x1):
         end += 1
     widths = []
     for y0 in range(bottom + 1, end - pitch + 1, pitch):
-        xs = [x for y in range(y0, y0 + pitch) for x in range(x0 + 2, x0 + (x1 - x0) * 60 // 100)
+        xs = [x for y in range(y0, y0 + pitch) for x in range(x0 + 2, x0 + (x1 - x0) * 93 // 100)  # short of the scroll bar: a right-to-left name sits at the right
               if ink(x, y)]
         widths.append(max(xs) - min(xs) + 1 if xs else 0)
     return widths, pitch
