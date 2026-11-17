@@ -1112,6 +1112,9 @@ static short set_cancel, set_ok;
 /* an out-of-range number is refused with an alert that says what to
    type, its page shown and the field kept as typed; nothing is changed
    silently (D30) */
+static short f_timeout, f_gport;	/* their fields, once their pages are built */
+static short refused_field;		/* the field the cursor goes back to (D30) */
+
 static int settings_numbers_ok(short ok)
 {
 	long t = atol(s_timeout), p = atol(s_gport);
@@ -1127,7 +1130,8 @@ static int settings_numbers_ok(short ok)
 		return 1;
 	tree[ok].ob_state &= ~SELECTED;
 	if (page != cur_page)
-		show_page(page, 1);
+		show_page(page, 1);	/* (built now if it wasn't: its fields' objects known after) */
+	refused_field = page == 4 ? f_timeout : f_gport;
 	if (!dlg_in_window())
 		dlg_draw(tree, 0);	/* what the alert covered */
 	else
@@ -1143,7 +1147,8 @@ static short settings_run(short pages_box)
 	dlg_band(band);
 	dlg_open(tree, &x, &y, &w, &h);
 	for (;;) {
-		r = form_loop(first_edit()) & 0x7fff;
+		r = form_loop(refused_field ? refused_field : first_edit()) & 0x7fff;
+		refused_field = 0;
 		for (k = 0; k < nticks; k++)
 			if (r == tick_box[k] || r == tick_lbl[k]) {
 				if (tree[tick_box[k]].ob_state & DISABLED)
@@ -1255,7 +1260,7 @@ static void part_connection(short x, short y)
 	zone_label();
 	zone_btn = d_choice(x + 11, ROW(0), 29, s_zlabel);
 	d_add(G_STRING, 0, 0, (long)"Wait for the server", x, ROW(1), 19, 1);
-	d_field(x + FX, ROW(1), s_timeout, 3, '9');
+	f_timeout = d_field(x + FX, ROW(1), s_timeout, 3, '9');
 	d_add(G_STRING, 0, 0, (long)"s", x + FX + 4, ROW(1), 1, 1);
 	d_add(G_STRING, 0, 0, (long)"Keep the line open, every", x, ROW(2), 25, 1);
 	d_field(x + FX, ROW(2), s_keep, 3, '9');
@@ -1277,7 +1282,7 @@ static void part_secure(short x, short y)
 	d_add(G_STRING, 0, 0, (long)"Pi gateway", x, ROW(3), 10, 1);
 	framed(d_long(x + 11, ROW(3), s_gate, 18, (short)sizeof(s_gate) - 1));
 	d_add(G_STRING, 0, 0, (long)"Port", x + 31, ROW(3), 4, 1);
-	d_field(x + 36, ROW(3), s_gport, 5, '9');
+	f_gport = d_field(x + 36, ROW(3), s_gport, 5, '9');
 	d_add(G_STRING, 0, 0, (long)"SFTP goes through the Pi gateway,", x + 3, ROW(4), 33, 1);
 	d_add(G_STRING, 0, 0, (long)"FTPS too without a Direct connection.", x + 3, ROW(5), 37, 1);
 	d_add(G_STRING, 0, 0, (long)"On the Pi: aera-gateway install ftp", x + 3, ROW(6), 35, 1);
