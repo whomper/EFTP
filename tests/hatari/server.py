@@ -82,7 +82,7 @@ def drive_c(work, inf_extra="", desk=None, prg=None):
     subprocess.run(["make", "-s", "-C", FAKESTING], check=True)
     shutil.copy(os.path.join(FAKESTING, "FAKESTNG.PRG"), os.path.join(hd, "AUTO"))
     with open(os.path.join(hd, "eftp.inf"), "w", newline="") as f:
-        f.write("[OPTIONS]\r\nTIMEZONE=Asia/Jerusalem\r\nLOG=1\r\nLOCALDIR=C:\\\r\n" + inf_extra +
+        f.write("[OPTIONS]\r\nNATFEATS=1\r\nTIMEZONE=Asia/Jerusalem\r\nLOG=1\r\nLOCALDIR=C:\\\r\n" + inf_extra +
                 "[SITE]\r\nNAME=Test server\r\nHOST=127.0.0.1\r\nPORT=%d\r\nANONYMOUS=0\r\n"
                 "USER=atari\r\nPASS=falcon\r\nREMOTEDIR=/pub\r\n"
                 "[SITE]\r\nNAME=Atari archive\r\nHOST=127.0.0.1\r\nPORT=%d\r\nANONYMOUS=1\r\n" % (PORT, PORT))

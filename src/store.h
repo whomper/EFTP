@@ -55,6 +55,7 @@ typedef struct {
 	short lower;		/* lower-case names of files going up */
 	short shorten;		/* shorten long names coming down to 8+3 */
 	short beep;		/* a bell when a long transfer ends */
+	short natfeats;		/* NATFEATS=1: the emulator's console, test rigs only (guidelines 6.5) */
 	char text[40];		/* extensions sent as text: "TXT,ASC,DOC,..." (38 at most) */
 	short main_x, main_y, main_w, main_h;	/* the window, 0 = not yet placed */
 	short pane_w, pane_h;	/* the Atari pane's width, the file panes' height */

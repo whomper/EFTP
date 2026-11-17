@@ -140,6 +140,7 @@ static void set_opt(const char *k, const char *v)
 	else if (!strcmp(k, "lower")) opt.lower = n != 0;
 	else if (!strcmp(k, "shorten")) opt.shorten = n != 0;
 	else if (!strcmp(k, "beep")) opt.beep = n != 0;
+	else if (!strcmp(k, "natfeats")) opt.natfeats = n != 0;
 	else if (!strcmp(k, "text")) str_copy(opt.text, v, 39);	/* what Settings can show */
 	/* WINDOW=, PANES= and FONT=name,points are the family's (D43, D44);
 	   MAIN= and FONT=id,points, the old ones, are read once and give
@@ -414,6 +415,11 @@ static void build(SBUF *bp)
 	put_fmt(&b, "1 = long names coming to the Atari are shortened to 8+3 (TOS); 0 = kept (MiNT, MagiC)",
 		"SHORTEN", "%d", opt.shorten);
 	put_fmt(&b, "1 = a bell when a transfer of more than half a minute ends", "BEEP", "%d", opt.beep);
+	/* only the test rigs write NATFEATS=1, in no Settings page; kept
+	   only where it was read (guidelines 6.5, Erez 15 Nov 2026) */
+	if (opt.natfeats)
+		put_fmt(&b, "1 = the emulator's console (NatFeats), for EFTP's test rigs only",
+			"NATFEATS", "%d", opt.natfeats);
 	put_str(&b, "extensions of files sent as text (line ends converted); all others go as they are",
 		"TEXT", opt.text);
 	put_fmt(&b, "the window: x,y,width,height in pixels; 0,0,0,0 = let EFTP place it",
@@ -497,6 +503,7 @@ static void settings_sum(unsigned long *sum, long *len)
 	SUM(opt.lower);
 	SUM(opt.shorten);
 	SUM(opt.beep);
+	SUM(opt.natfeats);
 	sum_str(opt.text);
 	SUM(opt.main_x);
 	SUM(opt.main_y);

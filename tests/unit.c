@@ -470,6 +470,19 @@ static int inf_there(const char *path)
 	return access(path, F_OK) == 0;
 }
 
+static int inf_has(const char *path, const char *what)
+{
+	static char t[8192];
+	FILE *f = fopen(path, "rb");
+	size_t n;
+	if (!f)
+		return 0;
+	n = fread(t, 1, sizeof(t) - 1, f);
+	fclose(f);
+	t[n] = 0;
+	return strstr(t, what) != 0;
+}
+
 static void test_inf_on_change(void)
 {
 	char dir[] = "/tmp/eftp-inf-XXXXXX", inf[300];
@@ -501,6 +514,12 @@ static void test_inf_on_change(void)
 	strcpy(s->pass, "other");
 	CHECK(store_save_settings() == 0);
 	CHECK(inf_there(inf));			/* a password changed: written (sealed, its nonce new each time) */
+	/* NATFEATS= is written back only where it was read (guidelines 6.5) */
+	CHECK(!inf_has(inf, "NATFEATS="));
+	opt.natfeats = 1;
+	CHECK(store_save_settings() == 0);
+	CHECK(inf_has(inf, "\r\nNATFEATS=1\r\n"));
+	opt.natfeats = 0;
 	unlink(inf);
 	snprintf(inf, sizeof(inf), "%s/eftp.key", dir);
 	unlink(inf);

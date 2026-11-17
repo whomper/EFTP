@@ -119,7 +119,7 @@ def ftps_server(work, h):
 
 def write_inf(hd, opts, site):
     with open(rig.machines.ci_path(hd, "eftp.inf"), "w", newline="") as f:
-        f.write("[OPTIONS]\r\nTIMEZONE=Asia/Jerusalem\r\nLOG=1\r\nLOCALDIR=C:\\\r\n" + opts + site)
+        f.write("[OPTIONS]\r\nNATFEATS=1\r\nTIMEZONE=Asia/Jerusalem\r\nLOG=1\r\nLOCALDIR=C:\\\r\n" + opts + site)
 
 
 def run(mode):
