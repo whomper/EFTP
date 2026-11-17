@@ -184,10 +184,16 @@ def must(cond, secs, what):
 
 
 def elog_has(s):
-    try:
-        return s in open(elog, errors="replace").read()
-    except OSError:
-        return False
+    """s in EFTP.LOG, or in the server's own log (EFTP_LOG=0 runs EFTP with
+    its log off: the server's commands, its home taken out, say the same)"""
+    text = ""
+    for f, cut in ((elog, None), (os.path.join(work, "ftpd.log"), home)):
+        try:
+            t = open(f, errors="replace").read()
+        except OSError:
+            continue
+        text += t.replace(cut, "") if cut else t
+    return s in text
 
 
 try:
