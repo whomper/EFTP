@@ -48,6 +48,18 @@ OBJECT *d_tree(void)
 	return tree;
 }
 
+/* the keyboard's reach in the dialog (D25): see kr_keys */
+static struct {
+	short focus;		/* the control in focus; -1 the list; 0 none (a field has the cursor, or nothing) */
+	short kb;		/* a key was used: the ring shows */
+	short ringed;		/* it is on the screen */
+	short keyed;		/* the object a key ended dlg_do with */
+	short list_lo, list_hi;	/* the list's objects (its names, rows, arrows): not stops of their own; 0 none */
+	short list_wide;	/* the Site Manager's: the ring round the list reaches to this one's right edge (its arrows) */
+	short (*list_ring)(void);	/* the list's object the ring goes round */
+	short (*list_step)(short d);	/* Up (-1) or Down (1) in the list: the object dlg_do ends with, 0 none */
+} kr;
+
 static short band;		/* the dialog's title band (d_band), 0: none */
 
 static void band_badge(OBJECT *t, short b);
@@ -59,6 +71,7 @@ void d_begin(short w, short h)
 	if (!nested) {
 		lf_forget(tree);
 		nlf = 0;
+		memset(&kr, 0, sizeof(kr));	/* the keyboard's reach starts again (D25) */
 	}
 	memset(tree, 0, DMAX * sizeof(OBJECT));
 	nobj = 1;
@@ -580,9 +593,294 @@ static void row_select(short o, unsigned short state)
    (^C ^X ^V; a password is never copied out), Esc and Undo as the dialog's Cancel or only exit button (the
    guidelines, 3.5), F10 the Hebrew keyboard with its badge in the band (5.3, dlg_badge), and the changes
    queued by seen_draw_later drawn a slice a turn */
+
+/* ---------------- the keyboard's reach (D25, CONTROLS 1, the guidelines' 5.10) ----------------
+ * As common's Settings engine (settings.c): the focus is the text field that has the cursor, one control (a tick, a
+ * radio group, a choice or a button) with a thin ring 2 pixels round it, or the dialog's list (Settings' pages, the Site
+ * Manager's sites). Tab and Shift+Tab go through the fields and controls in the order they were added, then the list,
+ * and round; Space ticks a tick, opens a choice or presses a button; Left, Right, Up and Down change a radio group's
+ * choice (no wrapping); Up and Down move in the list (the page, the site) and elsewhere from control to control. In a
+ * text field every key is as it was. Return is the default button, Esc and Undo Cancel, wherever the focus is. The
+ * ring shows only once a key was used and goes on a click, so a dialog looks as before until then. A key that acts
+ * ends dlg_do with the object (dlg_keys' 2), so each dialog's loop does what a click on it does. */
+#define RING 2
+#define KSTOPS 48
+
+
+static int is_tick(short o)
+{
+	return (tree[o].ob_type & 0xff) == G_IMAGE &&
+	       (tree[o].ob_spec == (long)&tick_on_blk || tree[o].ob_spec == (long)&tick_off_blk);
+}
+
+static int is_radio(short o)
+{
+	return (tree[o].ob_type & 0xff) == G_BUTTON && (tree[o].ob_flags & RBUTTON);
+}
+
+/* a radio group: the RBUTTONs next to each other under one parent */
+static short radio_first(short o)
+{
+	while (o > 1 && is_radio((short)(o - 1)) && parent_of((short)(o - 1)) == parent_of(o))
+		o--;
+	return o;
+}
+
+static short radio_n(short first)
+{
+	short n = 1;
+	while (first + n < nobj && is_radio((short)(first + n)) && parent_of((short)(first + n)) == parent_of(first))
+		n++;
+	return n;
+}
+
+static short radio_chosen(short first)
+{
+	short k, n = radio_n(first);
+	for (k = 0; k < n; k++)
+		if (tree[first + k].ob_state & SELECTED)
+			return (short)(first + k);
+	return first;
+}
+
+/* the fields and controls the keys visit, in the order they were added: out[], their number */
+static short kr_stops(short *out)
+{
+	short i, n = 0;
+	at_fill();
+	for (i = 1; i < nobj && n < KSTOPS; i++) {
+		short ty = tree[i].ob_type & 0xff;
+		if (at[i].hid || (tree[i].ob_state & DISABLED) || (kr.list_lo && i >= kr.list_lo && i <= kr.list_hi))
+			continue;
+		if (tree[i].ob_flags & EDITABLE)
+			out[n++] = i;
+		else if (is_tick(i))
+			out[n++] = i;			/* the box; its words are not a stop of their own */
+		else if (is_radio(i)) {
+			short f = radio_first(i), k;
+			for (k = f; k < i && (tree[k].ob_state & DISABLED); k++)
+				;
+			if (k == i)
+				out[n++] = i;		/* one stop a group: its first that applies */
+		} else if (ty == G_BUTTON && (tree[i].ob_flags & (EXIT | TOUCHEXIT)) && !(tree[i].ob_flags & DEFAULT) &&
+			   strcmp((const char *)tree[i].ob_spec, "Cancel"))
+			out[n++] = i;			/* not the default or Cancel: Return and Esc are theirs, as in common's Settings */
+		else if (ty == G_BOXTEXT && (tree[i].ob_flags & TOUCHEXIT) && ((TEDINFO *)tree[i].ob_spec)->te_thickness < 0)
+			out[n++] = i;			/* a choice (d_choice) */
+	}
+	return n;
+}
+
+/* the ring's place, 2 pixels outside what the object draws: round the control (a radio group's chosen button), the
+   list's chosen name or the list */
+static int kr_rect(GRECT *r)
+{
+	short o = kr.focus < 0 ? (kr.list_ring ? kr.list_ring() : 0) : kr.focus > 0 && is_radio(kr.focus)
+		? radio_chosen(radio_first(kr.focus)) : kr.focus, x, y, w;
+	if (o <= 0)
+		return 0;
+	objc_offset(tree, o, &x, &y);
+	w = tree[o].ob_width;
+	if (kr.focus < 0 && kr.list_wide) {
+		short x2, y2;
+		objc_offset(tree, kr.list_wide, &x2, &y2);
+		w = (short)(x2 + tree[kr.list_wide].ob_width - x);
+	}
+	{
+		short g = (short)(RING + reach_of(o));	/* outside what the object draws: its frame, outline, 3D edge */
+		r->x = (short)(x - g);
+		r->y = (short)(y - g);
+		r->w = (short)(w + 2 * g);
+		r->h = (short)(tree[o].ob_height + 2 * g);
+	}
+	return 1;
+}
+
+static void kr_draw(void)
+{
+	GRECT r, c;
+	if (!kr.kb || !kr.focus || !kr_rect(&r))
+		return;
+	kr.ringed = 1;
+	c = r;
+	if (!dlg_cut(&c.x, &c.y, &c.w, &c.h))
+		return;
+	graf_mouse(M_OFF, 0);
+	clip_on(&c);
+	frame(&r, 1);
+	clip_off();
+	graf_mouse(M_ON, 0);
+}
+
+/* in a dialog window, after each piece the AES asks for */
+static void kr_more(short x, short y, short w, short h)
+{
+	(void)x, (void)y, (void)w, (void)h;
+	kr_draw();
+}
+
+/* the ring taken away, if it is on the screen: its four lines drawn again from what lies under them, each object
+   there alone (draw_from), in a window the dialog; the focus stays */
+static void kr_erase(void)
+{
+	GRECT r;
+	short c[4], k;
+	if (!kr.ringed)
+		return;
+	kr.ringed = 0;
+	if (!kr_rect(&r))
+		return;
+	if (dlg_in_window()) {
+		short f = kr.focus;
+		kr.focus = 0;		/* not drawn again by kr_more */
+		dlg_draw(tree, 0);
+		kr.focus = f;
+		return;
+	}
+	at_fill();
+	graf_mouse(M_OFF, 0);
+	for (k = 0; k < 4; k++) {
+		c[0] = k == 1 ? (short)(r.x + r.w - 1) : r.x;
+		c[1] = k == 3 ? (short)(r.y + r.h - 1) : r.y;
+		c[2] = k == 0 ? r.x : (short)(r.x + r.w - 1);
+		c[3] = k == 2 ? r.y : (short)(r.y + r.h - 1);
+		draw_from(0, c);
+	}
+	graf_mouse(M_ON, 0);
+}
+
+/* no focus and no ring: after a click, or where the dialog puts the cursor itself (D30) */
+static void kr_none(void)
+{
+	kr_erase();
+	kr.focus = 0;
+	kr.kb = 0;
+}
+
+/* the focus to `to` (a control, a field, or -1 the list); *field tells dlg_do where the text cursor goes */
+static void kr_to(short to, short edit, short *field)
+{
+	kr_erase();
+	kr.focus = 0;
+	if (to > 0 && (tree[to].ob_flags & EDITABLE)) {
+		*field = to;
+		return;
+	}
+	kr.focus = to;
+	if (edit > 0)
+		*field = -1;
+	kr_draw();
+}
+
+/* the next (d 1) or previous (d -1) stop, the list among them */
+static void kr_step(short d, short edit, short *field)
+{
+	short st[KSTOPS], n = kr_stops(st), m = (short)(n + (kr.list_lo != 0)), at = edit > 0 ? edit : kr.focus, cur;
+	if (!m)
+		return;
+	for (cur = 0; cur < n && st[cur] != at; cur++)
+		;
+	if (cur == n && !(at < 0 && kr.list_lo))
+		cur = d > 0 ? 0 : (short)(m - 1);	/* from nowhere: the first, or the last */
+	else
+		cur = (short)((cur + d + m) % m);
+	kr_to(cur == n ? -1 : st[cur], edit, field);
+}
+
+/* a key offered by dlg_do before its own: 0 not ours, 1 taken, 2 dlg_do ends with *field (as a click on it) */
+static int kr_keys(OBJECT *t, short key, short kstate, short edit, short *field)
+{
+	short scan = (short)((key >> 8) & 0xff), ch = (short)(key & 0xff);
+	if (t != tree)
+		return 0;
+	if (scan == 0x0f) {			/* Tab, Shift+Tab */
+		kr.kb = 1;
+		kr_step((kstate & 3) ? -1 : 1, edit, field);
+		return 1;
+	}
+	if (edit > 0)
+		return 0;			/* in a text field: its keys as they were */
+	if (scan == 0x39 && ch == ' ') {
+		short o = kr.focus;
+		kr.kb = 1;
+		if (o <= 0 || is_radio(o) || (tree[o].ob_state & DISABLED))
+			return 1;		/* nothing to press (a control greyed since the focus came to it) */
+		kr_draw();			/* shown now, if it was not */
+		kr.keyed = *field = o;
+		return 2;
+	}
+	if (scan == 0x48 || scan == 0x50 || scan == 0x4b || scan == 0x4d) {
+		short d = (short)(scan == 0x48 || scan == 0x4b ? -1 : 1), vert = scan == 0x48 || scan == 0x50;
+		kr.kb = 1;
+		if (kr.focus > 0 && is_radio(kr.focus)) {
+			short f = radio_first(kr.focus), n = radio_n(f), was = radio_chosen(f), to = was;
+			do
+				to = (short)(to + d);
+			while (to >= f && to < f + n && (tree[to].ob_state & DISABLED));
+			if (to < f || to >= f + n)
+				return 1;		/* the ends: no wrapping */
+			kr_erase();
+			tree[was].ob_state &= ~SELECTED;
+			tree[to].ob_state |= SELECTED;
+			dlg_draw(tree, was);
+			dlg_draw(tree, to);
+			kr_draw();
+			if (tree[to].ob_flags & TOUCHEXIT) {
+				kr.keyed = *field = to;	/* the dialog's loop does what a click on it does */
+				return 2;
+			}
+			return 1;
+		}
+		if (!vert)
+			return 1;
+		if ((kr.focus < 0 || (!kr.focus && !first_editable())) && kr.list_step) {
+			short o;
+			kr.focus = -1;
+			o = kr.list_step(d);
+			if (o > 0) {
+				kr_erase();		/* round the old name: the new one's when the loop has chosen it */
+				kr.keyed = *field = o;
+				return 2;
+			}
+			kr_draw();
+			return 1;
+		}
+		kr_step(d, edit, field);
+		return 1;
+	}
+	return 0;
+}
+
+/* form_do: common's dlg_do (C11, 17 Nov 2026), with long fields, passwords and their eyes, the clipboard
+   (^C ^X ^V; a password is never copied out), Esc and Undo as the dialog's Cancel or only exit button (the
+   guidelines, 3.5), F10 the Hebrew keyboard with its badge in the band (5.3, dlg_badge), the changes
+   queued by seen_draw_later drawn a slice a turn, and the keyboard's reach (kr_keys, D25). A control or the list
+   in focus: no text cursor (start -1); a dialog with no field to start in starts with the list */
+static short kr_do(short start, short cancel)
+{
+	int (*was)(OBJECT *, short, short, short, short *) = dlg_keys;
+	short r;
+	if (!kr.focus && kr.list_lo && !first_editable())
+		kr.focus = -1;
+	dlg_more(kr_more);
+	if (kr.focus) {
+		start = -1;
+		kr_draw();
+	} else if (!start) {
+		start = first_editable();
+	}
+	kr.keyed = 0;
+	dlg_keys = kr_keys;
+	r = dlg_do(tree, start, cancel);
+	dlg_keys = was;
+	if (r < 0 || (r & 0x7fff) != kr.keyed)
+		kr_none();			/* a click, Return, Esc: the ring goes */
+	return r;
+}
+
 static short form_loop(short start)
 {
-	return dlg_do(tree, start ? start : first_editable(), 0);
+	return kr_do(start, 0);
 }
 
 /* the Hebrew keyboard's badge at the right end of the dialog's title band while it is on (the guidelines,
@@ -906,6 +1204,7 @@ static int settings_numbers_ok(short ok)
 	if (page != cur_page)
 		show_page(page, 1);	/* (built now if it wasn't: its fields' objects known after) */
 	refused_field = page == 4 ? f_timeout : f_gport;
+	kr_none();		/* the cursor in the refused field, no ring */
 	if (!dlg_in_window())
 		dlg_draw(tree, 0);	/* what the alert covered */
 	else
@@ -913,10 +1212,26 @@ static int settings_numbers_ok(short ok)
 	return 0;
 }
 
+/* the list of pages and the keys (D25): the ring round the chosen name, Up and Down the page */
+static short pages_ring(void)
+{
+	return page_tab[cur_page];
+}
+
+static short pages_step(short d)
+{
+	short k = (short)(cur_page + d);
+	return k >= 1 && k <= npages ? page_tab[k] : 0;
+}
+
 static short settings_run(short pages_box)
 {
 	short x, y, w, h, r, k;
 	page_box = pages_box;
+	kr.list_lo = page_tab[1];
+	kr.list_hi = page_tab[npages];
+	kr.list_ring = pages_ring;
+	kr.list_step = pages_step;
 	dlg_name("Settings");
 	dlg_band(band);
 	dlg_open(tree, &x, &y, &w, &h);
@@ -1238,7 +1553,7 @@ int dlg_exists(XITEM *x, long have, int *all)
 		for (;;) {
 			/* no button here does nothing: Esc and Undo give -1, and
 			   stop the transfer (the guidelines, 3.5 and 7.1) */
-			r = dlg_do(tree, 0, -1);
+			r = kr_do(0, -1);
 			if (r < 0)
 				break;
 			r &= 0x7fff;
@@ -1309,7 +1624,7 @@ int dlg_chmod(const char *name, int mode)
 	dlg_band(band);
 	dlg_open(tree, &x, &y, &w, &h);
 	for (;;) {
-		r = dlg_do(tree, 0, cancel) & 0x7fff;
+		r = kr_do(0, cancel) & 0x7fff;
 		for (k = 0; k < nticks; k++)
 			if (r == tick_box[k] || r == tick_lbl[k]) {
 				s_on[tick_var[k]] = !s_on[tick_var[k]];
@@ -1805,6 +2120,23 @@ static int pick_folder(char *dir, int size)
 	return 1;
 }
 
+/* the list of sites and the keys (D25): the ring round the list and its arrows, Up and Down the site */
+static short s_list = 0, key_site = -1;
+
+static short sites_ring(void)
+{
+	return s_list;
+}
+
+static short sites_step(short d)
+{
+	short to = (short)(wsel + d);
+	if (to < 0 || to >= nwork || to == wsel)
+		return 0;
+	key_site = to;
+	return s_list;			/* the loop takes key_site */
+}
+
 static SITE *sites_dialog(void)
 {
 	short row[SROWS], b_up, b_down, b_new, b_copy, b_del, b_cancel, b_save, b_conn, f_anon;
@@ -1876,7 +2208,14 @@ static SITE *sites_dialog(void)
 	b_save = d_button(W - 24, SROWS + 7, 10, "Save", EXIT);
 	b_conn = d_button(W - 12, SROWS + 7, 10, "Connect", EXIT | DEFAULT);
 	d_end();
-	(void)e_port; (void)e_user; (void)e_rdir; (void)e_ldir; (void)e_host; (void)list;
+	(void)e_port; (void)e_user; (void)e_rdir; (void)e_ldir; (void)e_host;
+	s_list = list;
+	key_site = -1;
+	kr.list_lo = list;
+	kr.list_hi = b_down;
+	kr.list_wide = b_up;
+	kr.list_ring = sites_ring;
+	kr.list_step = sites_step;
 
 	dlg_name("Sites");
 	dlg_band(band);
@@ -1924,6 +2263,13 @@ static SITE *sites_dialog(void)
 		}
 		if (r == b_cancel || r == b_save || r == b_conn)
 			break;
+		if (key_site >= 0) {
+			/* Up or Down in the list (D25): the next site, the page of rows it is on */
+			wsel = key_site;
+			key_site = -1;
+			first = wsel - wsel % SROWS;
+			changed = 1;
+		} else
 		for (k = 0; k < SROWS; k++)
 			if (r == row[k] && first + k < nwork) {
 				if (dbl) {

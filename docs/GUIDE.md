@@ -451,6 +451,9 @@ end of the toolbar (left of Stop) and of a dialog's title.
 | ^R, Esc        | read the lists again                           |
 | Undo           | in a dialog or an alert: Cancel                |
 | Esc            | in a dialog: empty the field; no field: Cancel |
+| Tab, Shift+Tab | in a dialog: the next or previous field or control, then the list |
+| Space          | in a dialog: tick the tick, open the choice, press the button with the ring |
+| Arrows         | in a dialog: the next radio button; Up, Down the page or the site in a list, else the next control |
 | Space          | select the file under the cursor and move on   |
 | Insert         | the file's menu, as a right click on it         |
 | ^L             | server messages / transfers                    |
@@ -458,6 +461,9 @@ end of the toolbar (left of Stop) and of a dialog's title.
 | F10            | Hebrew keyboard                                |
 | Help           | this guide, or the keys                        |
 | ^Q, ^U         | quit (^U closes the window, EFTP's only one)  |
+
+In a dialog a thin ring shows the control the keys act on, once a key
+has moved it there; a click takes it away.
 
 While EFTP waits for the server (connecting, a list, a transfer), Esc,
 Undo or the Stop button stops it.

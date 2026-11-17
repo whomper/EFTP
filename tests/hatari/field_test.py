@@ -103,13 +103,13 @@ try:
     r.shot("1-start")
     r.ctrl("k")                                     # the Site Manager, the cursor in Name
     time.sleep(3 * SLOW)
-    keys("TAB", 3)                                  # Server, Port, User
+    keys("DOWN", 3)                                  # Server, Port, User (Down: the next field; Tab visits the controls too, D25)
     keys("BACKSPACE", len("atari"))
     r.type(USER)
-    keys("TAB")                                     # Password
+    keys("DOWN")                                     # Password
     keys("BACKSPACE", len("falcon"))
     r.type(PASS)
-    keys("TAB")                                     # Server folder: /pub
+    keys("DOWN")                                     # Server folder: /pub
     r.type("/%s/%s" % (D1, D2[:-2]))                # its "it" comes last
     keys("HOME")                                    # ClrHome: to the start
     keys("DELETE", 4)                               # "/pub" gone...
@@ -119,7 +119,7 @@ try:
     keys("BACKSPACE")
     r.ctrl("c")                                     # the whole folder to the clipboard
     time.sleep(1)
-    keys("TAB")                                     # Atari folder, empty
+    keys("DOWN")                                     # Atari folder, empty
     r.ctrl("v")                                     # the whole folder in...
     time.sleep(1)
     r.shot("2-pasted")
