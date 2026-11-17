@@ -303,6 +303,10 @@ int press_track(const GRECT *r, short x, short y, void (*idle)(void), void (*msg
 }
 #endif
 static short asked_clicks;
+/* a button held down: the AES gives its press again to each wait for a press (held_left times at most) until
+   graf_mkstate has seen it down release_in times */
+static short held_obj, held_left, release_in;
+static short fake_mb;
 static int timer_script, timer_waits;	/* a timer-0 wait takes the script's next event (dlg_later's turns) */
 #ifdef DLG_CLICK
 static void idle_mark(void) { }
@@ -334,6 +338,13 @@ short evnt_multi_(short flags, short clicks, short mask, short state,
 		} else {
 			ev->which = MU_TIMER;
 		}
+		return ev->which;
+	}
+	if (held_obj && fake_mb && held_left > 0) {
+		held_left--;
+		ev->which = MU_BUTTON;		/* the same press, the button still down */
+		ev->mx = held_obj;
+		ev->breturn = 1;
 		return ev->which;
 	}
 	if (!script->which)
@@ -556,11 +567,13 @@ short form_dial(short flag, short x, short y, short w, short h)
 }
 
 /* dlg_win_button's: the button's state now, and where it is let go */
-static short fake_mb, fake_watch, watches;
+static short fake_watch, watches;
 short graf_mkstate(short *mx, short *my, short *mb, short *ks)
 {
 	*mx = *my = *ks = 0;
 	*mb = fake_mb;
+	if (fake_mb && release_in && --release_in == 0)
+		fake_mb = 0;
 	return 1;
 }
 
@@ -805,9 +818,83 @@ static void test_long_fields(void)
 		r = run(F1, CANCEL, p);
 	}
 	check(r == OK && !f.clear && f.mask == '*' && !strcmp(f.view, "***"), "the eye again: the stars back");
+	/* the button still down after the click on the eye: the AES gives the press again to the next wait; dlg_do
+	   waits for it to come up, so the eye turns once (EFTP, 17 Nov 2026: it turned back at once) */
+	{
+		static const STEP p[] = { KEY(KEY_RETURN), END };
+		fake_mb = 1, held_obj = ROW, held_left = 2, release_in = 2;
+		r = run(F1, CANCEL, p);
+		held_obj = 0, fake_mb = 0;
+	}
+	check(r == OK && f.clear && f.mask == 0, "the eye clicked and held: turned once, the text shown (the button waited for)");
 	check(!lf_eye_click(tree, ROW + 1, &i, 0) && !lf_eye_click(tree, 0, &i, 0), "lf_eye_click: other objects are not its");
 	lf_forget(tree);
 	check(!lf_of(tree, F1) && !lf_eye_click(tree, ROW, &i, 0), "lf_forget: the eyes let go with the fields");
+}
+
+/* dlg_keys (the app's keys, settings.c's and EFTP's keyboard reach, D25): 0 leaves the key to dlg_do, 1 takes it,
+   2 ends dlg_do with the object it names, as a click on it would */
+static short key_goes, key_field;
+static int app_keys(OBJECT *t, short key, short kstate, short edit, short *field)
+{
+	(void)t, (void)kstate, (void)edit;
+	if ((key & 0xff) != ' ')
+		return 0;
+	*field = key_field;
+	return key_goes;
+}
+
+static void test_keys_end(void)
+{
+	short r;
+	dlg_keys = app_keys;
+
+	setup();
+	key_goes = 2, key_field = OK;
+	{
+		static const STEP s[] = { KEY(0x3920), END };
+		r = run(F1, CANCEL, s);
+	}
+	check(r == OK && (tree[OK].ob_state & SELECTED) && draws >= 1 && ed_end == 1 && !strcmp(text[0], "hello"),
+	      "dlg_keys 2 on an EXIT button: dlg_do returns it, drawn selected as after a click, the field ended untyped");
+	tidy("dlg_keys 2");
+
+	setup();
+	key_goes = 2, key_field = ROW;
+	{
+		static const STEP s[] = { KEY(0x3920), END };
+		r = run(F1, CANCEL, s);
+	}
+	check(r == ROW && !(tree[ROW].ob_state & SELECTED) && !strcmp(text[0], "hello"),
+	      "dlg_keys 2 on a TOUCHEXIT: dlg_do returns it, its state the app's");
+	tidy("dlg_keys 2, a TOUCHEXIT");
+
+	setup();
+	key_goes = 2, key_field = 0;
+	{
+		static const STEP s[] = { KEY(0x3920), KEY(K('a')), KEY(KEY_RETURN), END };
+		r = run(F1, CANCEL, s);
+	}
+	check(r == OK && !strcmp(text[0], "helloa"), "dlg_keys 2 with no object: the key taken, as 1, the dialog goes on");
+
+	setup();
+	key_goes = 1, key_field = F2;
+	{
+		static const STEP s[] = { KEY(0x3920), KEY(K('z')), KEY(KEY_RETURN), END };
+		r = run(F1, CANCEL, s);
+	}
+	check(r == OK && !strcmp(text[0], "hello") && !strcmp(text[1], "worldz"),
+	      "dlg_keys 1: the key taken, the cursor to the field it named, as before");
+
+	setup();
+	key_goes = 0, key_field = OK;
+	{
+		static const STEP s[] = { KEY(0x3920), KEY(KEY_RETURN), END };
+		r = run(F1, CANCEL, s);
+	}
+	check(r == OK && !strcmp(text[0], "hello "), "dlg_keys 0: the key dlg_do's, typed into the field, as before");
+	tidy("dlg_keys 0");
+	dlg_keys = 0;
 }
 
 /* dlg_3d: the AES's 3D flags (0x0200 indicator, 0x0400 background, 0x0600
@@ -1031,6 +1118,7 @@ int main(void)
 	dlg_find_own = 0;		/* this stand-in's objc_find answers from the script; dlg_find is tested in ../settings */
 
 	test_3d();
+	test_keys_end();
 
 	setup();
 	{
