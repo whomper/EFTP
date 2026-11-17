@@ -163,7 +163,7 @@ def connect(r):
     time.sleep(8)
 
 
-LOCAL_PANE, REMOTE_PANE = (0, 300), (322, 622)
+LOCAL_PANE, REMOTE_PANE = (8, 300), (322, 622)    # the window at x 8 on TOS 4.04: its border at 7
 local_n = len(FOLDER)
 remote_n = 4                                    # atari, music, README.txt, the Hebrew one
 skipped = False
