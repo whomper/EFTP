@@ -1920,40 +1920,57 @@ static short nwork, wsel;
 static char f_name[32], f_host[64], f_port[6], f_user[64], f_pass[64], f_rdir[160], f_ldir[160];
 static char srow[SROWS][SLW + 2];
 
-/* ---- a site's protocol: a choice button with a popup list ---- */
-static const char *const proto_items[4] = {
-	"FTP", "FTPS (AUTH TLS, port 21)", "FTPS (implicit, port 990)", "SFTP (SSH, port 22)"
-};
-static char f_plabel[24];
+/* ---- a site's protocol: four radio buttons (D24: up to four, radio
+   buttons; common's set_radio's form: 9 wide, 10 apart and 4 pixels more
+   each), in a box of their own so the AES keeps them apart from the
+   dialog's other radio buttons ---- */
+static const char *const proto_radio[4] = { "FTP", "FTPS", "FTPS 990", "SFTP" };
 
 static unsigned short proto_port(int proto)
 {
 	return proto == PR_SFTP ? 22 : proto == PR_FTPSI ? 990 : 21;
 }
 
-static void proto_label(int proto)
+/* row y with two gaps of air: clear of the field above it, its 3D edge too */
+static short air2_below(short y)
 {
-	choice_label(f_plabel, 21, proto_name(proto), "", 0);
+	short gap = (short)(gl_hchar * 3 / 8);
+	return (short)(y | ((2 * (gap < 4 ? 4 : gap)) << 8));
 }
 
-/* the list under the button; the port follows when it was the usual one */
-static int proto_pick(short btn, short proto, char *port)
+/* the four at x, y; the first's object (the others follow it) */
+static short d_protos(short x, short y, short proto)
 {
-	char lab[4][32];
-	const char *items[4];
-	short bx, by, i;
-	for (i = 0; i < 4; i++) {
-		snprintf(lab[i], sizeof(lab[i]), "%s%s", i == proto ? "\x08" : "", proto_items[i]);
-		items[i] = lab[i];
+	short box = d_add(G_IBOX, 0, 0, 0, x, y, 41, 1), k, first = 0;
+	for (k = 0; k < 4; k++) {
+		short o = d_add(G_BUTTON, SELECTABLE | RBUTTON | TOUCHEXIT, k == proto ? SELECTED : 0,
+				(long)proto_radio[k], (short)((x + 10 * k) | ((4 * k) << 8)), y, 9, 1);
+		if (!k)
+			first = o;
 	}
-	objc_offset(tree, btn, &bx, &by);
-	i = popup_over(bx, by, items, 4, proto);	/* the ticked row over the button (D27) */
-	if (i < 0 || i == proto)
-		return proto;
-	if (!port[0] || atoi(port) == proto_port(proto))
-		snprintf(port, 6, "%u", proto_port(i));
-	proto_label(i);
-	return i;
+	d_nest(box);
+	return first;
+}
+
+/* the radio shown chosen for proto */
+static void protos_set(short first, short proto)
+{
+	short k;
+	for (k = 0; k < 4; k++)
+		tree[first + k].ob_state = k == proto ? SELECTED : 0;
+}
+
+/* r one of the four: the protocol it says; the port follows when it was
+   the usual one (or empty). -1 when r isn't one of them */
+static short proto_chosen(short first, short r, short proto, char *port)
+{
+	short p = (short)(r - first);
+	if (r < first || p > 3)
+		return -1;
+	protos_set(first, p);	/* (the AES has; this also undoes a press let go outside) */
+	if (p != proto && (!port[0] || atoi(port) == proto_port(proto)))
+		snprintf(port, 6, "%u", proto_port(p));
+	return p;
 }
 
 static void fields_from(SITE *s)
@@ -1961,7 +1978,6 @@ static void fields_from(SITE *s)
 	str_copy(f_name, s->name, sizeof(f_name));
 	str_copy(f_host, s->host, sizeof(f_host));
 	snprintf(f_port, sizeof(f_port), "%u", site_port(s));
-	proto_label(s->proto);
 	str_copy(f_user, s->user, sizeof(f_user));
 	str_copy(f_pass, s->pass, sizeof(f_pass));
 	str_copy(f_rdir, s->rdir, sizeof(f_rdir));
@@ -2021,7 +2037,7 @@ static SITE *sites_dialog(void)
 	short e_name, e_host, e_port, e_user, e_rdir, e_ldir, b_ldir, m_ext, m_txt, m_bin, list, b_proto;
 	short x, y, w, h, r, first = 0, k, chosen = -1, keep = 0, i;
 	static short anon_on;
-	const short W = SLW + 47;
+	const short W = SLW + 48;	/* 66: the protocol's four at the labels' column end as far from the frame as Binary (D24) */
 
 	nwork = nsites;
 	for (i = 0; i < nsites; i++)
@@ -2064,23 +2080,24 @@ static SITE *sites_dialog(void)
 	e_host = d_long(x + 10, 4, f_host, 28, (short)sizeof(f_host) - 1);
 	d_text(x, air_below(5), "Port:");
 	e_port = d_edit(x + 10, air_below(5), f_port, 5, '9');
-	b_proto = d_choice(x + 17, air_below(5), 21, f_plabel);
+	/* at the labels' column, as in Quick connect */
+	b_proto = d_protos(x, air2_below(6), nwork ? work[wsel].proto : 0);
 	s_on[0] = anon_on;
-	f_anon = d_tick(x, 7, "Log in anonymously", 0);
-	d_text(x, 8, "User:");
-	e_user = d_long(x + 10, 8, f_user, 28, (short)sizeof(f_user) - 1);
-	d_text(x, 9, "Password:");
-	d_pass(x + 10, 9, f_pass, 22, (short)sizeof(f_pass) - 1);
-	d_text(x, 11, "Server folder:");
-	e_rdir = d_long(x + 15, 11, f_rdir, 23, (short)sizeof(f_rdir) - 1);
-	d_text(x, air_below(12), "Atari folder:");
-	e_ldir = d_long(x + 15, air_below(12), f_ldir, 18, (short)sizeof(f_ldir) - 1);
-	b_ldir = d_button(x + 34, air_below(12), 4, "...", 0);
+	f_anon = d_tick(x, 9, "Log in anonymously", 0);
+	d_text(x, 10, "User:");
+	e_user = d_long(x + 10, 10, f_user, 28, (short)sizeof(f_user) - 1);
+	d_text(x, 11, "Password:");
+	d_pass(x + 10, 11, f_pass, 22, (short)sizeof(f_pass) - 1);
+	d_text(x, 13, "Server folder:");
+	e_rdir = d_long(x + 15, 13, f_rdir, 23, (short)sizeof(f_rdir) - 1);
+	d_text(x, air_below(14), "Atari folder:");
+	e_ldir = d_long(x + 15, air_below(14), f_ldir, 18, (short)sizeof(f_ldir) - 1);
+	b_ldir = d_button(x + 34, air_below(14), 4, "...", 0);
 	tree[b_ldir].ob_flags |= TOUCHEXIT;
-	d_text(x, 14, "Files go:");
-	m_ext = d_add(G_BUTTON, SELECTABLE | RBUTTON, work[wsel].ascii == 0 ? SELECTED : 0, (long)"By type", x + 10, 14, 9, 1);
-	m_txt = d_add(G_BUTTON, SELECTABLE | RBUTTON, work[wsel].ascii == 1 ? SELECTED : 0, (long)"As text", (short)((x + 20) | (4 << 8)), 14, 9, 1);
-	m_bin = d_add(G_BUTTON, SELECTABLE | RBUTTON, work[wsel].ascii == 2 ? SELECTED : 0, (long)"Binary", (short)((x + 30) | (8 << 8)), 14, 9, 1);
+	d_text(x, 16, "Files go:");
+	m_ext = d_add(G_BUTTON, SELECTABLE | RBUTTON, work[wsel].ascii == 0 ? SELECTED : 0, (long)"By type", x + 10, 16, 9, 1);
+	m_txt = d_add(G_BUTTON, SELECTABLE | RBUTTON, work[wsel].ascii == 1 ? SELECTED : 0, (long)"As text", (short)((x + 20) | (4 << 8)), 16, 9, 1);
+	m_bin = d_add(G_BUTTON, SELECTABLE | RBUTTON, work[wsel].ascii == 2 ? SELECTED : 0, (long)"Binary", (short)((x + 30) | (8 << 8)), 16, 9, 1);
 	b_cancel = d_button(W - 36, SROWS + 7, 10, "Cancel", EXIT);
 	b_save = d_button(W - 24, SROWS + 7, 10, "Save", EXIT);
 	b_conn = d_button(W - 12, SROWS + 7, 10, "Connect", EXIT | DEFAULT);
@@ -2118,11 +2135,11 @@ static SITE *sites_dialog(void)
 			seen_take();
 			continue;
 		}
-		if (r == b_proto && nwork) {
-			tree[r].ob_state &= ~SELECTED;
-			work[wsel].proto = (short)proto_pick(b_proto, work[wsel].proto, f_port);
-			dlg_draw(tree, 0);
-			seen_take();
+		if (r >= b_proto && r < b_proto + 4) {
+			short p = proto_chosen(b_proto, r, nwork ? work[wsel].proto : 0, f_port);
+			if (nwork)
+				work[wsel].proto = p;
+			seen_draw();	/* the four and the port, what changed alone */
 			continue;
 		}
 		/* what the fields say goes into the site shown */
@@ -2224,6 +2241,7 @@ static SITE *sites_dialog(void)
 			tree[m_ext].ob_state = work[wsel].ascii == 0 ? SELECTED : 0;
 			tree[m_txt].ob_state = work[wsel].ascii == 1 ? SELECTED : 0;
 			tree[m_bin].ob_state = work[wsel].ascii == 2 ? SELECTED : 0;
+			protos_set(b_proto, work[wsel].proto);
 			tree[tick_box[f_anon]].ob_spec = (long)(s_on[0] ? &tick_on_blk : &tick_off_blk);
 		}
 		tree[b_up].ob_state = first > 0 ? 0 : DISABLED;
@@ -2287,24 +2305,23 @@ SITE *dlg_quick(void)
 	static char host[64], port[6] = "21", user[64], pass[64];
 	static short proto;
 	short e_host, ok, keep, r, b_proto;
-	d_begin(50, 13);
+	d_begin(50, 15);
 	nticks = 0;
 	d_band(50, " Quick connect");
 	d_text(2, 2, "Server:");
 	e_host = d_long(13, 2, host, 34, (short)sizeof(host) - 1);
 	d_text(2, air_below(3), "Port:");
 	d_edit(13, air_below(3), port, 5, '9');
-	proto_label(proto);
-	b_proto = d_choice(20, air_below(3), 21, f_plabel);
-	d_text(2, 5, "User:");
-	d_long(13, 5, user, 30, (short)sizeof(user) - 1);
-	d_text(2, 6, "Password:");
-	d_pass(13, 6, pass, 24, (short)sizeof(pass) - 1);
-	d_text(13, 7, "(no user: anonymous)");
+	b_proto = d_protos(2, air2_below(4), proto);
+	d_text(2, 7, "User:");
+	d_long(13, 7, user, 30, (short)sizeof(user) - 1);
+	d_text(2, 8, "Password:");
+	d_pass(13, 8, pass, 24, (short)sizeof(pass) - 1);
+	d_text(13, 9, "(no user: anonymous)");
 	s_on[0] = 0;
-	keep = d_tick(2, 9, "Keep it in the site list", 0);
-	d_button(26, 11, 10, "Cancel", EXIT);
-	ok = d_button(38, 11, 10, "Connect", EXIT | DEFAULT);
+	keep = d_tick(2, 11, "Keep it in the site list", 0);
+	d_button(26, 13, 10, "Cancel", EXIT);
+	ok = d_button(38, 13, 10, "Connect", EXIT | DEFAULT);
 	d_end();
 	{
 		short x, y, w, h;
@@ -2319,10 +2336,9 @@ SITE *dlg_quick(void)
 				evnt_timer_(120);
 				continue;
 			}
-			if (r == b_proto) {
-				tree[r].ob_state &= ~SELECTED;
-				proto = (short)proto_pick(b_proto, proto, port);
-				dlg_draw(tree, 0);
+			if (r >= b_proto && r < b_proto + 4) {
+				proto = proto_chosen(b_proto, r, proto, port);
+				dlg_draw(tree, 0);	/* the four and the port */
 				continue;
 			}
 			break;
