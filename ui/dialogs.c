@@ -2223,7 +2223,13 @@ static SITE *sites_dialog(void)
 	tree[b_down].ob_state = first + SROWS < nwork ? 0 : DISABLED;
 	tree[b_del].ob_state = nwork > 0 ? 0 : DISABLED;
 	tree[b_conn].ob_state = nwork > 0 ? (tree[b_conn].ob_state & ~DISABLED) : DISABLED;
+	/* the protocol's four drawn on dlg_do's first turn, not in the opening's one long draw: D24's four buttons and
+	   the wider box made it 410 -> 440 ms of an 8 MHz ST and 230 -> 240 of a Falcon with NVDI (17 Nov 2026) */
+	tree[b_proto - 1].ob_flags |= HIDETREE;
 	dlg_open(tree, &x, &y, &w, &h);
+	tree[b_proto - 1].ob_flags &= ~HIDETREE;
+	for (k = 0; k < 4; k++)
+		dlg_later(tree, (short)(b_proto + k));
 	seen_take();
 	for (;;) {
 		int dbl;
