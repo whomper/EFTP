@@ -101,8 +101,9 @@ def rows(shot, x0, x1):
         return b > 120 and r < 90 and g < 150
 
     def ink(x, y):
+        # not the desktop's green, left of a window placed at x 8 (TOS 4.04)
         r, g, b = px[x, y]
-        return r + g + b < 3 * 110 and not bar(x, y)
+        return r + g + b < 3 * 110 and not bar(x, y) and not (g > 200 and r < 60 and b < 60)
 
     def drawn(x, y):
         return sum(px[x, y]) < 3 * 235
