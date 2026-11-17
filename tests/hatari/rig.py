@@ -196,5 +196,7 @@ class Rig:
             self.proc.wait(5)
         except Exception:
             self.proc.kill()
-        if self.xvfb:
-            self.xvfb.terminate()
+        # gone before the next rig looks for a display (a dying Xvfb's socket
+        # still answers, and Hatari then finds no X: font_test's second boot)
+        machines.xvfb_stop(self.xvfb)
+        self.xvfb = None
