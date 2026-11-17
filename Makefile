@@ -51,11 +51,12 @@ UI      := main draw win files queue dialogs popup font fontsel about theme colo
 OBJDIR  := build
 # make PROFILE=20 build/prof/EFTP.PRG: the speed rig's build
 # (tests/hatari/speed.py), which reports each stretch of 20 ms or more
-# between event calls to Hatari's console (common/atari/gem.c, AESGAP)
-ifdef PROFILE
-OBJDIR  := build/prof
-CFLAGS  += -DAES_PROFILE=$(PROFILE)
-endif
+# between event calls to Hatari's console (common/atari/gem.c, AESGAP).
+# Only gem.c and main.c are built again with AES_PROFILE; the rest is the
+# shipped build's, and common/tools/profpad.py links it at the shipped
+# places modulo 256, so the rig times the layout that ships (the hub,
+# 17 Nov 2026; guidelines, Speed)
+PROFILE ?= 20
 # the main flows' hot loops first, right after the startup objects: the
 # 68030's 256-byte instruction cache sees them in the same places whatever
 # else grows (the guidelines' Speed, the link order; Erez 13 Nov 2026).
@@ -73,8 +74,28 @@ all: binary/eftp.prg binary/tls.ovl binary/tlsfb.ovl binary/roots.dat
 
 binary/eftp.prg: $(OBJDIR)/eftp.elf common/tools/elf2tos.py | binary
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
-build/prof/EFTP.PRG: $(OBJDIR)/eftp.elf common/tools/elf2tos.py
+build/prof/EFTP.PRG: build/prof/eftp.elf common/tools/elf2tos.py
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
+TIMED   := $(patsubst build/gem.o,build/prof/gem.o,$(patsubst build/main.o,build/prof/main.o,$(OBJS)))
+build/prof/gem.o: common/atari/gem.c $(HDRS) build/prof/profile
+	$(CC) $(CFLAGS) -DAES_PROFILE=$(PROFILE) -c -o $@ $<
+build/prof/main.o: ui/main.c $(HDRS) build/prof/profile
+	$(CC) $(CFLAGS) -DAES_PROFILE=$(PROFILE) -c -o $@ $<
+# tos.o is left out of the comparison: the timed main and gem call
+# nf_debug, which sits before the arithmetic in common's tos.c, so inside
+# tos.o the rest moves; a pad after it puts everything that follows back
+build/prof/eftp.elf: build/eftp.elf $(TIMED) build/build.o common/tools/profpad.py common/atari/codepad.S
+	python3 common/tools/profpad.py --ship build/eftp.elf --out $@ \
+	    --cpu=-m68000 --dir build/prof/pads \
+	    --exclude build/main.o --exclude build/prof/main.o \
+	    --exclude build/gem.o --exclude build/prof/gem.o --exclude build/tos.o \
+	    -- $(CC) $(LDFLAGS) $(TIMED) build/build.o -lgcc
+# PROFILE's value, written again only when it changes: the two objects
+# are built again then
+build/prof/profile: FORCE
+	@mkdir -p build/prof
+	@echo $(PROFILE) > $@.new
+	@if cmp -s $@.new $@; then rm $@.new; else mv $@.new $@; fi
 # the family's tls.ovl, as it comes with common/: copied, never built here.
 # Every file of a release, and every name EFTP gives its own files, in
 # lowercase (the guidelines, 6.6: a MiNT ext2 drive tells the cases apart)
@@ -106,7 +127,7 @@ icons:
 	python3 common/tools/appicon.py EFTP --rsc icons/EFTP.RSC --rscnv icons/EFTPNV.RSC --icn icons/EFTP.ICN --mask icons/EFTPMK.ICN --headers ui --docs docs
 
 $(OBJDIR)/eftp.elf: $(OBJS) $(OBJDIR)/build.o common/atari/link.ld
-	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(OBJDIR)/build.o -lgcc
+	$(CC) $(LDFLAGS) -Wl,-Map,$@.map -o $@ $(OBJS) $(OBJDIR)/build.o -lgcc
 
 $(OBJDIR)/%.o: src/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -218,7 +239,7 @@ $(OBJDIR)/replay_%: tests/fuzz/fuzz_%.c $(HOSTSRC) $(HDRS) $(HOSTLIB) $(REPLAYSR
 # make test also looks for word and long accesses at an odd offset from
 # the stack in EFTP.PRG's code: a 68000's address error (the guidelines,
 # The machines; common's oddaccess.py)
-test: $(OBJDIR)/unit $(addprefix $(OBJDIR)/replay_,$(FUZZERS)) $(OBJDIR)/eftp.elf
+test: $(OBJDIR)/unit $(addprefix $(OBJDIR)/replay_,$(FUZZERS)) $(OBJDIR)/eftp.elf build/prof/EFTP.PRG
 	$(OBJDIR)/unit
 	@for f in $(FUZZERS); do \
 	  $(OBJDIR)/replay_$$f tests/fuzz/seeds/$$f $$(ls -d tests/fuzz/found/$$f 2>/dev/null) || exit 1; \
