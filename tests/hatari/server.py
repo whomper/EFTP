@@ -19,7 +19,7 @@ from pyftpdlib.servers import FTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 FAKESTING = os.path.join(ROOT, "common", "tools", "fakesting")
-PORT = 2121
+PORT = int(os.environ.get("EFTP_PORT", "2121"))     # several rigs at once: EFTP_PORT
 
 # what the server has; random bytes stand in for the programs
 FILES = {

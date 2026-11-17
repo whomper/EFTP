@@ -23,8 +23,8 @@ os.environ.pop("AERA_WITH_ACCS", None)
 # the family's test machines (common/tools/machines.py): one EFTP.PRG on
 # every one, TLS.OVL next to it (a Direct connection on the TT and the
 # Falcons; an ST never loads it)
-PRG = {"ST": "eftp.prg", "ST-1": "eftp.prg", "TT": "eftp.prg", "Falcon": "eftp.prg",
-       "Falcon-4": "eftp.prg"}
+PRG = {"ST": "eftp.prg", "ST-1": "eftp.prg", "STE": "eftp.prg", "TT": "eftp.prg", "Falcon": "eftp.prg",
+       "Falcon-4": "eftp.prg", "FireBee": "eftp.prg"}
 
 
 def machine(spec, work):
@@ -50,10 +50,12 @@ K = dict(RETURN=0x1c, ESC=0x01, TAB=0x0f, BACKSPACE=0x0e, DELETE=0x53, UP=0x48, 
 
 
 class Rig:
-    def __init__(self, work, tos, machine="falcon", display=":99", serial=None, extra=(),
+    def __init__(self, work, tos, machine="falcon", display=None, serial=None, extra=(),
                  auto="C:\\EFTP.PRG"):
         """tos: an EmuTOS image, or a machine() from machines.py, which
-        then gives the machine, its TOS, screen and C: (machine is unused)"""
+        then gives the machine, its TOS, screen and C: (machine is unused).
+        display: EFTP_DISPLAY, else :99 (several rigs at once)"""
+        display = display or os.environ.get("EFTP_DISPLAY", ":99")
         self.work, self.tos, self.display = work, tos, display
         self.env = dict(os.environ, DISPLAY=display, SDL_AUDIODRIVER="dummy", SDL_VIDEODRIVER="x11")
         self.fifo = os.path.join(work, "cmd.fifo")
