@@ -61,8 +61,13 @@ PROFILE ?= 20
 # 68030's 256-byte instruction cache sees them in the same places whatever
 # else grows (the guidelines' Speed, the link order; Erez 13 Nov 2026).
 # local_names, the sort and the folder listing (xfer), the list parser
-# and flist_add (ftp), a pane's rows (files) and the text (draw)
-HOT     := xfer ftp files draw
+# and flist_add (ftp), a pane's rows (files) and the text (draw); then the
+# window's scrolling (win), the shared text and off-screen page (text,
+# offpage) and the connection with its charsets (conn, charset), so the
+# shared code growing behind them moves none of them (17 Nov 2026: common's
+# sync moved a file's start in the folder of 400 575 -> 585 ms on
+# Falcon-4:256 with NVDI; with them here, 570-580)
+HOT     := xfer ftp files draw win text offpage conn charset
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/crash_s.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(HOT) $(filter-out $(HOT),$(CORE) $(ATARI) $(UI))))
 OBJS    := $(OBJS0)
