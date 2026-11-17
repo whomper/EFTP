@@ -131,23 +131,24 @@ with the evidence.
 - Memory is short on a 1 MB ST with STinG: keep big buffers out of BSS and
   the heap (the control connection reads 2 KB at a time, data 8 KB).
 
-## Maintenance mode (Erez, 1 Nov 2026)
+## Maintenance mode (Erez, 1 Nov 2026; changed 17 Nov 2026)
 
-EFTP is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari, ATARI-APP-GUIDELINES.md, section 8). Until Erez ends it:
-- No new features, speed rounds, clean-ups, or catching up with new or changed guidelines.
-- No sync of the shared code (`common/`, `xl/`, `gateway/`). Shared code moving is no reason to rebuild or release.
-- A release only for:
-  - a security or data-loss fault;
-  - a crash or breakage Erez reports;
-  - something outside that stops it working (a certificate, a server);
-  - something EWeb, EPDF or EPlay need from it.
-
-  Such a release takes only that fix (one change from AERA-Atari, not a sync), and its notes say why.
-- Work on `main` that isn't released stays unreleased.
+EFTP is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari, ATARI-APP-GUIDELINES.md, section 8,
+as of 8ddb463). Until Erez ends it:
+- No new features and no speed rounds of its own.
+- **Every family rule holds for EFTP as for the focus apps** (Erez, 17 Nov 2026: "there needs to be a constant
+  behavior across all applications. In the future, all applications must adhere to family rules and be notified.
+  We will review whether they need to issue a release." and "Applications on maintenance does not mean they
+  contain faults"). The hub notifies EFTP of each new or changed rule and each shared fix; EFTP adopts it, with
+  the shared code it needs (a sync of `common/` or `gateway/`), and its row in section 8's table is ticked.
+  EFTP's ✗, ~ and ? in that table are work.
+- Whether adopting a rule needs a release of its own is reviewed with Erez through the hub; a fault fix always
+  gets one. A release otherwise only for a security or data-loss fault, a crash or breakage, something outside
+  that stops it working (a certificate, a server), or something EWeb, EPDF or EPlay need from it.
 - Nothing runs in the background; the session waits for Erez or the hub.
-- Only Erez's explicit word ends this mode, for instance that every app is to take the latest shared code and release. The hub passes it on quoting him.
+- Only Erez's explicit word ends this mode. The hub passes it on quoting him.
 
-State: lifted on 13 Nov 2026 for Erez's speed round (2.7, 2.8, 2.9) and back since 2.9 (Erez, 13 Nov: "stop with the
+Speed: lifted on 13 Nov 2026 for Erez's speed round (2.7, 2.8, 2.9) and back since 2.9 (Erez, 13 Nov: "stop with the
 performance improvements and place the applications back in maintenance"). From then on a speed change ships only if
 no row of the speed rig is slower beyond one tick (5 ms), paired on Falcon-4:256 with NVDI (guidelines, Speed,
 AERA-Atari 098183d).
@@ -161,8 +162,8 @@ arrows. Left: 16's keyboard reach in the other dialogs (a focus ring) and `form_
 the hub says when, and they go in with the next release made anyway.
 
 AERA-Atari a261597 (`standards/ui/DECISIONS-2026-11-09.md`, MENUS/CONTROLS/WINDOWS, DEVIATIONS rows).
-Not work to start while in maintenance mode: take it with a release made anyway (a fault fix or one
-Erez asked for), the S items freely, the H and M items only when that release is otherwise untouched.
+Since 17 Nov 2026 the rest is work (the hub: section 8's rows, 16's focus ring, `form_loop` onto `dlg_do`, 17),
+its shared code in `common/`; anything not decided there, or any visible change beyond it, goes to the hub first.
 Each done item: one line to the hub with the commit. "Hub first" = wait until the shared code is in
 `common/`.
 
