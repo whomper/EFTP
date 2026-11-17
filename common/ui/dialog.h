@@ -34,8 +34,17 @@ short dlg_do(OBJECT *tree, short start, short cancel);
 
 /* The app's own key, offered to dlg_do before its own (after F10): key as evnt_multi gives it, kstate, edit the object whose
    text field has the cursor (0: none), *field set by the function: > 0 the text field that gets the cursor, < 0 the
-   cursor leaves its field, 0 as it is. It returns 1 when it took the key (dlg_do does nothing else with it), 0 to leave it
-   to dlg_do. NULL by default; settings.c sets it while its dialog is up (Tab, Space, arrows: the keyboard reach, 5.10).
+   cursor leaves its field, 0 as it is. It returns:
+     0  the key isn't the app's: dlg_do handles it as its own;
+     1  the app took the key (the focus moved, a radio turned): dlg_do does nothing else with it, the text cursor
+        going where *field says;
+     2  the key acts on the object *field (> 0; Space on a button, a tick, a choice: the keyboard reach, D25): dlg_do
+        ends and returns it, as a click on it would. An EXIT button is drawn selected first, for the caller to
+        deselect, as after a click; any other state (a tick's cross, a radio's dot) is the app's to set, here or once
+        dlg_do has returned it. A text field's cursor ends as on an exit. There is no press to wait for, so a
+        DLG_CLICK build's dlg_touch_up returns at once, and the double click's bit (0x8000) is never set.
+        *field 0 or less with 2: as 1.
+   NULL by default; settings.c sets it while its dialog is up (Tab, Space, arrows: the keyboard reach, 5.10).
    A function that serves one tree checks `tree` and takes nothing of another dialog's (a button's own dialog) */
 extern int (*dlg_keys)(OBJECT *tree, short key, short kstate, short edit, short *field);
 
