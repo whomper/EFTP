@@ -79,6 +79,7 @@ class Rig:
         if serial:
             args += ["--rs232-out", serial[0], "--rs232-in", serial[1]]
         args += list(extra)
+        args += os.environ.get("EFTP_HATARI_ARGS", "").split()   # e.g. "--trace gemdos" for a measurement
         self.log = open(os.path.join(work, "hatari.log"), "w")
         self.proc = subprocess.Popen(args, env=self.env, stdout=self.log, stderr=subprocess.STDOUT)
 
