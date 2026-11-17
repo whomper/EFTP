@@ -973,6 +973,7 @@ int main(void)
 	ap_id = appl_init();
 	if (ap_id < 0)
 		return 1;
+	key_state_init();	/* a Shift or Ctrl typed during the start keeps its state (3.2) */
 	notify_init("EFTP    ");	/* BGEM.NG's notifications (4.5) */
 	notify_ask();			/* sends nothing until BGEM.NG answers */
 	notify_clicked = notify_show;
@@ -1027,6 +1028,7 @@ int main(void)
 	av_init("EFTP");		/* the desktop's AV server, if there is one */
 	crash_cleanup = crash_quit;
 	crash_report = conn_log_append;	/* the report in EFTP.LOG too */
+	conn_log_size = pf_handle_size;	/* the log's 256 KB cap from the open handle (6.5) */
 	secret_warn = warn_plain;	/* before anything is saved */
 	pf_init();			/* one look at the directory a file */
 	store_init(dir);

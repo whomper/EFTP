@@ -226,6 +226,8 @@ int pf_list(const char *dir, int (*cb)(const char *, long, void *), void *ud)
 }
 
 long pf_seek(int h, long off) { return Fseek(off, (short)h, 0); }
+/* the log's cap (conn_log_size, guidelines 6.5): one Fseek to the end */
+long pf_handle_size(int h) { return Fseek(0L, (short)h, 2); }
 int pf_rmdir(const char *path) { return (int)Ddelete(path); }
 
 static void dos_time(unsigned short d, unsigned short tm, PFTIME *t)
