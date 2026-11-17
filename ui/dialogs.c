@@ -1107,6 +1107,34 @@ static void exists_pick(short btn)
 static short zone_btn, exists_btn;
 
 /* the dialog stays open while ticks and pages change */
+static short set_cancel, set_ok;
+
+/* an out-of-range number is refused with an alert that says what to
+   type, its page shown and the field kept as typed; nothing is changed
+   silently (D30) */
+static int settings_numbers_ok(short ok)
+{
+	long t = atol(s_timeout), p = atol(s_gport);
+	short page = 0;
+	if (t < 10 || t > 600) {
+		page = 4;
+		alert(1, "[1][Wait 10 to 600 seconds for|the server.|Please type a number|from 10 to 600.][ OK ]");
+	} else if (p < 1 || p > 65535) {
+		page = 5;
+		alert(1, "[1][The gateway port: 1 to 65535.|Please type a number|from 1 to 65535.][ OK ]");
+	}
+	if (!page)
+		return 1;
+	tree[ok].ob_state &= ~SELECTED;
+	if (page != cur_page)
+		show_page(page, 1);
+	if (!dlg_in_window())
+		dlg_draw(tree, 0);	/* what the alert covered */
+	else
+		dlg_draw(tree, ok);
+	return 0;
+}
+
 static short settings_run(short pages_box)
 {
 	short x, y, w, h, r, k;
@@ -1154,6 +1182,8 @@ static short settings_run(short pages_box)
 			dlg_draw(tree, r);
 			continue;
 		}
+		if (r == set_ok && !settings_numbers_ok(r))
+			continue;
 		break;
 	}
 	dlg_close();
@@ -1288,7 +1318,6 @@ static short page_add(short k)
 /* a page not built yet, built now at the tree's end: the first time its
    tab is chosen. Settings opens with its first page alone (the other four
    and their fix-up some 20 ms of an 8 MHz ST, 31 Oct 2026) */
-static short set_cancel, set_ok;
 
 /* Cancel and OK the last of the dialog's objects again: objc_find takes
    the last object under the mouse, and a page built later went after
@@ -1371,9 +1400,7 @@ int dlg_settings(void)
 	if (r != ok)
 		return 0;
 	str_copy(opt.tzname, s_zone, sizeof(opt.tzname));
-	opt.timeout = (short)atoi(s_timeout);
-	if (opt.timeout < 10)
-		opt.timeout = 10;
+	opt.timeout = (short)atoi(s_timeout);	/* 10 to 600: settings_numbers_ok */
 	opt.keepalive = (short)atoi(s_keep);
 	str_copy(opt.text, s_text, sizeof(opt.text));
 	opt.exists = s_exists;
@@ -1387,7 +1414,7 @@ int dlg_settings(void)
 	opt.log = s_on[T_LOG];
 	str_copy(opt.gate, s_gate, sizeof(opt.gate));
 	str_trim(opt.gate);
-	opt.gateport = (unsigned short)(atoi(s_gport) > 0 ? atoi(s_gport) : 2121);
+	opt.gateport = (unsigned short)atol(s_gport);	/* 1 to 65535: settings_numbers_ok */
 	opt.dsp = s_on[T_DSP];
 	if (s_on[T_FALCON] != opt.falcon)
 		falcon_mode_set(s_on[T_FALCON]);	/* says why when it can't */
