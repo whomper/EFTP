@@ -75,8 +75,8 @@ def wait_for(cond, secs, slow=True):
 
 # where things are in the window (ST font 8x16), the same on a 640x480
 # screen and an ST's 640x400 mono one; dialogs are centred, so higher
-if m.screen not in ("mono", "ttmed", "16", "256"):
-    sys.exit("net_test.py: %s's %s screen isn't one this test knows (mono, ttmed, 16, 256)"
+if m.screen not in ("mono", "ttmed", "16", "256", "65536"):
+    sys.exit("net_test.py: %s's %s screen isn't one this test knows (mono, ttmed, 16, 256, 65536)"
              % (m.name, m.screen))
 HIGH = 480 - (400 if m.screen == "mono" else 480)   # dialogs this much higher
 # an ST's serial port, which FAKESTNG carries the network over, runs at
