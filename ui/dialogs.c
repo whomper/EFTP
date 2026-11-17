@@ -29,7 +29,6 @@
    in the second pair while the settings' (which may be a window the AES
    asks to draw again) stay as they are */
 static OBJECT tree_a[DMAX], tree_b[DMAX], *tree = tree_a;
-static void make_eyes(void);
 static short npw;
 static TEDINFO ted_a[TMAX], ted_b[TMAX], *ted = ted_a;
 static char tmpl[TMAX][64], valid[TMAX][64];
@@ -51,13 +50,11 @@ OBJECT *d_tree(void)
 
 static short band;		/* the dialog's title band (d_band), 0: none */
 
+static void band_badge(OBJECT *t, short b);
+
 void d_begin(short w, short h)
 {
-	static short eyes_made;
-	if (!eyes_made) {
-		make_eyes();
-		eyes_made = 1;
-	}
+	dlg_badge = band_badge;		/* the Hebrew keyboard's badge in the band, by dlg_do (5.3) */
 	npw = 0;
 	if (!nested) {
 		lf_forget(tree);
@@ -190,37 +187,7 @@ void d_end(void)
  * with form_keybd/form_button/objc_edit, so the long fields take their
  * own keys. */
 
-#define PWMAX 2
-
-typedef struct {
-	short obj, eye;		/* the text field and its eye button */
-	LFIELD *lf;		/* the password, in it */
-	short clear;		/* 1: shown in clear */
-} PWFIELD;
-
-static PWFIELD pwf[PWMAX];
-
-/* the eye: 16 pixels wide, 16 rows (8 on ST medium), open and crossed */
-static const char *const eye_art[16] = {
-	"................",
-	"................",
-	"................",
-	".....######.....",
-	"...##......##...",
-	"..#....##....#..",
-	".#....####....#.",
-	"#.....####.....#",
-	".#....####....#.",
-	"..#....##....#..",
-	"...##......##...",
-	".....######.....",
-	"................",
-	"................",
-	"................",
-	"................",
-};
-static unsigned short eye_open[16], eye_shut[16];
-
+/* a password's field and its eye: common's (field.c, eye.c; lf_eye_click from dlg_do) */
 /* a tick box, 16 pixels square, and the tick in it */
 static const char *tick_art[16] = {
 	"................",
@@ -264,64 +231,34 @@ static void make_ticks(void)
 	tick_on_blk.bi_hl = tick_off_blk.bi_hl = rows;
 	tick_on_blk.bi_color = tick_off_blk.bi_color = 1;
 }
-static BITBLK eye_blk[PWMAX];
-
-static void make_eyes(void)
-{
-	short tall = gl_hchar >= 16, r, rows = tall ? 16 : 8, c;
-	for (r = 0; r < rows; r++) {
-		const char *src = eye_art[tall ? r : r * 2 + 1];
-		unsigned short v = 0;
-		for (c = 0; c < 16; c++)
-			v = (v << 1) | (src[c] == '#');
-		eye_open[r] = v;
-		/* crossed out: a diagonal from bottom left to top right */
-		eye_shut[r] = v | (0x8000 >> ((rows - 1 - r) * 16 / rows)) | (0x4000 >> ((rows - 1 - r) * 16 / rows));
-	}
-}
-
-/* the eye and the stars as p->clear says */
-static void pw_update(PWFIELD *p)
-{
-	if (p->lf)
-		p->lf->mask = p->clear ? 0 : '*';
-	eye_blk[p - pwf].bi_pdata = p->clear ? eye_shut : eye_open;
-}
-
-/* a password field showing len characters of real, which holds cap */
+/* a password field showing len characters of real, which holds cap, and its eye: the stars or the text
+   (common's eye.c: open, crossed out while shown; a password is never copied out, LFIELD.secret) */
 short d_pass(short x, short y, char *real, short len, short cap)
 {
-	PWFIELD *p = &pwf[npw];
-	BITBLK *b = &eye_blk[npw];
-	short f;
-	f = d_long(x, y, real, len, cap);
-	p->obj = f;
-	p->lf = lf_of(tree, f);
-	p->clear = 0;
-	pw_update(p);
-	if (p->lf)
-		lf_view(p->lf);
-	b->bi_wb = 2;
-	b->bi_hl = gl_hchar >= 16 ? 16 : 8;
-	b->bi_x = b->bi_y = 0;
-	b->bi_color = 1;
-	p->eye = d_add(G_IMAGE, TOUCHEXIT, 0, (long)b, x + len + 1, y, 2, 1);
+	short f = d_long(x, y, real, len, cap);
+	LFIELD *lf = lf_of(tree, f);
+	void *img;
+	if (!lf)
+		return f;
+	lf->mask = '*';
+	lf->secret = 1;
+	lf_view(lf);
+	img = lf_eye_image(lf);
+	if (img)
+		lf_eye_set(lf, d_add(G_IMAGE, TOUCHEXIT, 0, (long)img, x + len + 1, y, 2, 1));
 	npw++;
 	return f;
 }
 
-static PWFIELD *pw_of(short obj)
+/* the password shown as stars again (a site chosen in the Site Manager): its eye open */
+static void pass_hide(short f)
 {
-	short i;
-	for (i = 0; i < npw; i++)
-		if (pwf[i].obj == obj)
-			return &pwf[i];
-	return 0;
-}
-
-static void draw_obj(short obj)
-{
-	dlg_draw(tree, obj);
+	LFIELD *lf = lf_of(tree, f);
+	if (!lf)
+		return;
+	lf->mask = '*';
+	lf_eye_image(lf);	/* the eye as the field now shows it */
+	lf_view(lf);
 }
 
 static short first_editable(void)
@@ -331,24 +268,6 @@ static short first_editable(void)
 		if (tree[i].ob_flags & EDITABLE)
 			return i;
 	return 0;
-}
-
-/* what Undo presses, and Esc where no field has the cursor (the
-   guidelines, 3.5): Cancel, else the only button that ends the dialog
-   (OK in a box that only says something); 0 when neither is there, and
-   then they do nothing */
-static short esc_button(void)
-{
-	short i, exits = 0, last = 0;
-	for (i = 1; i < nobj; i++) {
-		if (tree[i].ob_type != G_BUTTON || !(tree[i].ob_flags & EXIT))
-			continue;
-		if (!strcmp((const char *)tree[i].ob_spec, "Cancel"))
-			return i;
-		exits++;
-		last = i;
-	}
-	return exits == 1 ? last : 0;
 }
 
 /* what a pass of a dialog's loop changed, drawn alone: each object's
@@ -530,47 +449,13 @@ static void seen_draw(void)
 	seen_take();
 }
 
-/* the changed objects drawn a slice at a time, from form_loop's turns
-   (the Site Manager's fields when a site is chosen: ~200 ms of an 8 MHz
-   ST in one go, and a quick double click's second press, read only after
-   it, came too late to count; the hub, 11 Nov 2026). Each slice is
-   about 30 ms; a press or a key between them is read at once */
-static short later_q[DMAX], later_n, later_at;
-
-static void later_slice(void)
-{
-	unsigned long t0 = pf_ms();
-	graf_mouse(M_OFF, 0);
-	do {
-		short o = later_q[later_at++];
-		pending[o] = 0;
-		draw_one(o);
-	} while (later_at < later_n && pf_ms() - t0 < 30);
-	graf_mouse(M_ON, 0);
-	if (later_at >= later_n)
-		later_n = later_at = 0;
-}
-
-/* everything still queued, now (a key, or the dialog closing) */
-static void later_all(void)
-{
-	if (later_n)
-		while (later_n)
-			later_slice();
-}
-
-/* the dialog going: what is queued is dropped */
-static void later_drop(void)
-{
-	while (later_at < later_n)
-		pending[later_q[later_at++]] = 0;
-	later_n = later_at = 0;
-}
-
+/* the changed objects drawn a slice at a time by dlg_do (dlg_later, common's dialog.c: the Site Manager's
+   fields when a site is chosen were ~200 ms of an 8 MHz ST in one go, and a quick double click's second
+   press, read only after it, came too late to count; the hub, 11 Nov 2026): in a window or when most
+   changed, at once */
 static void seen_draw_later(void)
 {
 	short i, n = 0, ch[DMAX];
-	later_all();
 	for (i = 1; i < nobj; i++)
 		if (seen[i].state != tree[i].ob_state || seen[i].spec != tree[i].ob_spec || seen[i].text != text_sum(i))
 			ch[n++] = i;
@@ -578,13 +463,8 @@ static void seen_draw_later(void)
 		seen_draw();
 		return;
 	}
-	at_fill();
-	for (i = 0; i < n; i++) {
-		pending[ch[i]] = 1;
-		later_q[i] = ch[i];
-	}
-	later_n = n;
-	later_at = 0;
+	for (i = 0; i < n; i++)
+		dlg_later(tree, ch[i]);
 	seen_take();
 }
 
@@ -696,134 +576,28 @@ static void row_select(short o, unsigned short state)
 /* the object at x, y, as objc_find(tree, 0, 8, x, y) finds it (the last
    child shown that holds it, each level down), worked out here: the AES
    call took an 8 MHz ST 20 ms */
-static short find_obj(short x, short y)
-{
-	short cur = 0, best, k;
-	at_fill();
-#define HOLDS(i) (!at[i].hid && x >= at[i].x && y >= at[i].y && x < at[i].x + tree[i].ob_width && \
-		  y < at[i].y + tree[i].ob_height)
-	if (!HOLDS(0))
-		return -1;
-	for (;;) {
-		best = -1;
-		for (k = tree[cur].ob_head; k >= 0 && k != cur; k = tree[k].ob_next)
-			if (HOLDS(k))
-				best = k;
-		if (best < 0)
-			return cur;
-		cur = best;
-	}
-#undef HOLDS
-}
-
-/* form_do, with password fields and the clipboard (^C ^X ^V). Undo is
-   Cancel, and so is Esc where no text field has the cursor; in a field
-   Esc empties it, as form_do's does (the guidelines, 3.5; a tester,
-   Erez 27 Oct 2026). ^[ is Esc */
-/* the Hebrew keyboard's badge at the right end of the dialog's title
-   band while it is on (the guidelines, 5.3; common's hebrew_badge_right),
-   in the band's white; in a dialog window the title is the AES's and the
-   band hidden: there the main window's info line carries it */
-static void band_badge(void)
-{
-	short x, y;
-	if (band <= 0 || (tree[band].ob_flags & HIDETREE) || !hebrew_kbd || dlg_in_window())
-		return;
-	objc_offset(tree, band, &x, &y);
-	font_sys_push();
-	graf_mouse(M_OFF, 0);
-	hebrew_badge_right(vdi_h, x, y, tree[band].ob_width, tree[band].ob_height, 0);
-	graf_mouse(M_ON, 0);
-	font_sys_pop();
-}
-
+/* form_do: common's dlg_do (C11, 17 Nov 2026), with long fields, passwords and their eyes, the clipboard
+   (^C ^X ^V; a password is never copied out), Esc and Undo as the dialog's Cancel or only exit button (the
+   guidelines, 3.5), F10 the Hebrew keyboard with its badge in the band (5.3, dlg_badge), and the changes
+   queued by seen_draw_later drawn a slice a turn */
 static short form_loop(short start)
 {
-	short next = start ? start : first_editable(), edit = 0, idx = 0, cont = 1;
-	short m[8];
-	AEVENT e;
-	band_badge();		/* the dialog has just been drawn, whole */
-	while (cont) {
-		if (later_n) {
-			/* a slice of what is still to draw, then a look at the
-			   mouse and keys (seen_draw_later) */
-			dlg_evnt(MU_KEYBD | MU_BUTTON | MU_TIMER, DLG_CLICKS, 1, 1, 0, m, &e);
-			if (!(e.which & (MU_KEYBD | MU_BUTTON))) {
-				later_slice();
-				continue;
-			}
-			if (e.which & MU_KEYBD)
-				later_all();	/* a key: the fields whole before it goes in one */
-			goto got;	/* a press at once: a double click's second (the rest next turn) */
-		}
-		if (next && next != edit) {
-			edit = next;
-			next = 0;
-			if (lf_of(tree, edit))
-				lf_enter(lf_of(tree, edit), &idx);
-			else
-				objc_edit(tree, edit, 0, &idx, ED_INIT);
-		}
-		dlg_evnt(MU_KEYBD | MU_BUTTON, DLG_CLICKS, 1, 1, 0, m, &e);	/* the closer: Undo */
-	got:
-		if (e.which & MU_KEYBD) {
-			LFIELD *lf = edit ? lf_of(tree, edit) : 0;
-			short ck;
-			if (dlg_esc(e.kreturn) && !dlg_undo(e.kreturn))
-				e.kreturn = 0x011b;	/* ^[ too: the key objc_edit empties a field on */
-			ck = clip_key(e.kreturn);
-			if (KEY_SCAN(e.kreturn) == 0x44 && !(e.kstate & 0x0f)) {
-				/* F10: the Hebrew keyboard, in a dialog too (5.3) */
-				set_hebrew_kbd(!hebrew_kbd);
-				if (band > 0 && !(tree[band].ob_flags & HIDETREE) && !dlg_in_window()) {
-					dlg_draw(tree, band);
-					band_badge();
-				}
-			} else if (dlg_cancel_key(e.kreturn, edit > 0)) {
-				if (esc_button()) {
-					next = esc_button();	/* as if it were clicked */
-					cont = 0;
-				}
-			} else if (lf && pw_of(edit) && (ck == CLIP_COPY || ck == CLIP_CUT)) {
-				;			/* a password is never copied out, shown or not */
-			} else if (lf && lf_key(lf, e.kreturn, key_char(e.kstate, e.kreturn), e.kstate, &idx)) {
-				;
-			} else if (edit && ck) {
-				clip_edit(tree, edit, &idx, e.kreturn);
-			} else {
-				short kr;
-				cont = form_keybd(tree, edit, next, e.kreturn, &next, &kr);
-				if (kr)
-					objc_edit(tree, edit, kr, &idx, ED_CHAR);
-			}
-		}
-		if (e.which & MU_BUTTON) {
-			short obj = find_obj(e.mx, e.my), i;
-			PWFIELD *eye = 0;
-			for (i = 0; i < npw; i++)
-				if (pwf[i].eye == obj && obj > 0)
-					eye = &pwf[i];
-			if (eye) {
-				/* show or hide the password; the dialog stays */
-				eye->clear = !eye->clear;
-				pw_update(eye);
-				if (eye->lf)
-					lf_mask(eye->lf, eye->lf->mask, &idx, edit == eye->obj);
-				draw_obj(eye->eye);
-				evnt_timer_(150);
-			} else if (obj < 0) {
-				next = 0;
-			} else {
-				cont = form_button(tree, obj, e.breturn, &next);
-				if (!cont)	/* a row's double click: on its second release (5.8) */
-					dlg_touch(tree, &next, e.mx, e.my);
-			}
-		}
-		if (!cont || (next && next != edit))
-			if (edit)
-				objc_edit(tree, edit, 0, &idx, ED_END);
-	}
-	return next;
+	return dlg_do(tree, start ? start : first_editable(), 0);
+}
+
+/* the Hebrew keyboard's badge at the right end of the dialog's title band while it is on (the guidelines,
+   5.3; common's hebrew_badge_right), in the band's white: dlg_do's dlg_badge, on TOS where the band shows */
+static void band_badge(OBJECT *t, short b)
+{
+	short x, y;
+	if (b <= 0 || (t[b].ob_flags & HIDETREE) || !hebrew_kbd)
+		return;
+	objc_offset(t, b, &x, &y);
+	font_sys_push();
+	graf_mouse(M_OFF, 0);
+	hebrew_badge_right(vdi_h, x, y, t[b].ob_width, t[b].ob_height, 0);
+	graf_mouse(M_ON, 0);
+	font_sys_pop();
 }
 
 /* the dialog built, run: over the screen on TOS, in a window of the AES's
@@ -2034,7 +1808,7 @@ static int pick_folder(char *dir, int size)
 static SITE *sites_dialog(void)
 {
 	short row[SROWS], b_up, b_down, b_new, b_copy, b_del, b_cancel, b_save, b_conn, f_anon;
-	short e_name, e_host, e_port, e_user, e_rdir, e_ldir, b_ldir, m_ext, m_txt, m_bin, list, b_proto;
+	short e_name, e_host, e_port, e_user, e_pass, e_rdir, e_ldir, b_ldir, m_ext, m_txt, m_bin, list, b_proto;
 	short x, y, w, h, r, first = 0, k, chosen = -1, keep = 0, i;
 	static short anon_on;
 	const short W = SLW + 48;	/* 66: the protocol's four at the labels' column end as far from the frame as Binary (D24) */
@@ -2087,7 +1861,7 @@ static SITE *sites_dialog(void)
 	d_text(x, 10, "User:");
 	e_user = d_long(x + 10, 10, f_user, 28, (short)sizeof(f_user) - 1);
 	d_text(x, 11, "Password:");
-	d_pass(x + 10, 11, f_pass, 22, (short)sizeof(f_pass) - 1);
+	e_pass = d_pass(x + 10, 11, f_pass, 22, (short)sizeof(f_pass) - 1);
 	d_text(x, 13, "Server folder:");
 	e_rdir = d_long(x + 15, 13, f_rdir, 23, (short)sizeof(f_rdir) - 1);
 	d_text(x, air_below(14), "Atari folder:");
@@ -2235,9 +2009,7 @@ static SITE *sites_dialog(void)
 			s_on[0] = work[wsel].anon;
 			for (k2 = 0; k2 < nlf; k2++)
 				lf_end(&lfs[k2]);	/* the fields show the site's own */
-			pwf[0].clear = 0;
-			pw_update(&pwf[0]);
-			lf_view(pwf[0].lf);
+			pass_hide(e_pass);	/* the site's password as stars, its eye open */
 			tree[m_ext].ob_state = work[wsel].ascii == 0 ? SELECTED : 0;
 			tree[m_txt].ob_state = work[wsel].ascii == 1 ? SELECTED : 0;
 			tree[m_bin].ob_state = work[wsel].ascii == 2 ? SELECTED : 0;
@@ -2255,8 +2027,7 @@ static SITE *sites_dialog(void)
 			seen_draw_later();	/* a site chosen: its fields, a slice a turn (5.8) */
 		}
 	}
-	later_drop();
-	dlg_close();
+	dlg_close();		/* (what dlg_later still had queued goes with it) */
 	tree[r].ob_state &= ~SELECTED;
 	npw = 0;
 	if (r == b_cancel)
