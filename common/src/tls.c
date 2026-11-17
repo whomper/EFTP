@@ -227,6 +227,8 @@ struct TLS {
 	char desc[80];
 	int offered, resumed;		/* a kept session offered; taken up */
 	unsigned char offered_id[32];
+	long got;			/* the answer's bytes read so far */
+	int lost, ended;		/* the socket closed under BearSSL; its end logged */
 	unsigned char iobuf[BR_SSL_BUFSIZE_MONO];
 };
 
@@ -704,14 +706,20 @@ static void cache_stamp(int ver, long size, unsigned long sum, unsigned long sta
 	b[2] = (unsigned char)(stamp >> 8);
 	b[3] = (unsigned char)stamp;
 	if ((h = pf_open(tls_roots_cache, PF_UPDATE)) >= 0) {
-		if (pf_seek(h, 18) == 18)
-			pf_write(h, b, 4);
+		int ok = pf_seek(h, 18) == 18 && pf_write(h, b, 4) == 4;
 		pf_close(h);
+		if (ok)
+			return;
 	}
 #else
 	(void)b;
 	(void)h;
 #endif
+	/* no update in place (a program whose pf_open has no PF_UPDATE opens
+	   the file read-only: EUpdate, whose every session checksummed the
+	   186 KB CACERT.PEM again, 860 ms on a stock Falcon, 13 Nov 2026):
+	   the cache written whole, once */
+	save_cache(size, sum, stamp);
 }
 
 static int load_anchors(const char *path, char *err, int errlen)
@@ -1585,6 +1593,7 @@ static int pump(TLS *t, unsigned want, int blocking)
 			unsigned char *buf = br_ssl_engine_recvrec_buf(eng, &len);
 			long r = net_read(t->sock, buf, (long)len);
 			if (r < 0) {
+				t->lost = 1;
 				br_ssl_engine_close(eng);
 				return -1;
 			}
@@ -1836,6 +1845,26 @@ const char *tls_describe(TLS *t)
 	return t ? t->desc : "";
 }
 
+/* how the server ended the connection, once, in the log: a close_notify,
+   an alert (its code), BearSSL's own error, or the socket closed with no
+   TLS end at all (EPlay, 14 Nov 2026: stream.laut.fm closed 30 ms after
+   the request, nothing read, no reason known) */
+static void said_end(TLS *t)
+{
+	int e = br_ssl_engine_last_error(&t->cc.eng);
+	t->ended = 1;
+	if (e == BR_ERR_OK && t->lost)
+		step("closed by the server with no TLS end (no close_notify) after %ld bytes", t->got);
+	else if (e == BR_ERR_OK)
+		step("closed by the server (close_notify) after %ld bytes", t->got);
+	else if (e >= BR_ERR_RECV_FATAL_ALERT && e < BR_ERR_RECV_FATAL_ALERT + 256)
+		step("closed by the server with TLS alert %d after %ld bytes", e - BR_ERR_RECV_FATAL_ALERT, t->got);
+	else if (e >= BR_ERR_SEND_FATAL_ALERT && e < BR_ERR_SEND_FATAL_ALERT + 256)
+		step("closed: this side sent TLS alert %d after %ld bytes", e - BR_ERR_SEND_FATAL_ALERT, t->got);
+	else
+		step("closed: TLS error %d after %ld bytes", e, t->got);
+}
+
 long tls_read(TLS *t, void *buf, long max)
 {
 	br_ssl_engine_context *eng = &t->cc.eng;
@@ -1844,8 +1873,11 @@ long tls_read(TLS *t, void *buf, long max)
 	int r = pump(t, BR_SSL_RECVAPP, 0);
 	if (r < 0) {
 		/* data may still be waiting even after close_notify */
-		if (!(br_ssl_engine_current_state(eng) & BR_SSL_RECVAPP))
+		if (!(br_ssl_engine_current_state(eng) & BR_SSL_RECVAPP)) {
+			if (!t->ended)
+				said_end(t);
 			return -1;
+		}
 	} else if (r == 0) {
 		return 0;
 	}
@@ -1861,6 +1893,7 @@ long tls_read(TLS *t, void *buf, long max)
 		len = (size_t)max;
 	memcpy(buf, p, len);
 	br_ssl_engine_recvapp_ack(eng, len);
+	t->got += (long)len;
 	return (long)len;
 }
 
