@@ -195,7 +195,7 @@ try:
     check("REST %d" % size in log, "resumed with REST")
     # the downloads gathered in memory and went to disk in one go (a 1 MB
     # ST may have too little to spare: then straight to disk, as before)
-    ram = "TT RAM" if m.name in ("TT", "Falcon") else "ST RAM"
+    ram = "TT RAM" if m.name in ("TT", "Falcon", "FireBee") else "ST RAM"
     if m.name != "ST-1" or "the file gathers in" in log:
         check("the file gathers in " + ram in log, "downloads gathered in " + ram)
     time.sleep(3)
