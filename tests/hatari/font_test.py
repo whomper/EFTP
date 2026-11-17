@@ -117,7 +117,8 @@ def rows(shot, x0, x1):
     pitch = bottom - top + 1
     # the pane ends at its frame, or the next bar: a line across most of it
     end = bottom + 1
-    while end < h and sum(1 for x in range(x0, x1) if drawn(x, end)) < 0.8 * (x1 - x0):
+    while end < h and sum(1 for x in range(x0, x1) if drawn(x, end)) < 0.8 * (x1 - x0) and \
+            not 3 * 150 < sum(px[mid, end]) < 3 * 240:     # or the Transfers band's grey (256 colours)
         end += 1
     widths = []
     for y0 in range(bottom + 1, end - pitch + 1, pitch):
