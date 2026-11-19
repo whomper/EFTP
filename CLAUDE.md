@@ -159,6 +159,14 @@ as of 8ddb463). Until Erez ends it:
 - Nothing runs in the background; the session waits for Erez or the hub.
 - Only Erez's explicit word ends this mode. The hub passes it on quoting him.
 
+**Lifted for two items (Erez, 19 Nov 2026, choosing "Work on 1 and 2"; the hub passed it on):**
+1. Redraws in pieces: the start (525 ms on Falcon-4:256 with NVDI, 1,165 on ST:mono), the whole redraw (545) and the
+   resize (580-625 on the ST) drawn in pieces of at most 100 ms; 300 ms or less in one piece (section 8's row).
+2. The Keys dialog's line, as approved: "In dialogs: Tab, Space, the arrows reach every control".
+
+The same rules as any release (the regression gate, the pairs against 2.13, the hub's family check). Maintenance
+comes back when both are done. TUW-TCP stays on the idea list.
+
 Speed: lifted on 13 Nov 2026 for Erez's speed round (2.7, 2.8, 2.9) and back since 2.9 (Erez, 13 Nov: "stop with the
 performance improvements and place the applications back in maintenance"). From then on a speed change ships only if
 no row of the speed rig is slower beyond one tick (5 ms), paired on Falcon-4:256 with NVDI (guidelines, Speed,

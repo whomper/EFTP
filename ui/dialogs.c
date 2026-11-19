@@ -1981,14 +1981,16 @@ void dlg_shortcuts(void)
 		"^,  Settings               Insert  the file's menu",
 		"During a transfer: Esc or Stop ends it",
 		"^U, ^Q  quit               Help  the user guide",
-		"The file keys act on the pane with the keyboard"
+		"The file keys act on the pane with the keyboard",
+		"In dialogs: Tab, Space, the arrows reach every control"	/* D25; Erez, 19 Nov 2026 */
 	};
 	short i, n = (short)(sizeof(lines) / sizeof(lines[0]));
-	d_begin(54, n + 6);
-	d_band(54, " Keys");
+	const short W = 60;		/* the longest line (54) with 3 either side */
+	d_begin(W, n + 6);
+	d_band(W, " Keys");
 	for (i = 0; i < n; i++)
 		d_text(3, 3 + i, lines[i]);
-	d_button(42, n + 4, 10, "OK", EXIT | DEFAULT);
+	d_button(W - 12, n + 4, 10, "OK", EXIT | DEFAULT);
 	d_end();
 	dlg_name("Keys");
 	d_do(0);
