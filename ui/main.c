@@ -960,6 +960,24 @@ static void av_start(const char *s)
 		queue_run();
 }
 
+/* the start's work in stretches of under 100 ms on an 8 MHz ST (the guidelines' Speed; Erez, 19 Nov 2026): an
+   event call between its steps, each step named for the speed build */
+int slow_cpu;
+
+static void start_turn(const char *next)
+{
+	if (!slow_cpu)
+		return;		/* a 68020 or better: no stretch of the start comes near 300 ms (a stock Falcon's 245),
+				   and each turn costs one of the AES's ticks */
+	evnt_timer_(0);
+	aes_profile_tag(next);
+}
+
+#ifdef AES_PROFILE
+static unsigned long start_ms;	/* appl_init's: the speed build's AESSHOWN, the window whole for the first time */
+static short shown_said, redraw_seen;
+#endif
+
 int main(void)
 {
 	short work_out[57], msg[8], d;
@@ -969,10 +987,15 @@ int main(void)
 	{
 		extern int mem_unaligned_ok;
 		mem_unaligned_ok = get_cookie(0x5F435055L) >= 20;	/* _CPU */
+		slow_cpu = !mem_unaligned_ok;
 	}
 	ap_id = appl_init();
 	if (ap_id < 0)
 		return 1;
+#ifdef AES_PROFILE
+	start_ms = tos_ms();
+	nf_on = 1;		/* the speed build runs in Hatari only: its start's stretches go out before EFTP.INF is read */
+#endif
 	key_state_init();	/* a Shift or Ctrl typed during the start keeps its state (3.2) */
 	notify_init("EFTP    ");	/* BGEM.NG's notifications (4.5) */
 	notify_ask();			/* sends nothing until BGEM.NG answers */
@@ -1031,7 +1054,9 @@ int main(void)
 	conn_log_size = pf_handle_size;	/* the log's 256 KB cap from the open handle (6.5) */
 	secret_warn = warn_plain;	/* before anything is saved */
 	pf_init();			/* one look at the directory a file */
+	start_turn("start: settings");
 	store_init(dir);
+	start_turn("start: colours, fonts");
 	nf_on = opt.natfeats;	/* NatFeats only where the INF asks (6.5), before the first log line */
 	dlg_title = "EFTP";		/* dialog windows on MiNT and MagiC (3.5) */
 	dlg_redraw_hook = win_redraw_msg;	/* EFTP's window drawn while one is open */
@@ -1044,6 +1069,7 @@ int main(void)
 	   STinG and the transfers (300 KB of a 4 MB Falcon in 256 colours) */
 	offpage_init(vdi_h, scr_w, scr_h, planes, 1024L * 1024);
 	hebrew_kbd_hook = hebrew_changed;
+	start_turn("start: log, network");
 	set_logging();
 	log_aes();
 	net_init();
@@ -1053,6 +1079,7 @@ int main(void)
 
 	files_init();
 	queue_init();
+	start_turn("start: menu bar");
 	if (mbar_build(&mb, bar, gl_wchar, gl_hchar, scr_w, scr_h)) {
 		form_alert(1, "[3][EFTP: not enough memory.][ Quit ]");
 		offpage_exit();
@@ -1063,7 +1090,9 @@ int main(void)
 	menu_bar(mb.tree, 1);
 	graf_mouse(ARROW, 0);
 
+	start_turn("start: window");
 	main_open();
+	start_turn("start: folder");
 	local_load();
 	files_disconnected();
 	menu_update();
@@ -1087,7 +1116,32 @@ int main(void)
 		   every press back for the double-click time). A list times its
 		   double clicks itself (common's click.c) */
 		main_badge_now();	/* the Hebrew keyboard's badge, when asked for */
-		which = evnt_multi_(MU_MESAG | MU_KEYBD | MU_BUTTON | MU_TIMER | MU_M1, 0x101, 3, 0, tip_wait(1000), msg, &ev);
+#ifdef AES_PROFILE
+		if (!shown_said && redraw_seen && !win_pending()) {
+			char b[48];
+			shown_said = 1;
+			snprintf(b, sizeof(b), "AESSHOWN %lu ms\n", (unsigned long)(tos_ms() - start_ms));
+			nf_debug(b);
+		}
+#endif
+		/* a big redraw in pieces (win_piece): a turn at once, its next band when nothing else came */
+		which = evnt_multi_(MU_MESAG | MU_KEYBD | MU_BUTTON | MU_TIMER | MU_M1, 0x101, 3, 0,
+				    win_pending() ? 0 : tip_wait(1000), msg, &ev);
+#ifdef AES_PROFILE
+		if ((which & MU_MESAG) && msg[0] == WM_REDRAW)
+			redraw_seen = 1;
+#endif
+		if (which == MU_TIMER && win_pending()) {
+			aes_profile_tag("redraw piece");
+			if (win_piece()) {
+#ifdef AES_PROFILE
+				char b[48];
+				snprintf(b, sizeof(b), "AESDRAWN %lu ms\n", (unsigned long)(tos_ms() - win_pending_since()));
+				nf_debug(b);
+#endif
+			}
+			continue;
+		}
 		aes_profile_tag((which & MU_MESAG) ? (msg[0] == WM_REDRAW ? "redraw" : msg[0] == MN_SELECTED ?
 				"menu" : "message") : (which & MU_KEYBD) ? "key" : (which & MU_BUTTON) ? "click" :
 				(which & MU_M1) ? "hover" : "timer");

@@ -74,7 +74,7 @@ HOT     := xfer ftp files draw win text offpage conn charset
 # folder of 400 575 -> 595 ms on Falcon-4:256 with NVDI (with the pad:
 # 575-580; 212 since common a62cb16's text.c). When a hot object grows, set HOTPAD so str_copy keeps its place
 # modulo 256 (0x...3e, as at 8864e9d) and run the speed pair against 2.11
-HOTPAD  := 212
+HOTPAD  := 138
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/crash_s.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(HOT))) $(OBJDIR)/hotpad.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(filter-out $(HOT),$(CORE) $(ATARI) $(UI))))

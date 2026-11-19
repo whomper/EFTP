@@ -324,6 +324,8 @@ static void local_load_keep(const char *keep)
 		free_drive = ldir[0];
 		free_stale = 0;
 	}
+	if (slow_cpu)
+		evnt_timer_(0);	/* the reading and the list's sort and drawing apart: an ST's 105 ms at the start together */
 	loaded(s, keep);
 }
 
@@ -632,9 +634,12 @@ static void draw(WIN *w, GRECT *clip)
 			"server's name and a login."
 		};
 		short k;
-		for (k = 0; k < 5; k++)
-			text_at(x0 + cw, w->work.y + w->head_h + (k + 1) * ch, help[k], strlen(help[k]),
-				w->work.w / cw - 2, k ? TX_LIGHT : 0);
+		for (k = 0; k < 5; k++) {
+			short y = w->work.y + w->head_h + (k + 1) * ch;
+			if (y + ch <= clip->y || y >= clip->y + clip->h)
+				continue;	/* outside what is drawn now (a piece of a big redraw) */
+			text_at(x0 + cw, y, help[k], strlen(help[k]), w->work.w / cw - 2, k ? TX_LIGHT : 0);
+		}
 		text_ground = -1;
 		return;
 	}

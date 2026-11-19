@@ -142,7 +142,7 @@ def held_shows(name, box):
 
 
 def gaps(since):
-    return [(int(g.group(1)), g.group(2)) for g in re.finditer(r"AESGAP (\d+) ms (\S+)", log_text()[since:])]
+    return [(int(g.group(1)), g.group(2)) for g in re.finditer(r"AESGAP (\d+) ms ([^\n]*)", log_text()[since:])]
 
 
 def measure(action, limit, do, quiet=1.5, most=30):
@@ -167,6 +167,13 @@ def measure(action, limit, do, quiet=1.5, most=30):
     worst = max([ms for ms, _ in g] or [0])
     results.append((action, worst, limit, sorted(set(t for _, t in g))))
     print("%-44s %6s ms  (%d)%s" % (action, worst or "<20", limit, "  OVER" if worst > limit else ""), flush=True)
+    # a big redraw drawn in pieces (the guidelines' Speed: over 300 ms): the time until it shows whole, the
+    # rule's other number beside the longest piece
+    drawn = re.findall(r"AESDRAWN (\d+) ms", log_text()[at:])
+    if drawn:
+        ms = int(drawn[-1])
+        results.append((action + ": until it shows", ms, 2000, ["pieces"]))
+        print("%-44s %6s ms  (2000)" % ((action + ": until it shows")[:44], ms), flush=True)
     return worst
 
 
@@ -215,9 +222,22 @@ try:
     t = log_text()
     start = int(re.search(r"AESSTART (\d+) ms", t).group(1))
     first = gaps(t.index("AESSTART"))
-    opened = first[0][0] if first and first[0][1] == "redraw" else 0
-    results.append(("started: its window drawn", start + opened, 2000, ["start"]))
-    print("%-44s %6s ms  (2000)%s" % ("started: its window drawn", start + opened, "  OVER" if start + opened > 2000 else ""))
+    shown = re.search(r"AESSHOWN (\d+) ms", t)
+    if shown:
+        # the start and the first redraw in pieces (19 Nov 2026): the time until the window shows whole, the
+        # longest stretch of the start and that of the first redraw
+        upto = gaps(t.index("AESSTART"))[:len(re.findall(r"AESGAP", t[t.index("AESSTART"):t.index("AESSHOWN")]))]
+        whole = int(shown.group(1))
+        opened = max([ms for ms, tag in upto if tag.startswith("redraw")] or [0])	# its pieces too
+        longest = max([start] + [ms for ms, _ in upto])
+    else:
+        opened = first[0][0] if first and first[0][1].startswith("redraw") else 0
+        whole = start + opened
+        longest = max(start, opened)
+    results.append(("started: its window drawn", whole, 2000, ["start"]))
+    print("%-44s %6s ms  (2000)%s" % ("started: its window drawn", whole, "  OVER" if whole > 2000 else ""))
+    results.append(("started: its longest stretch", longest, 300, ["start"]))
+    print("%-44s %6s ms  (300)%s" % ("started: its longest stretch", longest, "  OVER" if longest > 300 else ""))
     results.append(("main window drawn whole (opened)", opened, 300, ["redraw"]))
     print("%-44s %6s ms  (300)%s" % ("main window drawn whole (opened)", opened or "<20", "  OVER" if opened > 300 else ""))
     r.shot("1-start")

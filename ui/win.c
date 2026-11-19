@@ -458,8 +458,11 @@ static void aes_sliders(int all)
 	pos = max > 0 ? (short)(w->top * 1000 / max) : 0;
 	if (all || size != last_size)
 		wind_set(main_h, WF_VSLSIZE, size, 0, 0, 0);
-	if (all || pos != last_pos)
+	if (all || pos != last_pos) {
+		if (slow_cpu && (all || size != last_size))
+			evnt_timer_(0);		/* TOS 1.04's AES draws the slider for each: 55 ms of an 8 MHz ST, apart */
 		wind_set(main_h, WF_VSLIDE, pos, 0, 0, 0);
+	}
 	last_size = size;
 	last_pos = pos;
 }
@@ -755,6 +758,267 @@ void win_batch(int on)
 	}
 }
 
+/* ---------------- a big redraw in pieces ----------------
+ * The guidelines' Speed (Erez, 4 Nov 2026; for EFTP 19 Nov 2026): a draw of 300 ms or less is drawn whole, in one
+ * stretch; a longer one in pieces of at most 100 ms, a key or click answered between them. The window drawn whole
+ * took an 8 MHz ST 555 ms (the start, a resize). A big area is cut along the window's own parts (each pane's
+ * header, its rows three at a time, its bar; the toolbar in halves; the dividers): a band across the window drew each
+ * pane's bar again, an ST's 30 ms each. Whole, they are drawn in one stretch under one lock; in pieces (draw_big
+ * says which), as many as fit in PIECE_MS by what each kind cost so far (adjacent rows of a pane in one draw), the
+ * rest in the main loop's next turns (win_piece). What waits is drawn from the state of the moment, so a key between
+ * pieces changes what they show; a scroll's copy never moves what waits (scroll_rows), and the window moved or sized
+ * makes all of it wait again */
+#define WHOLE_MS 300
+#ifndef PIECE_MS
+#define PIECE_MS 90
+#endif
+#define NPIECE 48
+#define PIECE_ROWS 3
+static GRECT piece[NPIECE];		/* what waits, in the order it is drawn */
+static char piece_kind[NPIECE];		/* what it is: K_TOOL, K_HEAD, K_ROWS + a pane, K_BAR, K_OTHER */
+static short npiece, next_piece;
+enum { K_TOOL, K_HEAD, K_ROWS, K_BAR = K_ROWS + NPANE, K_OTHER, NKIND };
+static GRECT pend;			/* their box (w 0: nothing waits) */
+static unsigned long pend_since;	/* when the draw began (the speed build's AESDRAWN) */
+static short redo_all;			/* the window moved while pieces waited: all of it again */
+
+static void draw_areas(GRECT *a, const char *steady, short n);
+static GRECT sb_rect(WIN *w);
+static GRECT div_v(void);
+static GRECT div_h(void);
+
+int win_pending(void)
+{
+	return next_piece < npiece;
+}
+
+/* the box of what still waits */
+static void pend_box(void)
+{
+	short k, x1 = 0, y1 = 0;
+	pend.w = 0;
+	for (k = next_piece; k < npiece; k++) {
+		GRECT *p = &piece[k];
+		if (!pend.w) {
+			pend = *p;
+			x1 = p->x + p->w;
+			y1 = p->y + p->h;
+			continue;
+		}
+		if (p->x < pend.x)
+			pend.x = p->x;
+		if (p->y < pend.y)
+			pend.y = p->y;
+		if (p->x + p->w > x1)
+			x1 = p->x + p->w;
+		if (p->y + p->h > y1)
+			y1 = p->y + p->h;
+		pend.w = x1 - pend.x;
+		pend.h = y1 - pend.y;
+	}
+}
+
+static void plan_add(GRECT r, const GRECT *a, short kind)
+{
+	if (!intersect((GRECT *)a, &r))
+		return;
+	if (npiece < NPIECE) {
+		piece_kind[npiece] = (char)kind;
+		piece[npiece++] = r;
+	} else {
+		/* full (a window far taller than a screen): the last piece grows to hold it, nothing is left out */
+		GRECT *l = &piece[NPIECE - 1];
+		short x1 = l->x + l->w > r.x + r.w ? l->x + l->w : r.x + r.w;
+		short y1 = l->y + l->h > r.y + r.h ? l->y + l->h : r.y + r.h;
+		l->x = l->x < r.x ? l->x : r.x;
+		l->y = l->y < r.y ? l->y : r.y;
+		l->w = x1 - l->x;
+		l->h = y1 - l->y;
+		piece_kind[NPIECE - 1] = K_OTHER;
+	}
+}
+
+/* area a cut into the window's parts, in the order they are drawn, after what waits */
+static void plan_into(const GRECT *a)
+{
+	short i;
+	GRECT r;
+	/* the panes first: their rows, most of the area, are what the first pieces' times have to tell about */
+	for (i = 0; i < NPANE; i++) {
+		WIN *w = panes[i];
+		short lh = w->line_h ? w->line_h : ch, y, end;
+		r = w->box;
+		r.h = header_h();
+		plan_add(r, a, K_HEAD);
+		r = w->work;
+		end = w->work.y + w->work.h;
+		r.h = w->head_h + PIECE_ROWS * lh;	/* the column titles with the first rows */
+		for (y = w->work.y; y < end; y += r.h, r.h = PIECE_ROWS * lh) {
+			r.y = y;
+			if (r.y + r.h > end)
+				r.h = end - r.y;
+			plan_add(r, a, K_ROWS + i);
+		}
+		r = sb_rect(w);
+		if (r.w > 0 && r.h > 0)
+			plan_add(r, a, K_BAR);
+	}
+	r = r_tool;
+	r.w = r_tool.w / 2;
+	plan_add(r, a, K_TOOL);
+	r.x += r.w;
+	r.w = r_tool.w - r.w;
+	plan_add(r, a, K_TOOL);
+	plan_add(div_v(), a, K_OTHER);
+	plan_add(div_h(), a, K_OTHER);
+	pend_box();
+}
+
+static void plan(const GRECT *a)
+{
+	npiece = next_piece = 0;
+	plan_into(a);
+}
+
+/* what a piece costs, from those drawn: ms per 4096 square pixels, times 16 (an ST's row of a pane, 300 by 16
+   pixels, about 25 ms) */
+static unsigned long rate16[NKIND];
+static unsigned long big_ms;		/* the last big draw's drawing, for the whole window (0: none yet) */
+static unsigned long draw_sum, area_sum;	/* the drawing of the one under way, and its area */
+
+
+/* what a piece of that kind and area (in 4096 square pixels) costs, from those drawn; one of a kind not drawn yet,
+   as the panes' rows drawn so far on average (the toolbar and the headers cost several times as much for their
+   size), else as the dearest drawn */
+static unsigned long piece_cost(short kind, unsigned long area)
+{
+	unsigned long r = rate16[kind], sum = 0;
+	short k, n = 0;
+	if (!r) {
+		for (k = K_ROWS; k < K_ROWS + NPANE; k++)
+			if (rate16[k]) {
+				sum += rate16[k];
+				n++;
+			}
+		if (n)
+			r = sum / n;
+		else
+			for (k = 0; k < NKIND; k++)
+				if (rate16[k] > r)
+					r = rate16[k];
+	}
+	return r * area / 16;
+}
+
+/* pieces drawn while the next one, by what they cost so far, still ends within `ms` of t0 (the first always): the
+   screen taken and the mouse hidden once for them all, each through the window's rectangles */
+static void pieces_until(unsigned long t0, unsigned long ms)
+{
+	short took_lock = !held && !pressing;
+	if (!held) {
+		if (took_lock)
+			wind_update(BEG_UPDATE);
+		graf_mouse(M_OFF, 0);
+	}
+	short drawn = 0;
+	while (next_piece < npiece) {
+		GRECT p = piece[next_piece], r;
+		unsigned long t = tos_ms(), area = ((unsigned long)p.w * p.h + 2047) / 4096, took;
+		short kind = piece_kind[next_piece];
+		if (drawn++ && t - t0 + piece_cost(kind, area) > ms)
+			break;
+		next_piece++;
+		/* the pieces right below it in the same column (a pane's next rows) with it, in one draw, while they
+		   still fit: each draw of a pane costs its setup again */
+		while (next_piece < npiece && piece[next_piece].x == p.x && piece[next_piece].w == p.w &&
+		       piece[next_piece].y == p.y + p.h) {
+			unsigned long more = ((unsigned long)p.w * (p.h + piece[next_piece].h) + 2047) / 4096;
+			if (piece_kind[next_piece] != kind || t - t0 + piece_cost(kind, more) > ms)
+				break;
+			p.h += piece[next_piece++].h;
+			area = more;
+		}
+		wind_get(main_h, WF_FIRSTXYWH, &r.x, &r.y, &r.w, &r.h);
+		while (r.w > 0 && r.h > 0) {
+			if (intersect(&p, &r)) {
+				clip_on(&r);
+				draw_main(&r);
+			}
+			wind_get(main_h, WF_NEXTXYWH, &r.x, &r.y, &r.w, &r.h);
+		}
+		took = tos_ms() - t;
+		draw_sum += took;
+		area_sum += (unsigned long)p.w * p.h;
+		if (area > 0) {
+			unsigned long q = (took ? took : 2) * 16 / area;	/* (under the clock's 5 ms: about 2) */
+			rate16[kind] = rate16[kind] ? (rate16[kind] + q) / 2 : q;
+		}
+	}
+	if (!held) {
+		graf_mouse(M_ON, 0);
+		if (took_lock)
+			wind_update(END_UPDATE);
+	}
+	pend_box();
+}
+
+/* a big draw finished: what it took to draw, for the whole window, says how the next is drawn */
+static void big_done(void)
+{
+	unsigned long all = (unsigned long)mwork.w * mwork.h;
+	if (area_sum > 0 && all > 0)
+		big_ms = draw_sum * (all / 64) / (area_sum / 64 ? area_sum / 64 : 1);
+}
+
+/* the next turn's pieces (the main loop, a turn with nothing else): 1 when all is drawn */
+int win_piece(void)
+{
+	if (!win_pending())
+		return 1;
+	if (main_h <= 0 || main_iconified || !main_shown) {
+		npiece = next_piece = 0;
+		pend.w = 0;
+		return 1;
+	}
+	pieces_until(tos_ms(), PIECE_MS);
+	if (win_pending())
+		return 0;
+	big_done();
+	return 1;
+}
+
+/* something more to draw while pieces wait: it waits too, after them, cut the same way (what was drawn makes room) */
+static void pend_add(const GRECT *b)
+{
+	short k;
+	for (k = next_piece; k < npiece; k++) {
+		piece[k - next_piece] = piece[k];
+		piece_kind[k - next_piece] = piece_kind[k];
+	}
+	npiece -= next_piece;
+	next_piece = 0;
+	plan_into(b);
+}
+
+/* most of the window: whole, or in pieces when it takes more than 300 ms. The app knows from the machine and the
+   last such draw (the guidelines' Speed): the first on a 68000 in pieces (an 8 MHz ST's whole window 555 ms), on a
+   68020 or better whole (a stock Falcon's 230-280); each later one as the last took, for the whole window */
+static void draw_big(GRECT *a)
+{
+	int split = big_ms ? big_ms > WHOLE_MS : get_cookie(0x5F435055L) < 20;	/* _CPU */
+	pend_since = tos_ms();
+	if (!split) {
+		char steady = 0;
+		draw_areas(a, &steady, 1);	/* whole, as ever: one pass over the window's rectangles */
+		draw_sum = tos_ms() - pend_since;
+		area_sum = (unsigned long)a->w * a->h;
+		big_done();
+		return;
+	}
+	plan(a);			/* all of it in the next turns: this one has had the event's own work */
+	draw_sum = area_sum = 0;
+}
+
 /* redraw area of the window through its rectangle list */
 static void main_redraw(GRECT *area)
 {
@@ -762,6 +1026,8 @@ static void main_redraw(GRECT *area)
 	short k;
 	char steady = (char)steady_next;
 	steady_next = 0;
+	if (!area)
+		redo_all = 0;
 	if (main_h <= 0 || !main_shown)
 		return;
 	if (main_iconified) {	/* the icon, not the panes (area is the old window's) */
@@ -786,6 +1052,17 @@ static void main_redraw(GRECT *area)
 		}
 		batch_steady[nbatch] = steady;
 		batch[nbatch++] = a;
+		return;
+	}
+	if (win_pending()) {
+		GRECT o = a;
+		if (intersect(&pend, &o)) {
+			pend_add(&a);		/* drawn with what waits, in its turn */
+			return;
+		}
+	}
+	if (!steady && (long)a.w * a.h * 2 > (long)mwork.w * mwork.h) {
+		draw_big(&a);			/* most of the window: in pieces if it takes more than 300 ms */
 		return;
 	}
 	draw_areas(&a, &steady, 1);
@@ -952,6 +1229,12 @@ void main_badge_now(void)
 static void get_main_work(void)
 {
 	wind_get(main_h, WF_WORKXYWH, &mwork.x, &mwork.y, &mwork.w, &mwork.h);
+	if (win_pending()) {
+		/* the AES moved what was there, drawn or not: all of it again, planned once the panes are laid out */
+		npiece = next_piece = 0;
+		pend.w = 0;
+		redo_all = 1;
+	}
 }
 
 static void save_main_place(void)
@@ -1027,10 +1310,18 @@ void main_open(void)
 		alert(1, "[3][No more windows available.][ OK ]");
 		return;
 	}
+	/* on a 68000 an event call between the steps: on an 8 MHz ST the window's opening was 305 ms in one stretch
+	   (the guidelines' Speed; 19 Nov 2026) */
+	if (slow_cpu)
+		evnt_timer_(0);
 	wind_set_str(main_h, WF_NAME, " EFTP ");
 	wind_set_str(main_h, WF_INFO, main_info);
+	if (slow_cpu)
+		evnt_timer_(0);
 	place8(&x, y, &wd, ht);
 	wind_open(main_h, x, y, wd, ht);
+	if (slow_cpu)
+		evnt_timer_(0);
 	get_main_work();
 	save_main_place();
 	layout();
@@ -1108,6 +1399,13 @@ static void scroll_rows(WIN *w, long d)
 	if (k >= n || main_iconified || main_h <= 0 || !main_shown) {
 		win_redraw(w, &a);
 		return;
+	}
+	if (win_pending()) {
+		GRECT o = a;
+		if (intersect(&pend, &o)) {	/* part of the pane isn't drawn yet: the copy would move that */
+			pend_add(&a);
+			return;
+		}
 	}
 	if (!held && !pressing)
 		wind_update(BEG_UPDATE);
@@ -1569,13 +1867,21 @@ void win_message(short *msg)
 			msg[7] = MIN_H;
 		place8(&msg[4], msg[5], &msg[6], msg[7]);
 		wind_set(main_h, WF_CURRXYWH, msg[4], msg[5], msg[6], msg[7]);
+		if (msg[0] == WM_SIZED)
+			evnt_timer_(0);	/* the AES's frame drawn, then the panes laid out: an ST's 265 ms together */
 		get_main_work();
 		save_main_place();
 		layout();
-		if (msg[0] == WM_SIZED)
+		if (msg[0] == WM_SIZED || redo_all)
 			main_redraw(0);
 		break;
 	}
 	if (!running)
 		menu_update();
+}
+
+/* (last in the file: only the speed build calls it, and a function dropped from the middle moved the rest) */
+unsigned long win_pending_since(void)
+{
+	return pend_since;
 }
