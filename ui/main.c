@@ -1141,8 +1141,14 @@ int main(void)
 				menu_update();
 			wait_release();
 		}
-		if (which & MU_TIMER)
+		if (which & MU_TIMER) {
+			static short about_made;
 			keep_alive();
+			if (!about_made) {	/* the first timer event: the start is over, EFTP idle */
+				about_made = 1;
+				about_ready();
+			}
+		}
 	}
 
 	/* the line closed, the settings kept */

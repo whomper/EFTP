@@ -165,6 +165,7 @@ int  reconnect(void);			/* the same server and folder again */
 int  dlg_settings(void);
 int  dlg_ask(const char *title, const char *label, char *buf, short len, short cap);	/* shows len, takes cap */
 void dlg_about(void);
+void about_ready(void);			/* the About box's icon made ahead, while idle */
 void dlg_shortcuts(void);
 SITE *dlg_sites(void);			/* the site to connect to, or NULL */
 SITE *dlg_quick(void);			/* a quick connect, kept aside; or NULL */

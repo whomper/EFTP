@@ -59,3 +59,13 @@ void icon_window(GRECT *area)
 	strcpy(shown, s);
 	icon_redraw(main_h, area, icon_bits, icon16_px, s);
 }
+
+/* (last in the file: a function new in the middle of about.o moves the rest) the 256-colour icon's map made while
+   EFTP is idle, from its first timer event: the About box's first opening then finds it (common a769b86; on
+   Erez's Falcon, NVDI in 256 colours, EUpdate's opening 170 -> 130 ms) */
+void about_ready(void)
+{
+	ABOUT a = { "EFTP", ftp_version, "File transfer for the ST, TT and Falcon", { 0, 0, 0 }, { 0, 0, 0 },
+		    icon_bits, icon16_px, icon16_rgb, icon256_px, icon256_rgb };
+	about_prepare(&a);
+}
