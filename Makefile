@@ -72,9 +72,9 @@ HOT     := xfer ftp files draw win text offpage conn charset
 # block where 2.11's speed was measured, modulo 256: common's conn.c grew by
 # 426 bytes (17 Nov 2026) and moved all of it by 170, a file's start in the
 # folder of 400 575 -> 595 ms on Falcon-4:256 with NVDI (with the pad:
-# 575-580; 212 since common a62cb16's text.c; 76 since common 3141cfd's, 19 Nov 2026). When a hot object grows, set HOTPAD so str_copy keeps its place
+# 575-580; 212 since common a62cb16's text.c; 60 since common c0fa029 and the resize's event call, 19 Nov 2026). When a hot object grows, set HOTPAD so str_copy keeps its place
 # modulo 256 (0x...3e, as at 8864e9d) and run the speed pair against 2.11
-HOTPAD  := 76
+HOTPAD  := 60
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/crash_s.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(HOT))) $(OBJDIR)/hotpad.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(filter-out $(HOT),$(CORE) $(ATARI) $(UI))))

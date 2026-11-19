@@ -1569,6 +1569,9 @@ void win_message(short *msg)
 			msg[7] = MIN_H;
 		place8(&msg[4], msg[5], &msg[6], msg[7]);
 		wind_set(main_h, WF_CURRXYWH, msg[4], msg[5], msg[6], msg[7]);
+		if (msg[0] == WM_SIZED)
+			evnt_timer_(0);	/* the AES's frame drawn, then the panes laid out and drawn: together 320 ms on
+					   Falcon-4:256 with NVDI, over the guidelines' 300 (19 Nov 2026) */
 		get_main_work();
 		save_main_place();
 		layout();
