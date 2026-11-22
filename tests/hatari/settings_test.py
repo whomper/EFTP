@@ -9,8 +9,11 @@ type, and changes nothing silently (D30, DECISIONS-2026-11-09):
   2. the timeout 61, OK: Settings closes (the cursor back in the refused field);
   3. Secure, the gateway's port 0 (1 to 65535), OK: an alert, Settings open;
   4. the port 2122, OK: Settings closes;
-  5. after ^Q: EFTP.INF has TIMEOUT=61 and GATEPORT=2122, the gateway's
-     address as it was (empty).
+  5. Connection, Shift+Tab from the timeout to the time zone's button, Space:
+     the list of time zones (its labels from the heap, since 2.16: b39c889),
+     Down, Return: the next zone, OK;
+  6. after ^Q: EFTP.INF has TIMEOUT=61 and GATEPORT=2122, the gateway's
+     address as it was (empty), and a TIMEZONE other than Asia/Jerusalem.
 
     settings_test.py WORKDIR [MACHINE]   (a 640x480 screen: Falcon, Falcon-4, TT)
 """
@@ -95,6 +98,29 @@ def refused(part, down, bad, good, what):
     check(changed(gone, plain) < 5000, "%s %s: taken, Settings closed" % (what, good))
 
 
+def zone():
+    """the time zone, by the keyboard: the list over Settings, the next one"""
+    r.key(0x33, ctrl=True)                      # ^,
+    time.sleep(2)
+    r.click(*CONNECTION)
+    r.move(630, 470)
+    time.sleep(2)
+    page = pixels(r.shot("zone-page"))
+    r.key(K["TAB"], shift=True)                 # from the timeout to the zone's button
+    time.sleep(0.5)
+    r.key(0x39)                                 # Space: the list
+    time.sleep(3)
+    listed = pixels(r.shot("zone-list"))
+    check(changed(listed, page) > 4000, "the time zone: its list came")
+    r.key(K["DOWN"])
+    time.sleep(0.5)
+    r.key(K["RETURN"])                          # the next zone
+    time.sleep(2)
+    r.shot("zone-chosen")
+    r.key(K["RETURN"])                          # Settings' OK
+    time.sleep(2)
+
+
 r = rig.Rig(work, m, extra=m.network())
 try:
     time.sleep(30)
@@ -103,6 +129,7 @@ try:
     plain = pixels(r.shot("plain"))
     refused(CONNECTION, 0, "5", "61", "the timeout")
     refused(SECURE, 1, "0", "2122", "the gateway's port")
+    zone()
     r.ctrl("q")
     time.sleep(8)
 finally:
@@ -112,5 +139,7 @@ finally:
 check(setting("TIMEOUT") == "61", "EFTP.INF: TIMEOUT=61 (%r)" % setting("TIMEOUT"))
 check(setting("GATEPORT") == "2122", "EFTP.INF: GATEPORT=2122 (%r)" % setting("GATEPORT"))
 check(not setting("GATE"), "EFTP.INF: the gateway's address untouched (the cursor was in the refused field)")
+check(setting("TIMEZONE") not in (None, "Asia/Jerusalem"),
+      "EFTP.INF: the next time zone, from the list (TIMEZONE=%r)" % setting("TIMEZONE"))
 print("settings_test:", "all passed" if not fails else "%d failed" % len(fails))
 sys.exit(1 if fails else 0)
