@@ -74,13 +74,13 @@ jobs:
           fi
           # the FireBee package first and the standard one last, one upload at a time (the guidelines,
           # 7.4: every EUpdate up to 2.14 takes every zip of a release, and the last one unpacked wins),
-          # then the order checked as GitHub keeps it
+          # then the order checked as GitHub returns it, unsorted (as EUpdate reads it)
           V=$(cat VERSION)
           FB="dist/eftp-$V-firebee.zip"; ST="dist/eftp-$V.zip"
           [ -f "$FB" ] && [ -f "$ST" ] && [ "$(ls dist | wc -l)" = 2 ]
           gh release create "$TAG" "$FB" --target "$GITHUB_SHA" --title "EFTP $V" \
             --notes-file "$RUNNER_TEMP/notes.md"
           gh release upload "$TAG" "$ST"
-          order=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '[.assets | sort_by(.id) | .[].name] | join(" ")')
-          echo "assets, as uploaded: $order"
+          order=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '[.assets[].name] | join(" ")')
+          echo "assets, as returned: $order"
           [ "$order" = "eftp-$V-firebee.zip eftp-$V.zip" ] || { echo "the assets aren't the two packages in order"; exit 1; }

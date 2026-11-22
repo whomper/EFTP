@@ -105,8 +105,14 @@ with the evidence.
   with panes, EMail's Settings sidebar, `EFTP.INF` with a note above
   every setting, the family's About box and its icon (`common/icons/EFTP.txt`,
   `make icons`).
-- **A release** carries `EFTP.PRG`, `TLS.OVL`, `EFTP.HYP` (hcp from `common/tools/build-hcp.sh`),
-  `CACERT.PEM`, `ROOTS.DAT` and the icon. The icons are committed in `icons/` (`make icons`).
+- **A release** is two zips and nothing loose (Erez, 22 Nov 2026; guidelines 7.4): `eftp-x.y.zip` and
+  `eftp-x.y-firebee.zip`, the same names in both: `EFTP.PRG`, `TLS.OVL`, `EFTP.HYP` (hcp from
+  `common/tools/build-hcp.sh`), `CACERT.PEM`, `ROOTS.DAT` and `icons/`. The FireBee one's `EFTP.PRG` is
+  `mkfirebee.py`'s ColdFire build (`binary/eftpfb.prg`) and its `TLS.OVL` common's `tlsfb.ovl`. The
+  workflow uploads the FireBee zip first and the standard one last, and checks the order as the API returns
+  it (EUpdate up to 2.14 unpacks every zip; the last wins). The icons are committed in `icons/`
+  (`make icons`). `make test` holds EFTP.PRG's load to `LOADMAX` (a 1 MB ST beside EContact's accessory;
+  `tests/hatari/memory_test.py` measures the room); `make cftest` runs the FireBee build's core under qemu.
 - One `EFTP.PRG` for every Atari (guidelines 7.4): the TLS of a Direct
   connection (the user never sees "Falcon mode"; the INF keeps `FALCON=`)
   is the family's `TLS.OVL`, which a TT or Falcon loads when needed. It
