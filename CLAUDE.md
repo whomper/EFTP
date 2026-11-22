@@ -171,7 +171,15 @@ as of 8ddb463). Until Erez ends it:
 2. The Keys dialog's line, as approved: "In dialogs: Tab, Space, the arrows reach every control".
 
 The same rules as any release (the regression gate, the pairs against 2.13, the hub's family check). Maintenance
-comes back when both are done. TUW-TCP stays on the idea list.
+comes back when both are done. TUW-TCP stays on the idea list. Both done: 2.14 and 2.15 (whole, not in pieces:
+Erez's "Draw whole on the ST").
+
+**Lifted for the FireBee packages (Erez, 22 Nov 2026: "Make the other apps native on the FireBee too"):** done in
+2.16. Maintenance is back since.
+
+**For the next release's notes** (the hub, 22 Nov 2026; release notes can't be edited once published): "2.16's notes
+said a 1 MB ST with EContact's accessory starts EFTP again; 2.15 started there too. 2.16 needs 4 KB less memory to
+start."
 
 Speed: lifted on 13 Nov 2026 for Erez's speed round (2.7, 2.8, 2.9) and back since 2.9 (Erez, 13 Nov: "stop with the
 performance improvements and place the applications back in maintenance"). From then on a speed change ships only if
