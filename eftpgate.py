@@ -180,7 +180,7 @@ class SFTPBackend(Backend):
         try:
             import paramiko
         except ImportError:
-            raise GateError(530, "SFTP needs paramiko on the Pi: sudo apt install python3-paramiko")
+            raise GateError(530, "SFTP needs paramiko on the Gateway: sudo apt install python3-paramiko")
         self.paramiko = paramiko
         try:
             sock = aeragate.dial(addrs, 20)
@@ -228,7 +228,7 @@ class SFTPBackend(Backend):
         if known is not None and key.get_name() in known:
             if known[key.get_name()] != key:
                 t.close()
-                raise GateError(530, "%s's SSH key has changed: if that is right, remove it from %s on the Pi"
+                raise GateError(530, "%s's SSH key has changed: if that is right, remove it from %s on the Gateway"
                                 % (host, path))
             return
         keys.add(name, key.get_name(), key)
@@ -576,7 +576,7 @@ class Session(socketserver.StreamRequestHandler):
     def reply(self, code, text):
         lines = str(text).split("\n")
         out = "".join("%d-%s\r\n" % (code, l) for l in lines[:-1]) + "%d %s\r\n" % (code, lines[-1])
-        vlog(self.peer, "<", out.strip())
+        vlog(self.peer, "<", code)          # (the text can name a path: 7.3)
         self.wfile.write(out.encode("utf-8", "replace"))
 
     def handle(self):
@@ -594,7 +594,7 @@ class Session(socketserver.StreamRequestHandler):
                 line = raw.decode("utf-8", "replace").rstrip("\r\n")
                 cmd, _, arg = line.partition(" ")
                 cmd = cmd.upper()
-                vlog(self.peer, ">", "PASS ****" if cmd == "PASS" else line)
+                vlog(self.peer, ">", cmd[:8])       # the command alone: its argument can be a path (7.3)
                 fn = getattr(self, "do_" + cmd, None)
                 if fn is None:
                     self.reply(502, "%s isn't something eftpgate does" % cmd)
