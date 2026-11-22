@@ -459,7 +459,7 @@ static void warn_plain(const char *keyfile)
 /* ---------------- connecting ---------------- */
 
 /* the way to a site: plain FTP straight to it; FTPS straight to it with
-   TLS on the Atari in a Direct connection; else FTPS and SFTP through the Pi
+   TLS on the Atari in a Direct connection; else FTPS and SFTP through the Gateway
    gateway, which is told the server in the login
    ("sftp:user@host:port") */
 static FTP *open_site(SITE *s, char *err, int errlen)
@@ -493,10 +493,10 @@ int connect_site(SITE *s)
 	}
 	if (site_via_gateway(s) && !opt.gate[0]) {
 		if (s->proto == PR_SFTP || get_cookie(0x5F435055L) < 20)	/* _CPU: no Direct connection */
-			alert(1, "[1][%s needs the Raspberry Pi gateway:|on the Pi, aera-gateway install ftp;|then type its address in|Settings > Secure.][ OK ]",
+			alert(1, "[1][%s needs the Gateway: on a|Raspberry Pi, aera-gateway|install ftp; then type its|address in Settings > Secure.][ OK ]",
 			      proto_name(s->proto));
 		else
-			alert(1, "[1][FTPS needs a Direct connection|(Options menu, on a TT or Falcon)|or the Raspberry Pi gateway|(Settings > Secure).][ OK ]");
+			alert(1, "[1][FTPS needs a Direct connection|(Options menu, on a TT or Falcon)|or the Gateway|(Settings > Secure).][ OK ]");
 		return 0;
 	}
 	if (site_via_gateway(s))
@@ -525,7 +525,7 @@ int connect_site(SITE *s)
 	cur_site = &conn_site;
 	/* the server's own name (not the gateway's), and how it is secured */
 	if (site_via_gateway(s))
-		snprintf(m, sizeof(m), "Connected to %s through the Pi  -  %s", s->host, proto_name(s->proto));
+		snprintf(m, sizeof(m), "Connected to %s through the Gateway  -  %s", s->host, proto_name(s->proto));
 	else if (ftp_security(f)[0])
 		snprintf(m, sizeof(m), "Connected to %s  -  %s", s->host, ftp_security(f));
 	else

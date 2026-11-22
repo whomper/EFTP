@@ -34,7 +34,7 @@ def keep(r, shot, name):
     shutil.copy(r.shot(shot), os.path.join(DOCS, name))
 
 
-# a Direct connection on, a Pi gateway, and an SFTP site besides the test server's
+# a Direct connection on, a Gateway, and an SFTP site besides the test server's
 SECURE = "FALCON=1\r\nGATE=192.168.1.20\r\nGATEPORT=2121\r\n"
 SFTP_SITE = ("[SITE]\r\nNAME=My web space\r\nHOST=sftp.example.org\r\nPROTOCOL=sftp\r\n"
              "ANONYMOUS=0\r\nUSER=erez\r\nREMOTEDIR=/var/www\r\nLOCALDIR=C:\\WEB\r\n")
@@ -59,7 +59,7 @@ try:
     time.sleep(30)
     r.ctrl("k")
     time.sleep(2)
-    r.click(130, 161)                          # My web space: SFTP, through the Pi
+    r.click(130, 161)                          # My web space: SFTP, through the Gateway
     r.move(600, 450)                           # the pointer out of the picture's way
     time.sleep(1.5)
     keep(r, "sites", "sites.png")
@@ -83,9 +83,7 @@ try:
     time.sleep(10)
     keep(r, "screenshot", "screenshot.png")
     time.sleep(25)
-    r.click(404, 9)                            # Options > Settings
-    time.sleep(1)
-    r.click(424, 27)
+    r.key(0x33, ctrl=True)                     # Settings (^,: Options' second entry is Sites since 2.5)
     time.sleep(2)
     r.click(140, 321)                          # the Secure part
     r.move(600, 450)

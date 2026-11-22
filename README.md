@@ -46,9 +46,9 @@ Under TOS use `FOLDR100.PRG` ([why](docs/GUIDE.md#what-you-need)); set STinG's D
 ## How it reaches the servers
 
 Plain FTP goes straight from the Atari to the server. For FTPS and SFTP, EFTP can go through
-[AERA-Gateway](https://github.com/whomper/AERA-Gateway), the family's gateway on a Raspberry Pi on
-your home network: the Atari speaks plain FTP to the Pi, and the Pi speaks FTPS or SFTP to the
-server. It is optional for FTPS on a TT or Falcon, which can make the connection itself (a Direct
+[AERA-Gateway](https://github.com/whomper/AERA-Gateway), the family's Gateway on a Raspberry Pi on
+your home network: the Atari speaks plain FTP to the Gateway, and the Gateway speaks FTPS or SFTP to
+the server. It is optional for FTPS on a TT or Falcon, which can make the connection itself (a Direct
 connection); an ST, and SFTP from any Atari, need it. How to set it up is in the
 [Gateway's README](https://github.com/whomper/AERA-Gateway#readme).
 
@@ -82,7 +82,7 @@ The rest: [docs/DEVELOPING.md](docs/DEVELOPING.md#source).
 
 GPL version 2 or later, without any warranty ([COPYING](COPYING)). Copyright (C) 2026 AERA | Erez Yaary.
 It includes [BearSSL](common/third_party/bearssl) (MIT) and Mozilla's root certificates (MPL 2.0);
-the gateway uses [paramiko](https://www.paramiko.org/) (LGPL 2.1) on the Pi.
+the Gateway uses [paramiko](https://www.paramiko.org/) (LGPL 2.1) on the Raspberry Pi.
 
 ---
 

@@ -5,7 +5,7 @@ Falcon. It copies files and whole folders between your Atari and an FTP
 server, both ways, and looks after the details a modern FTP program
 does: resuming a transfer that stopped, names TOS can take, the files'
 dates, text and binary files. Secure servers too: FTPS (FTP over TLS)
-and SFTP (over SSH), through a Raspberry Pi on your home network, or
+and SFTP (over SSH), through the Gateway on your home network, or
 FTPS by the Falcon itself.
 
 ## What you need
@@ -28,7 +28,7 @@ FTPS by the Falcon itself.
 - A server: on the internet, on your NAS or router, or on a Linux
   computer at home. Plain FTP needs nothing else, on any Atari. For FTPS
   and SFTP servers, see [Secure servers](#secure-servers-ftps-and-sftp):
-  a Raspberry Pi gateway (any Atari), or a Direct connection for FTPS
+  the Gateway (any Atari), or a Direct connection for FTPS
   (a TT or Falcon)
 
 ## Installing
@@ -41,9 +41,9 @@ are built for its ColdFire. Take the one for your Atari:
 
 | Your Atari        | Copy                         | Secure servers                       |
 |-------------------|------------------------------|--------------------------------------|
-| Falcon, TT        | `EFTP.PRG`, `TLS.OVL`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (a Direct connection), SFTP through the Pi |
-| FireBee           | `EFTP.PRG`, `TLS.OVL`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (a Direct connection), SFTP through the Pi |
-| ST, STE, Mega ST  | `EFTP.PRG`                   | FTPS and SFTP through the Pi         |
+| Falcon, TT        | `EFTP.PRG`, `TLS.OVL`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (a Direct connection), SFTP through the Gateway |
+| FireBee           | `EFTP.PRG`, `TLS.OVL`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (a Direct connection), SFTP through the Gateway |
+| ST, STE, Mega ST  | `EFTP.PRG`                   | FTPS and SFTP through the Gateway    |
 
 `TLS.OVL` is the TLS for a Direct connection, the same file in every
 AERA program: EFTP loads it only when a Direct connection needs it, so
@@ -190,20 +190,21 @@ https) or **SFTP** (file transfer over SSH, a different protocol on port
 like EMail and ECal:
 
 ```
-any Atari:   Atari (EFTP) --plain FTP, home LAN--> Raspberry Pi (eftpgate.py) --FTPS or SFTP--> the server
+any Atari:   Atari (EFTP) --plain FTP, home LAN--> the Gateway (eftpgate.py) --FTPS or SFTP--> the server
 Falcon, TT:  Falcon (EFTP.PRG, TLS 1.2, RSA on the DSP) --------------------------------FTPS--> the server
 ```
 
-- **Through the Pi gateway.** `gateway/eftpgate.py` on a Raspberry Pi
-  (or any Linux computer at home) takes EFTP's plain FTP and speaks FTPS
-  or SFTP to the server; it is set up as below. Any Atari can use
-  it, a Falcon too, and SFTP always goes this way. The Pi goes only to
+- **Through the Gateway.** The Gateway, `gateway/eftpgate.py` on a
+  Raspberry Pi (or any Linux computer at home), takes EFTP's plain FTP
+  and speaks FTPS or SFTP to the server; it is set up as below. Any
+  Atari can use it, a Falcon too, and SFTP always goes this way. The
+  Gateway goes only to
   servers on the internet: for one on your home network (a NAS, say),
   add `--allow-local` to the install line.
-  The Pi checks the servers' certificates, and remembers
+  The Gateway checks the servers' certificates, and remembers
   an SSH server's key the first time and refuses the server if it
   changes. Everything else is as with FTP: resuming, dates, text files
-  (the Pi turns their line ends for SFTP servers, which have no text
+  (the Gateway turns their line ends for SFTP servers, which have no text
   mode), permissions.
 - **A Direct connection.** On a TT or Falcon EFTP speaks FTPS itself,
   TLS 1.2 with BearSSL, as EMail and ECal do. Switch it on with
@@ -221,14 +222,14 @@ Falcon, TT:  Falcon (EFTP.PRG, TLS 1.2, RSA on the DSP) ------------------------
 Give the site its real server name and choose its Protocol in Options >
 Sites; EFTP decides the way from the Protocol and the settings. The
 status line says which: "Connected to ftp.example.org - TLS 1.2,
-ECDHE-RSA, ChaCha20-Poly1305", or "... through the Pi - SFTP", and the
+ECDHE-RSA, ChaCha20-Poly1305", or "... through the Gateway - SFTP", and the
 server's name in the toolbar shows it in its tooltip.
 
 In a Direct connection the 68030 decrypts every byte itself, so transfers are
-slower than through the Pi. The clock must be right for certificates
+slower than through the Gateway. The clock must be right for certificates
 to check out.
 
-### Setting up the Pi
+### Setting up the Gateway
 
 On a Raspberry Pi with Raspberry Pi OS bullseye or newer (from a
 fresh card), with your Atari's address in place of ATARI_IP. The short
@@ -257,8 +258,8 @@ is ~/AERA-Gateway/gateway/aera-gateway.) To update it later:
 `~/AERA-Gateway/update-pi.sh`. To see that it runs: `aera-gateway
 status`.
 
-Then in EFTP: Options > Settings > Secure, Pi gateway: the Pi's
-address (PI_IP), port 2121. AERA-Gateway's README has the gateway's
+Then in EFTP: Options > Settings > Secure, Gateway: the Raspberry
+Pi's address (PI_IP), port 2121. AERA-Gateway's README has the Gateway's
 options and what to do when something doesn't work.
 
 ## Moving files
@@ -414,7 +415,7 @@ Options > Settings (^,), in five parts:
   passwords left out; at quit it names the four longest waits, for the
   author)
 - **Secure**: a Direct connection (TLS on this Atari) and the DSP, and
-  the Pi gateway's address and port (2121) for SFTP, and for FTPS
+  the Gateway's address and port (2121) for SFTP, and for FTPS
   without a Direct connection
 
 Options > Font picks the font for the lists in the family's Font
@@ -503,22 +504,22 @@ Undo or the Stop button stops it.
   machine leave out accessories you don't need. **"EFTP can't
   open its screen"** says the same of the VDI's memory, with how much
   was free: load fewer accessories, or add memory.
-- **"... needs the Raspberry Pi gateway"** or **"FTPS needs a Direct
-  connection or the Raspberry Pi gateway"**: the site is FTPS or SFTP;
-  set up the gateway (Settings > Secure), or switch on a Direct
+- **"... needs the Gateway"** or **"FTPS needs a Direct
+  connection or the Gateway"**: the site is FTPS or SFTP;
+  set up the Gateway (Settings > Secure), or switch on a Direct
   connection for FTPS.
 - **"TLS.OVL is missing"**, **"damaged"** or **"doesn't suit this
   program"**: copy `TLS.OVL` from the package for your Atari next to `EFTP.PRG`.
-- **A certificate that "didn't check out"** (a Direct connection, or the Pi's
+- **A certificate that "didn't check out"** (a Direct connection, or the Gateway's
   log): the Atari's clock, or a server whose certificate is made by its
-  own authority (a NAS): through the Pi, `--cafile` (AERA-Gateway's
+  own authority (a NAS): through the Gateway, `--cafile` (AERA-Gateway's
   README).
-- **"... is on the home network"** (through the Pi): the Pi doesn't go
+- **"... is on the home network"** (through the Gateway): the Gateway doesn't go
   back into your home network unless it is installed with
   `--allow-local` (AERA-Gateway's README).
-- **"... SSH key has changed"**: the server isn't the one the Pi met the
+- **"... SSH key has changed"**: the server isn't the one the Gateway met the
   first time. If it was really reinstalled, remove its line from
-  `/var/lib/eftpgate/known_hosts` on the Pi.
+  `/var/lib/eftpgate/known_hosts` on the Raspberry Pi.
 - **A crash**: if EFTP itself goes wrong (what would be 2 to 8 bombs),
   it says so, writes what happened to `CRASH.LOG` next to `EFTP.PRG` and
   quits, leaving the Atari running. A crash in the system or a driver

@@ -433,13 +433,13 @@ static void build(SBUF *bp)
 	put_fmt(&b, "sort the lists by 0 name, 1 size, 2 date; add 8 for the other way round",
 		"SORT", "%d", opt.sort);
 	put_str(&b, "the Atari folder shown last", "LOCALDIR", opt.ldir);
-	put_fmt(&b, "1 = Direct connection: FTPS with TLS on this Atari (68020 or better: TT, Falcon; TLS.OVL next to EFTP.PRG); 0 = through the Pi gateway",
+	put_fmt(&b, "1 = Direct connection: FTPS with TLS on this Atari (68020 or better: TT, Falcon; TLS.OVL next to EFTP.PRG); 0 = through the Gateway",
 		"FALCON", "%d", opt.falcon);
 	put_fmt(&b, "Direct connection: 1 = the DSP checks the servers' signatures, 0 = the 68030 does",
 		"DSP", "%d", opt.dsp);
-	put_str(&b, "the Raspberry Pi gateway's address, for FTPS and SFTP servers (aera-gateway install ftp on the Pi)",
+	put_str(&b, "the Gateway's address, for FTPS and SFTP servers (aera-gateway install ftp on a Raspberry Pi)",
 		"GATE", opt.gate);
-	put_fmt(&b, "the gateway's port", "GATEPORT", "%u", opt.gateport);
+	put_fmt(&b, "the Gateway's port", "GATEPORT", "%u", opt.gateport);
 	for (i = 0; i < nsites; i++) {
 		SITE *s = sites[i];
 		sb_adds(&b, "; one [SITE] part per server, up to 24; Options > Sites edits them\r\n"

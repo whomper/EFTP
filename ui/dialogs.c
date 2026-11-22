@@ -1205,7 +1205,7 @@ static int settings_numbers_ok(short ok)
 		alert(1, "[1][Wait 10 to 600 seconds for|the server.|Please type a number|from 10 to 600.][ OK ]");
 	} else if (p < 1 || p > 65535) {
 		page = 5;
-		alert(1, "[1][The gateway port: 1 to 65535.|Please type a number|from 1 to 65535.][ OK ]");
+		alert(1, "[1][The Gateway's port: 1 to 65535.|Please type a number|from 1 to 65535.][ OK ]");
 	}
 	if (!page)
 		return 1;
@@ -1367,7 +1367,7 @@ static void part_connection(short x, short y)
 }
 
 /* FTPS and SFTP, as EMail's and ECal's Connection: TLS on the Atari, or
-   the Pi gateway */
+   the Gateway (the user sees "Gateway", never "Pi": the guidelines, 7.3) */
 static void part_secure(short x, short y)
 {
 	int can = get_cookie(0x5F435055L) >= 20;	/* _CPU */
@@ -1377,13 +1377,13 @@ static void part_secure(short x, short y)
 	d_tick(x, ROW(0), "Direct connection: TLS on this Atari", T_FALCON);
 	d_tick(x + 3, ROW(1), "Check certificates on the DSP", T_DSP);
 	d_add(G_STRING, 0, 0, (long)note, x + 3, ROW(2), (short)strlen(note), 1);
-	d_add(G_STRING, 0, 0, (long)"Pi gateway", x, ROW(3), 10, 1);
+	d_add(G_STRING, 0, 0, (long)"Gateway", x, ROW(3), 7, 1);
 	framed(d_long(x + 11, ROW(3), s_gate, 18, (short)sizeof(s_gate) - 1));
 	d_add(G_STRING, 0, 0, (long)"Port", x + 31, ROW(3), 4, 1);
 	f_gport = d_field(x + 36, ROW(3), s_gport, 5, '9');
-	d_add(G_STRING, 0, 0, (long)"SFTP goes through the Pi gateway,", x + 3, ROW(4), 33, 1);
+	d_add(G_STRING, 0, 0, (long)"SFTP goes through the Gateway,", x + 3, ROW(4), 30, 1);
 	d_add(G_STRING, 0, 0, (long)"FTPS too without a Direct connection.", x + 3, ROW(5), 37, 1);
-	d_add(G_STRING, 0, 0, (long)"On the Pi: aera-gateway install ftp", x + 3, ROW(6), 35, 1);
+	d_add(G_STRING, 0, 0, (long)"Set it up: aera-gateway install ftp", x + 3, ROW(6), 35, 1);
 }
 
 #define SW 13			/* the list's width */

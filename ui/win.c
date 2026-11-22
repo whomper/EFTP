@@ -1438,8 +1438,8 @@ int win_tip(short mx, short my, char *out, int size)
 		/* the server, and how it is reached: the second line, dim */
 		SITE *s = cur_site;
 		snprintf(out, size, "%s:%u  %s|%s", s ? s->host : ftp->host, s ? site_port(s) : ftp->port, ftp->system,
-			 s && site_via_gateway(s) ? (s->proto == PR_SFTP ? "SFTP through the Pi gateway" :
-						      "FTPS through the Pi gateway") :
+			 s && site_via_gateway(s) ? (s->proto == PR_SFTP ? "SFTP through the Gateway" :
+						      "FTPS through the Gateway") :
 			 ftp_security(ftp)[0] ? ftp_security(ftp) : "FTP: not encrypted");
 		return 1;
 	}

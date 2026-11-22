@@ -8,7 +8,7 @@ an Atari reaches them (as ECal's net_test.py does for its calendars):
           (TLS.OVL: BearSSL, RSA on the emulated DSP) to pyftpdlib's TLS
           server, every data connection encrypted and resuming the
           control's TLS session
-  sftp    through the Pi gateway: plain FTP from the Atari to
+  sftp    through the Gateway: plain FTP from the Atari to
           gateway/eftpgate.py, SFTP from there to an SSH server
           (paramiko, as in gateway/test_eftpgate.py)
   noovl   no TLS.OVL next to EFTP.PRG: Options > Direct connection says
