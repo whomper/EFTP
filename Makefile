@@ -2,9 +2,11 @@
 # Copyright (C) 2026 AERA | Erez Yaary
 # EFTP - an FTP program for the Atari ST/STE/TT/Falcon, in C.
 #
-#   make            builds binary/eftp.prg, one program for every Atari,
-#                   and copies tls.ovl next to it (a Direct connection's
-#                   TLS, loaded on a TT or Falcon: the guidelines, 7.4),
+#   make            builds binary/eftp.prg, one program for every 68000
+#                   and 68030 Atari, and binary/eftpfb.prg, its native
+#                   FireBee edition (the guidelines, 7.4), and copies
+#                   tls.ovl and tlsfb.ovl next to them (a Direct
+#                   connection's TLS, loaded on a TT, a Falcon or a FireBee),
 #                   with a stock m68k ELF cross compiler
 #                   (Debian/Ubuntu: apt install gcc-m68k-linux-gnu).
 #                   No MiNTLib needed: the program is freestanding and
@@ -46,7 +48,7 @@ HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
 CORE    := util charset conn ftp xfer store futil bidi secret ctime tz ovl
 ATARI   := libc tos plat_tos net_tos sting gem tls_ovl crash bigbuf
-UI      := main draw win files queue dialogs popup font fontsel about theme colours dsp_ovl help av alert dialog field mbar aboutbox iconify clip clipedit dd panebar text notify aboutline offdraw click hebkey tooltip arrowed progbar offpage eye
+UI      := main draw win files queue dialogs popup font fontsel about theme colours dsp_ovl help av alert dialog field mbar aboutbox iconify clip clipedit dd panebar text notify aboutline offdraw click hebkey tooltip arrowed progbar offpage eye cpucheck
 
 OBJDIR  := build
 # make PROFILE=20 build/prof/EFTP.PRG: the speed rig's build
@@ -83,10 +85,16 @@ HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
            common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h)
 
 # what goes onto the Atari: binary/ (built, never committed)
-all: binary/eftp.prg binary/tls.ovl binary/tlsfb.ovl binary/roots.dat
+all: binary/eftp.prg binary/eftpfb.prg binary/tls.ovl binary/tlsfb.ovl binary/roots.dat
 
 binary/eftp.prg: $(OBJDIR)/eftp.elf common/tools/elf2tos.py | binary
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
+# the FireBee edition (Erez, 22 Nov 2026: "Make the other apps native on the
+# FireBee too"; the guidelines, 7.4): every object of eftp.elf built again
+# as ColdFire code (-mcpu=5475) by common's mkfirebee.py, from these very
+# rules, with no pad (the 68030's caches aren't the ColdFire's)
+binary/eftpfb.prg: $(OBJDIR)/eftp.elf common/tools/mkfirebee.py common/atari/cpucheck_cf.S common/atari/ll64.c | binary
+	python3 common/tools/mkfirebee.py --elf $(OBJDIR)/eftp.elf --make "HOTPAD=0" $@
 build/prof/EFTP.PRG: build/prof/eftp.elf common/tools/elf2tos.py
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
 TIMED   := $(patsubst build/gem.o,build/prof/gem.o,$(patsubst build/main.o,build/prof/main.o,$(OBJS)))
@@ -258,6 +266,39 @@ test: $(OBJDIR)/unit $(addprefix $(OBJDIR)/replay_,$(FUZZERS)) $(OBJDIR)/eftp.el
 	done
 	python3 common/tools/oddaccess.py $(OBJDIR)/eftp.elf
 
+# make cftest: the FireBee edition's FTP core under qemu-m68k -cpu cfv4e
+# (the guidelines, 7.4; apt install qemu-user): tests/coldfire/core.c
+# linked with eftpfb.prg's own objects (build/cf/), with eftp.prg's
+# (build/, run as a 68030) and built for this computer, the listing
+# parsers and whole sessions on tests/fuzz's seeds and 2000 changed copies
+# of each; tests/coldfire/compare.py says where they differ
+CFT     := $(OBJDIR)/cft
+CFTOBJ  := ftp conn charset ctime util tz libc
+CFTFL   = -Os -fomit-frame-pointer -ffreestanding -fno-builtin -fno-pic -fno-pie \
+          -fno-tree-loop-distribute-patterns -fno-asynchronous-unwind-tables -ffunction-sections \
+          -fdata-sections -Wall -Wno-pointer-sign -DFTP_TOS -nostdinc -isystem $(GCCINC) \
+          -Icommon/atari/include -Isrc -Icommon/src -Iatari -Icommon/atari -Icommon/tests/fuzz -I$(CFT)
+CFTSRC  := tests/coldfire/core.c tests/coldfire/tls_none.c common/tests/fuzz/fuzz_net.c common/tests/coldfire/gemdos.c
+CFTLD   := -nostdlib -static -no-pie -Wl,-z,noexecstack -Wl,--gc-sections -Wl,-Ttext-segment=0x400000
+$(CFT)/seeds.h: tests/coldfire/mkseeds.py $(wildcard tests/fuzz/seeds/*/*)
+	@mkdir -p $(CFT)
+	python3 tests/coldfire/mkseeds.py $@
+# (each built for the CPU: -mcpu=5475 with build/cf/'s objects, -m68000 with build/'s)
+$(CFT)/core_cf: $(CFTSRC) $(CFT)/seeds.h binary/eftpfb.prg common/tests/coldfire/rt.S
+	$(CC) -mcpu=5475 $(CFTFL) -Icommon/tests/coldfire -o $@ $(CFTLD) common/tests/coldfire/rt.S $(CFTSRC) \
+	    $(addprefix build/cf/,$(addsuffix .o,$(CFTOBJ))) build/cf/rt/ll64.o
+$(CFT)/core_68k: $(CFTSRC) $(CFT)/seeds.h $(OBJDIR)/eftp.elf common/tests/coldfire/rt.S
+	$(CC) -m68000 $(CFTFL) -Icommon/tests/coldfire -o $@ $(CFTLD) common/tests/coldfire/rt.S $(CFTSRC) \
+	    $(addprefix $(OBJDIR)/,$(addsuffix .o,$(CFTOBJ))) -lgcc
+$(CFT)/core_host: tests/coldfire/core.c $(CFT)/seeds.h $(HOSTSRC) $(HDRS) $(HOSTLIB)
+	$(HOSTCC) $(REPLAYFLAGS) -DHOST -I$(CFT) -Wl,--wrap=pf_now -o $@ tests/coldfire/core.c $(HOSTSRC) \
+	    common/tests/fuzz/fuzz_net.c $(HOSTLIB)
+cftest: $(CFT)/core_cf $(CFT)/core_68k $(CFT)/core_host
+	qemu-m68k -cpu cfv4e $(CFT)/core_cf > $(CFT)/cf.txt
+	qemu-m68k -cpu m68030 $(CFT)/core_68k > $(CFT)/68k.txt
+	$(CFT)/core_host > $(CFT)/host.txt
+	python3 tests/coldfire/compare.py $(CFT)/cf.txt $(CFT)/68k.txt $(CFT)/host.txt
+
 itest: $(OBJDIR)/ftp-cli
 	python3 tests/integration.py
 	python3 tests/ftps_test.py
@@ -267,7 +308,7 @@ itest: $(OBJDIR)/ftp-cli
 # a release's files: each one in dist/, and all of them in
 # dist/eftp-x.y.zip (the icons in icons/), for the release workflow; every
 # name in lowercase (6.6), the icons' too
-DIST    := binary/eftp.prg binary/tls.ovl binary/tlsfb.ovl binary/cacert.pem binary/roots.dat binary/eftp.hyp
+DIST    := binary/eftp.prg binary/eftpfb.prg binary/tls.ovl binary/tlsfb.ovl binary/cacert.pem binary/roots.dat binary/eftp.hyp
 ICONS   := icons/EFTP.RSC icons/EFTPNV.RSC icons/EFTP.ICN icons/EFTPMK.ICN
 dist: all help
 	rm -rf dist
@@ -281,4 +322,4 @@ dist: all help
 clean:
 	rm -rf $(OBJDIR) binary dist
 
-.PHONY: all help icons dist test itest clean fuzz FORCE
+.PHONY: all help icons dist test itest cftest clean fuzz FORCE

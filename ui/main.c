@@ -960,7 +960,7 @@ static void av_start(const char *s)
 		queue_run();
 }
 
-int main(void)
+int app_main(void)
 {
 	short work_out[57], msg[8], d;
 	char dir[200];
@@ -1194,3 +1194,16 @@ int main(void)
 	quit_step("out of the AES");
 	return 0;
 }
+
+/* common's atari/cpucheck.c (cpucheck_cf.S in the FireBee edition) is the
+   program's main(), and calls app_main(). EFTP.PRG runs on every 68000 and
+   68030 machine; on a FireBee (_CF_ in the jar) it names its ColdFire
+   edition and goes, and that edition names EFTP.PRG on any other machine
+   (the guidelines, 7.4: "Every app has a native FireBee edition") */
+const long cpu_need = 0;
+#ifdef __mcoldfire__
+const char cpu_alert[] = "[3][EFTPFB.PRG is for the FireBee.|On this machine, run EFTP.PRG.][ Quit ]";
+#else
+const char cpu_alert[] = "";
+const char cpu_cf_alert[] = "[3][EFTP.PRG is for the ST, TT and|Falcon. On the FireBee, run|EFTPFB.PRG.][ Quit ]";
+#endif

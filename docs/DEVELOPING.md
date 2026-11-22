@@ -186,7 +186,14 @@ make itest    # against pyftpdlib: logins, MLSD and LIST, files and folders both
               # implicit, RSA and ECDSA, sessions resumed, wrong certificates refused);
               # the gateway against an SFTP and an FTPS server
               # (pip install pyftpdlib pyopenssl paramiko; openssl on the PATH)
+make cftest   # the FireBee edition's core under qemu-m68k -cpu cfv4e (apt install qemu-user)
 ```
+
+`make cftest` links `tests/coldfire/core.c` with `EFTPFB.PRG`'s own ColdFire objects (`build/cf/`),
+with `EFTP.PRG`'s (run as a 68030) and with the host's build, and runs the listing parsers, PASV and
+EPSV, and whole sessions (the login, FEAT, a listing, SIZE, MDTM, a download, QUIT, through
+common's `conn.c`) on `tests/fuzz`'s seeds and 2000 changed copies of each. The ColdFire's answers
+must be the 68000's byte for byte, and the host's but for numbers of 32 bits or more.
 
 `tests/hatari/` runs EFTP itself in the [Hatari](https://hatari.tuxfamily.org/) emulator with
 [EmuTOS](https://emutos.sourceforge.io/), with Xvfb and xdotool:
@@ -201,6 +208,7 @@ python3 tests/hatari/font_test.py /tmp/eftp-font Falcon:16         # a GDOS font
 python3 tests/hatari/field_test.py /tmp/eftp-field Falcon         # fields hold more than they show
 python3 tests/hatari/speed.py /tmp/eftp-speed ST:mono             # each action's longest stretch
 python3 tests/hatari/screenshots.py /tmp/eftp-shots               # the pictures in docs/
+python3 tests/hatari/firebee_test.py /tmp/eftp-fb FireBee:256      # EFTP.PRG names EFTPFB.PRG, and back
 ```
 
 The machines are the family's (`common/tools/machines.py list`): `ST-1` (1 MB), `ST`, `TT`, `Falcon`
@@ -229,6 +237,10 @@ NVDI on the Falcon from your own copy (see its notes); without one it says so an
 a password of 60 and a server folder, edited with ClrHome, Delete and Shift+Right, ^C ^V ^X;
 then renames a server file to a name longer than its field. It checks `EFTP.INF`, the server's
 login and folder, the clipboard and the new name (guidelines 5.4).
+`firebee_test.py` starts `EFTP.PRG` on the FireBee stand-in (a 68060 Falcon with FireTOS's cookies,
+`_CF_` among them), or `EFTPFB.PRG` on any other machine, and checks that it shows its alert naming
+the other file and goes when Return is pressed: the desktop as it was, no `EFTP.LOG`, no
+`CRASH.LOG`, `EFTP.INF` untouched. `EFTPFB.PRG`'s GEM, screen and speed are a real FireBee's.
 `speed.py` runs EFTP built with `make PROFILE=20`, which reports to Hatari's console every stretch
 of 20 ms or more between its event calls. It starts EFTP, clicks and moves along a list, opens and
 closes Settings, opens a folder of 300 files and a server's folder of 400, scrolls, resizes the

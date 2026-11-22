@@ -35,27 +35,32 @@ FTPS by the Falcon itself.
 
 The files are in the latest release on EFTP's GitHub page
 (github.com/whomper/EFTP/releases), each on its own and all together in
-`EFTP-x.y.zip`. One program, `EFTP.PRG`, runs on every Atari:
+`EFTP-x.y.zip`. `EFTP.PRG` runs on every ST, STE, TT and Falcon, and
+`EFTPFB.PRG` is the same program built for the FireBee's ColdFire:
 
 | Your Atari        | Copy                         | Secure servers                       |
 |-------------------|------------------------------|--------------------------------------|
 | Falcon, TT        | `EFTP.PRG`, `TLS.OVL`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (a Direct connection), SFTP through the Pi |
-| FireBee           | `EFTP.PRG`, `TLSFB.OVL`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (a Direct connection), SFTP through the Pi |
+| FireBee           | `EFTPFB.PRG`, `TLSFB.OVL`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (a Direct connection), SFTP through the Pi |
 | ST, STE, Mega ST  | `EFTP.PRG`                   | FTPS and SFTP through the Pi         |
 
 `TLS.OVL` is the TLS for a Direct connection, the same file in every
 AERA program: EFTP loads it only when a Direct connection needs it, so
 an ST never does. A FireBee loads `TLSFB.OVL` instead, the same TLS
-built for its ColdFire. If you used `EFTPST.PRG` before, delete it: its
+built for its ColdFire. Each program names the other where it doesn't
+belong: `EFTP.PRG` on a FireBee, or `EFTPFB.PRG` on another Atari, says
+which to run and goes. If you used `EFTPST.PRG` before, delete it: its
 settings are `EFTP.PRG`'s.
 
 EFTP can live in any folder, on any drive: there is no folder it must
 be in, and none to make first. A folder of its own keeps its files
-together, because EFTP keeps everything in the folder `EFTP.PRG` is
-in, whether the desktop or another program starts it:
+together, because EFTP keeps everything in the folder `EFTP.PRG` (on a
+FireBee `EFTPFB.PRG`) is in, whether the desktop or another program
+starts it:
 
 ```
-EFTP.PRG      the program
+EFTP.PRG      the program (ST, STE, TT, Falcon)
+EFTPFB.PRG    the program for a FireBee
 EFTP.HYP      this guide, for EHypView or ST-Guide (the Help key opens it)
 TLS.OVL       a Direct connection: the TLS, loaded when needed (TT, Falcon)
 TLSFB.OVL     the same for a FireBee
@@ -75,8 +80,9 @@ You copy the program and the guide, and for a Direct connection
 changed, EFTP reads `CACERT.PEM` itself the first time (slower) and
 writes a new `ROOTS.DAT`.
 
-To update EFTP, copy the new release's `EFTP.PRG`, `EFTP.HYP`, and on a
-TT or Falcon `TLS.OVL` (on a FireBee `TLSFB.OVL`), `CACERT.PEM` and `ROOTS.DAT`, over the old ones. `EFTP.INF`
+To update EFTP, copy the new release's `EFTP.PRG` (on a FireBee
+`EFTPFB.PRG`), `EFTP.HYP`, and on a TT or Falcon `TLS.OVL` (on a FireBee
+`TLSFB.OVL`), `CACERT.PEM` and `ROOTS.DAT`, over the old ones. `EFTP.INF`
 and `EFTP.KEY` stay as they are, and with them your settings, sites
 and passwords.
 
@@ -203,7 +209,7 @@ Falcon, TT:  Falcon (EFTP.PRG, TLS 1.2, RSA on the DSP) ------------------------
 - **A Direct connection.** On a TT or Falcon EFTP speaks FTPS itself,
   TLS 1.2 with BearSSL, as EMail and ECal do. Switch it on with
   **Options > Direct connection** or in Settings > Secure. It
-  needs a 68020 or better (a TT or Falcon; a FireBee with `TLSFB.OVL`), and `TLS.OVL` and
+  needs a 68020 or better (a TT or Falcon; a FireBee with `EFTPFB.PRG` and `TLSFB.OVL`), and `TLS.OVL` and
   `CACERT.PEM` next to `EFTP.PRG`, with `ROOTS.DAT` to start faster;
   EFTP loads `TLS.OVL` as you switch it on, and says so at once if it
   is missing. **Check certificates
