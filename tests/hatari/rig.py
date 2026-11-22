@@ -23,8 +23,8 @@ os.environ.pop("AERA_WITH_ACCS", None)
 # the family's test machines (common/tools/machines.py): one EFTP.PRG on
 # every one, TLS.OVL next to it (a Direct connection on the TT and the
 # Falcons; an ST never loads it). On the FireBee stand-in (a 68060 with
-# FireTOS's _CF_) EFTP.PRG names EFTPFB.PRG and goes (firebee_test.py):
-# EFTPFB.PRG's ColdFire code runs on a FireBee, not on a 68060
+# FireTOS's _CF_) EFTP.PRG names the FireBee package and goes
+# (firebee_test.py): the FireBee build's ColdFire code runs on a FireBee, not on a 68060
 PRG = {"ST": "eftp.prg", "ST-1": "eftp.prg", "STE": "eftp.prg", "TT": "eftp.prg", "Falcon": "eftp.prg",
        "Falcon-4": "eftp.prg", "FireBee": "eftp.prg"}
 

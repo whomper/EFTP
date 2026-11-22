@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
  * Copyright (C) 2026 AERA | Erez Yaary */
 /*
- * core.c - EFTP's FTP core as the FireBee edition runs it (the guidelines,
+ * core.c - EFTP's FTP core as the FireBee build runs it (the guidelines,
  * 7.4: the ColdFire code under qemu-m68k -cpu cfv4e, against the host's).
  * The same driver is built three ways, and each prints every answer and
  * every field the core gave:
  *
- *   CF:   linked with build/cf/'s objects, eftpfb.prg's own (ftp, conn,
+ *   CF:   linked with build/cf/'s objects, the FireBee package's EFTP.PRG's own (ftp, conn,
  *         charset, ctime, util, EFTP's libc and its heap), run under
  *         qemu-m68k -cpu cfv4e;
  *   68K:  linked with build/'s, eftp.prg's, run under qemu-m68k -cpu m68000;

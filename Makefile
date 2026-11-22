@@ -4,7 +4,8 @@
 #
 #   make            builds binary/eftp.prg, one program for every 68000
 #                   and 68030 Atari, and binary/eftpfb.prg, its native
-#                   FireBee edition (the guidelines, 7.4), and copies
+#                   FireBee build (the FireBee package's eftp.prg: the
+#                   guidelines, 7.4), and copies
 #                   tls.ovl and tlsfb.ovl next to them (a Direct
 #                   connection's TLS, loaded on a TT, a Falcon or a FireBee),
 #                   with a stock m68k ELF cross compiler
@@ -16,7 +17,8 @@
 #                   FTP server (pip install pyftpdlib).
 #   make help       binary/eftp.hyp, the guide for ST-Guide (needs hcp:
 #                   common/tools/build-hcp.sh builds it)
-#   make dist       a release's files in dist/: each file, and eftp-x.y.zip
+#   make dist       a release's files in dist/: each file, eftp-x.y.zip and
+#                   eftp-x.y-firebee.zip
 #
 # binary/ is what make builds, never committed: releases carry the
 # programs (.github/workflows/release.yml).
@@ -307,17 +309,25 @@ itest: $(OBJDIR)/ftp-cli
 
 # a release's files: each one in dist/, and all of them in
 # dist/eftp-x.y.zip (the icons in icons/), for the release workflow; every
-# name in lowercase (6.6), the icons' too
-DIST    := binary/eftp.prg binary/eftpfb.prg binary/tls.ovl binary/tlsfb.ovl binary/cacert.pem binary/roots.dat binary/eftp.hyp
+# name in lowercase (6.6), the icons' too. And the FireBee package,
+# dist/eftp-x.y-firebee.zip, with the same names (Erez, 22 Nov 2026: "two
+# packages, one for FireBee and the other for standard ST"; the guidelines,
+# 7.4): its eftp.prg is binary/eftpfb.prg, the ColdFire build, and its TLS
+# tlsfb.ovl. The loose files are the standard package's
+DIST    := binary/eftp.prg binary/tls.ovl binary/tlsfb.ovl binary/cacert.pem binary/roots.dat binary/eftp.hyp
+DISTFB  := binary/tlsfb.ovl binary/cacert.pem binary/roots.dat binary/eftp.hyp
 ICONS   := icons/EFTP.RSC icons/EFTPNV.RSC icons/EFTP.ICN icons/EFTPMK.ICN
 dist: all help
 	rm -rf dist
-	mkdir -p dist/zip/icons
+	mkdir -p dist/zip/icons dist/zipfb/icons
 	cp $(DIST) dist/
 	cp $(DIST) dist/zip/
-	for f in $(ICONS); do l=$$(basename $$f | tr A-Z a-z); cp $$f dist/$$l; cp $$f dist/zip/icons/$$l; done
+	cp $(DISTFB) dist/zipfb/
+	cp binary/eftpfb.prg dist/zipfb/eftp.prg
+	for f in $(ICONS); do l=$$(basename $$f | tr A-Z a-z); cp $$f dist/$$l; cp $$f dist/zip/icons/$$l; cp $$f dist/zipfb/icons/$$l; done
 	cd dist/zip && zip -q -9 -r ../eftp-$(VERSION_STR).zip .
-	rm -rf dist/zip
+	cd dist/zipfb && zip -q -9 -r ../eftp-$(VERSION_STR)-firebee.zip .
+	rm -rf dist/zip dist/zipfb
 
 clean:
 	rm -rf $(OBJDIR) binary dist
