@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
-"""Each package's EFTP.PRG names the other (the guidelines, 7.4; Erez, 22 Nov
-2026: two packages, the same names): the standard one on a FireBee (_CF_ in
+"""Each package's EFTP.PRG names the other (the guidelines, 7.4: two
+packages, the same names, decided 22 Nov 2026): the standard one on a FireBee (_CF_ in
 the cookie jar) says it is for the ST, TT and Falcon and goes; the FireBee
 one (binary/eftpfb.prg, copied in as EFTP.PRG) on any other machine says it
 is for the FireBee and goes. Two boots of the machine:

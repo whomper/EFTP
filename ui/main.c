@@ -301,7 +301,7 @@ static void log_aes(void)
 }
 
 /* the Hebrew keyboard switched (common's hebkey.c, F10, which has no
-   menu entry: Erez, 7 Nov 2026): the badge at the right end of the
+   menu entry; decided 7 Nov 2026): the badge at the right end of the
    toolbar, drawn or gone (the guidelines, 5.3) */
 static void hebrew_changed(void)
 {
@@ -1171,7 +1171,7 @@ int app_main(void)
 	conn_log_flush();
 	str_copy(opt.ldir, ldir, sizeof(opt.ldir));
 	/* each step of the way out in the log, written at once: if the
-	   machine bombs after the window has gone (Erez, 10 Nov 2026), the
+	   machine bombs after the window has gone (seen 10 Nov 2026), the
 	   last line says where */
 	main_close();
 	quit_step("the window closed");
@@ -1197,7 +1197,7 @@ int app_main(void)
 
 /* common's atari/cpucheck.c (cpucheck_cf.S in the FireBee build) is the
    program's main(), and calls app_main(). A release has two packages with
-   the same names in them (Erez, 22 Nov 2026; the guidelines, 7.4): the
+   the same names in them (decided 22 Nov 2026; the guidelines, 7.4): the
    standard one's EFTP.PRG runs on every 68000 and 68030 machine, and on a
    FireBee (_CF_ in the jar) says to install the FireBee package and goes;
    the FireBee package's, ColdFire code, says the opposite anywhere else */

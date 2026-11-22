@@ -1381,8 +1381,8 @@ static void part_secure(short x, short y)
 	d_tick(x, ROW(0), "Direct connection: TLS on this Atari", T_FALCON);
 	d_tick(x + 3, ROW(1), "Check certificates on the DSP", T_DSP);
 	d_add(G_STRING, 0, 0, (long)note, x + 3, ROW(2), (short)strlen(note), 1);
-	/* Erez's words (22 Nov 2026): "Through the Gateway" on a line of its
-	   own, the address and port below it */
+	/* "Through the Gateway" on a line of its own, the address and port
+	   below it (the words decided 22 Nov 2026; the guidelines, 7.3) */
 	d_add(G_STRING, 0, 0, (long)"Through the Gateway", x, ROW(3), 19, 1);
 	framed(d_long(x + 3, ROW(4), s_gate, 18, (short)sizeof(s_gate) - 1));
 	d_add(G_STRING, 0, 0, (long)"Port", x + 23, ROW(4), 4, 1);
@@ -1431,7 +1431,7 @@ static short page_add(short k)
 /* Cancel and OK the last of the dialog's objects again: objc_find takes
    the last object under the mouse, and a page built later went after
    them, its box over their row, so on every page but the first neither
-   could be pressed (Erez, 4 Nov 2026; since 1.73) */
+   could be pressed (found 4 Nov 2026; since 1.73) */
 static void buttons_last(void)
 {
 	short p = tree[0].ob_head;
@@ -1865,7 +1865,7 @@ static short pick_w(const char *title, const char **items, short n, short lw)
 			/* a row pressed: its row and the old one are drawn
 			   already, nothing else changed (a double click's second
 			   press must find the program waiting, not redrawing
-			   the list: EMail's Move, Erez 11 Nov 2026) */
+			   the list: EMail's Move, 11 Nov 2026) */
 			quick = 0;
 			goto ask;
 		}
@@ -1997,7 +1997,7 @@ void dlg_shortcuts(void)
 		"During a transfer: Esc or Stop ends it",
 		"^U, ^Q  quit               Help  the user guide",
 		"The file keys act on the pane with the keyboard",
-		"In dialogs: Tab, Space, the arrows reach every control"	/* D25; Erez, 19 Nov 2026 */
+		"In dialogs: Tab, Space, the arrows reach every control"	/* D25; approved 19 Nov 2026 */
 	};
 	short i, n = (short)(sizeof(lines) / sizeof(lines[0]));
 	const short W = 60;		/* the longest line (54) with 3 either side */

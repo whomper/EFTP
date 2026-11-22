@@ -63,7 +63,7 @@ OBJDIR  := build
 PROFILE ?= 20
 # the main flows' hot loops first, right after the startup objects: the
 # 68030's 256-byte instruction cache sees them in the same places whatever
-# else grows (the guidelines' Speed, the link order; Erez 13 Nov 2026).
+# else grows (the guidelines' Speed, the link order; decided 13 Nov 2026).
 # local_names, the sort and the folder listing (xfer), the list parser
 # and flist_add (ftp), a pane's rows (files) and the text (draw); then the
 # window's scrolling (win), the shared text and off-screen page (text,
@@ -91,8 +91,8 @@ all: binary/eftp.prg binary/eftpfb.prg binary/tls.ovl binary/tlsfb.ovl binary/ro
 
 binary/eftp.prg: $(OBJDIR)/eftp.elf common/tools/elf2tos.py | binary
 	PRGFLAGS=7 python3 common/tools/elf2tos.py $< $@
-# the FireBee edition (Erez, 22 Nov 2026: "Make the other apps native on the
-# FireBee too"; the guidelines, 7.4): every object of eftp.elf built again
+# the FireBee edition (every app native on the FireBee, decided 22 Nov 2026;
+# the guidelines, 7.4): every object of eftp.elf built again
 # as ColdFire code (-mcpu=5475) by common's mkfirebee.py, from these very
 # rules, with no pad (the 68030's caches aren't the ColdFire's)
 binary/eftpfb.prg: $(OBJDIR)/eftp.elf common/tools/mkfirebee.py common/atari/cpucheck_cf.S common/atari/ll64.c | binary
@@ -122,7 +122,7 @@ build/prof/profile: FORCE
 binary/tls.ovl: common/tlsovl/tls.ovl | binary
 	cp $< $@
 # and its ColdFire build, which a FireBee loads instead (the _CF_ cookie;
-# Erez, 15 Nov 2026): copied, never built here either
+# decided 15 Nov 2026): copied, never built here either
 binary/tlsfb.ovl: common/tlsovl/tlsfb.ovl | binary
 	cp $< $@
 
@@ -328,11 +328,8 @@ itest: $(OBJDIR)/ftp-cli
 	python3 -m unittest discover -s gateway -p 'test_aeragate.py'
 	python3 -m unittest discover -s gateway -p 'test_eftpgate.py'
 
-# a release is two packages and nothing else (Erez, 22 Nov 2026: "two
-# packages, one for FireBee and the other for standard ST", "Same names",
-# "Remove all files from root and just have two ZIP files, one for each
-# platform", "rename all other FB files into their standard filename"; the
-# guidelines, 7.4), for the release workflow: dist/eftp-x.y.zip for the ST,
+# a release is two packages and nothing else, the same names in both, no
+# file beside them (decided 22 Nov 2026; the guidelines, 7.4), for the release workflow: dist/eftp-x.y.zip for the ST,
 # TT and Falcon, and dist/eftp-x.y-firebee.zip, whose eftp.prg is
 # binary/eftpfb.prg (the ColdFire build) and tls.ovl is tlsfb.ovl. Every
 # name in lowercase (6.6), the icons' too, in icons/
