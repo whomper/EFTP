@@ -171,12 +171,14 @@ def run(mode):
         r.shot("%s-connected" % mode)
         check(ok, "%s: connected and in /pub" % mode)
         # the server's own log says when a download was asked for: the
-        # gateway's (-v) for SFTP, pyftpdlib's for FTPS
+        # gateway's (-v) for SFTP, pyftpdlib's for FTPS. The gateway logs
+        # the command alone, never its path (the guidelines, 7.3), so for
+        # SFTP every RETR counts: the downloads here go one at a time
         slog = os.path.join(w, "gate.log" if mode == "sftp" else "ftpd.log")
 
         def asked(name):
             text = open(slog, errors="replace").read() if os.path.exists(slog) else ""
-            return sum(1 for l in text.splitlines() if "RETR" in l and name in l)
+            return sum(1 for l in text.splitlines() if "RETR" in l and (mode == "sftp" or name in l))
 
         def fetch(n, name, local, want, what):
             # a click selects it, ^T downloads the selection: on TOS 1.04 a
