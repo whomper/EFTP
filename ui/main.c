@@ -493,7 +493,7 @@ int connect_site(SITE *s)
 	}
 	if (site_via_gateway(s) && !opt.gate[0]) {
 		if (s->proto == PR_SFTP || get_cookie(0x5F435055L) < 20)	/* _CPU: no Direct connection */
-			alert(1, "[1][%s needs the Gateway: on a|Raspberry Pi, aera-gateway|install ftp; then type its|address in Settings > Secure.][ OK ]",
+			alert(1, "[1][%s needs the Gateway:|on the Gateway, aera-gateway|install ftp; then type its|address in Settings > Secure.][ OK ]",
 			      proto_name(s->proto));
 		else
 			alert(1, "[1][FTPS needs a Direct connection|(Options menu, on a TT or Falcon)|or the Gateway|(Settings > Secure).][ OK ]");

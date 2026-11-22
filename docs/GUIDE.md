@@ -258,8 +258,8 @@ is ~/AERA-Gateway/gateway/aera-gateway.) To update it later:
 `~/AERA-Gateway/update-pi.sh`. To see that it runs: `aera-gateway
 status`.
 
-Then in EFTP: Options > Settings > Secure, Gateway: the Raspberry
-Pi's address (PI_IP), port 2121. AERA-Gateway's README has the Gateway's
+Then in EFTP: Options > Settings > Secure, Through the Gateway: the
+Raspberry Pi's address (PI_IP), port 2121. AERA-Gateway's README has the Gateway's
 options and what to do when something doesn't work.
 
 ## Moving files

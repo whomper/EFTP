@@ -1377,13 +1377,15 @@ static void part_secure(short x, short y)
 	d_tick(x, ROW(0), "Direct connection: TLS on this Atari", T_FALCON);
 	d_tick(x + 3, ROW(1), "Check certificates on the DSP", T_DSP);
 	d_add(G_STRING, 0, 0, (long)note, x + 3, ROW(2), (short)strlen(note), 1);
-	d_add(G_STRING, 0, 0, (long)"Gateway", x, ROW(3), 7, 1);
-	framed(d_long(x + 11, ROW(3), s_gate, 18, (short)sizeof(s_gate) - 1));
-	d_add(G_STRING, 0, 0, (long)"Port", x + 31, ROW(3), 4, 1);
-	f_gport = d_field(x + 36, ROW(3), s_gport, 5, '9');
-	d_add(G_STRING, 0, 0, (long)"SFTP goes through the Gateway,", x + 3, ROW(4), 30, 1);
-	d_add(G_STRING, 0, 0, (long)"FTPS too without a Direct connection.", x + 3, ROW(5), 37, 1);
-	d_add(G_STRING, 0, 0, (long)"Set it up: aera-gateway install ftp", x + 3, ROW(6), 35, 1);
+	/* Erez's words (22 Nov 2026): "Through the Gateway" on a line of its
+	   own, the address and port below it */
+	d_add(G_STRING, 0, 0, (long)"Through the Gateway", x, ROW(3), 19, 1);
+	framed(d_long(x + 3, ROW(4), s_gate, 18, (short)sizeof(s_gate) - 1));
+	d_add(G_STRING, 0, 0, (long)"Port", x + 23, ROW(4), 4, 1);
+	f_gport = d_field(x + 28, ROW(4), s_gport, 5, '9');
+	d_add(G_STRING, 0, 0, (long)"SFTP goes through the Gateway,", x + 3, ROW(5), 30, 1);
+	d_add(G_STRING, 0, 0, (long)"FTPS too without a Direct connection.", x + 3, ROW(6), 37, 1);
+	d_add(G_STRING, 0, 0, (long)"On the Gateway: aera-gateway install ftp", x, ROW(7), 40, 1);
 }
 
 #define SW 13			/* the list's width */
@@ -1465,7 +1467,7 @@ static short settings_sidebar(short *ok)
 {
 	const char *const *names = page_names;
 	short k, box, gap = (short)(gl_hchar / 2);
-	d_begin(SX + 42, 16);
+	d_begin(SX + 42, 18);	/* 18: the Secure page's eight rows (Erez's Gateway words, 22 Nov 2026) */
 	nticks = 0;
 	npages = 0;
 	adding_page = 0;
@@ -1473,22 +1475,22 @@ static short settings_sidebar(short *ok)
 	d_band(SX + 42, " Settings");
 	/* the list: plain words on white, the chosen one in a black bar, a
 	   line between it and the settings */
-	d_add(G_BOX, 0, 0, 0x00001171L, SW, 1, (short)(0 | (1 << 8)), 15);
+	d_add(G_BOX, 0, 0, 0x00001171L, SW, 1, (short)(0 | (1 << 8)), 17);
 	for (k = 0; k < 5; k++) {
 		npages++;
 		page_tab[npages] = d_add(G_BOXTEXT, TOUCHEXIT, 0, (long)d_ted(names[k], 0, 0x1180),
 					 (short)(0 | (2 << 8)), (short)((2 + k * 2) | ((k * gap) << 8)),
 					 (short)((SW - 1) | (6 << 8)), 1);
 	}
-	box = d_add(G_IBOX, 0, 0, 0, SX - 1, 2, 42, 12);
+	box = d_add(G_IBOX, 0, 0, 0, SX - 1, 2, 42, 14);	/* 14: the Secure page's eighth row */
 	/* each page in a box of its own, hidden whole: TOS 1.04's AES takes
 	   some 0.3 ms for each hidden object it passes over (19 ms of
 	   Settings' 251); the first now, the others when chosen */
 	memset(page_built, 0, sizeof(page_built));
 	page_add(1);
 	adding_page = 0;
-	set_cancel = d_button(SX + 18, 14, 10, "Cancel", EXIT);
-	*ok = set_ok = d_button(SX + 30, 14, 10, "OK", EXIT | DEFAULT);
+	set_cancel = d_button(SX + 18, 16, 10, "Cancel", EXIT);
+	*ok = set_ok = d_button(SX + 30, 16, 10, "OK", EXIT | DEFAULT);
 	d_end();
 	show_page(1, 0);
 	return box;
