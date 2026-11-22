@@ -7,9 +7,9 @@
   the same, byte for byte;
 - the host's may differ from them only where a number needs more than 32 bits
   (long is 32 bits on the Atari: a SIZE of 2 GB or more, a date past the
-  year 6053 in minutes) or where common's strtol, the same in both Atari
-  builds, takes a field of no digits as 0 (a PASV reply with a blank field);
-  each such line is counted, and any other difference fails.
+  year 6053 in minutes); each such line is counted, and any other
+  difference fails (common's strtol took a field of no digits as 0 until
+  c184d49: a PASV reply with a blank field).
 
     compare.py CF.txt 68K.txt HOST.txt
 """
@@ -48,33 +48,22 @@ def wide(a, h):
     return True
 
 
-def blank_field(a, h):
-    """common's strtol: a PASV reply's blank field taken as 0 on the Atari"""
-    def plain(s):
-        s = re.sub(r" pasv \S+ \S+", "", s)
-        return re.sub(r"(\d\d)\d(\d:\d+)", r"\1_\2", s)
-    return a != h and plain(a) == plain(h)
-
-
 if len(cf) != len(host):
     print("FAIL the host gave %d lines, the ColdFire %d" % (len(host), len(cf)))
     fails += 1
 else:
-    nw = nb = 0
+    nw = 0
     for i, (a, h) in enumerate(zip(cf, host)):
         if a == h or a.startswith("core: every answer said"):
             continue
         if wide(a, h):
             nw += 1
-        elif blank_field(a, h):
-            nb += 1
         else:
             print("FAIL the host differs at line %d:\n  cf:   %s\n  host: %s" % (i + 1, a[:200], h[:200]))
             fails += 1
             if fails > 5:
                 break
     if not fails:
-        print("ok   the host's core: the same %d lines but %d of numbers of 32 bits or more, and %d PASV "
-              "replies with a blank field (common's strtol, the same in both Atari builds)" % (len(cf), nw, nb))
+        print("ok   the host's core: the same %d lines but %d of numbers of 32 bits or more" % (len(cf), nw))
 print("cftest:", "all passed" if not fails else "%d failed" % fails)
 sys.exit(1 if fails else 0)
