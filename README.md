@@ -24,19 +24,18 @@ larger, with about 350 KB free (a 1 MB ST with STinG will do), and STinG, STiK, 
 
 ## Getting started
 
-Download the **[latest release](https://github.com/whomper/EFTP/releases/latest)**:
+Download the **[latest release](https://github.com/whomper/EFTP/releases/latest)**: two packages with the
+same names in them, `eftp-x.y.zip` for the ST, STE, TT and Falcon, and `eftp-x.y-firebee.zip` for the
+FireBee, whose `EFTP.PRG` and `TLS.OVL` are built for its ColdFire.
 
 | File | What it is |
 |---|---|
-| `EFTP.PRG` | the program, for the ST, STE, TT and Falcon |
+| `EFTP.PRG` | the program, for the machines of its package |
 | `EFTP.HYP` | the guide, for EHypView or ST-Guide (the Help key) |
-| `TLS.OVL`, `CACERT.PEM`, `ROOTS.DAT` | FTPS on a TT or Falcon itself (a Direct connection) |
-| `TLSFB.OVL` | the same TLS for a FireBee (its ColdFire), loaded there instead of `TLS.OVL` |
-| `EFTP.RSC`, `EFTPNV.RSC`, `EFTP.ICN`, `EFTPMK.ICN` | the desktop icon (`EFTPNV.RSC` under NVDI's own palette) |
+| `TLS.OVL`, `CACERT.PEM`, `ROOTS.DAT` | FTPS on a TT, Falcon or FireBee itself (a Direct connection) |
+| `ICONS\EFTP.RSC`, `EFTPNV.RSC`, `EFTP.ICN`, `EFTPMK.ICN` | the desktop icon (`EFTPNV.RSC` under NVDI's own palette) |
 
-A release has two packages with the same names in them: `eftp-x.y.zip` for the ST, STE, TT and Falcon (the files above, each also on its own), and `eftp-x.y-firebee.zip` for the FireBee, whose `EFTP.PRG` is built for its ColdFire, with `TLSFB.OVL`.
-
-1. Copy `EFTP.PRG` and `EFTP.HYP` (and on a TT or Falcon the TLS files; on a FireBee, from its package, `TLSFB.OVL` with the two certificate files) into a folder of their own.
+1. Copy `EFTP.PRG` and `EFTP.HYP` (and on a TT, Falcon or FireBee the TLS files) into a folder of their own.
 2. Load STinG, or run MiNT with MiNTnet.
 3. Start EFTP, choose **Options > Sites** (^K), make a site and press **Connect**.
 4. Press **Help** for the guide.

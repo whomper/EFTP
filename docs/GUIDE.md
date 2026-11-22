@@ -34,21 +34,21 @@ FTPS by the Falcon itself.
 ## Installing
 
 The files are in the latest release on EFTP's GitHub page
-(github.com/whomper/EFTP/releases), each on its own and all together in
-`EFTP-x.y.zip`. For a FireBee there is a package of its own,
-`EFTP-x.y-FIREBEE.zip`, with the same names in it: its `EFTP.PRG` is the
-same program built for the FireBee's ColdFire:
+(github.com/whomper/EFTP/releases), in two packages with the same names
+in them: `EFTP-x.y.zip` for the ST, STE, TT and Falcon, and
+`EFTP-x.y-FIREBEE.zip` for the FireBee, whose `EFTP.PRG` and `TLS.OVL`
+are built for its ColdFire. Take the one for your Atari:
 
 | Your Atari        | Copy                         | Secure servers                       |
 |-------------------|------------------------------|--------------------------------------|
 | Falcon, TT        | `EFTP.PRG`, `TLS.OVL`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (a Direct connection), SFTP through the Pi |
-| FireBee           | from the FireBee package: `EFTP.PRG`, `TLSFB.OVL`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (a Direct connection), SFTP through the Pi |
+| FireBee           | `EFTP.PRG`, `TLS.OVL`, `CACERT.PEM`, `ROOTS.DAT` | FTPS by itself (a Direct connection), SFTP through the Pi |
 | ST, STE, Mega ST  | `EFTP.PRG`                   | FTPS and SFTP through the Pi         |
 
 `TLS.OVL` is the TLS for a Direct connection, the same file in every
 AERA program: EFTP loads it only when a Direct connection needs it, so
-an ST never does. A FireBee loads `TLSFB.OVL` instead, the same TLS
-built for its ColdFire. A program from the wrong package says so and
+an ST never does. The FireBee package's is the same TLS built for its
+ColdFire. A program from the wrong package says so and
 goes: the standard `EFTP.PRG` on a FireBee, or the FireBee's on an ST, a
 TT or a Falcon, names the package to install. If you used `EFTPST.PRG` before, delete it: its
 settings are `EFTP.PRG`'s.
@@ -61,8 +61,7 @@ whether the desktop or another program starts it:
 ```
 EFTP.PRG      the program
 EFTP.HYP      this guide, for EHypView or ST-Guide (the Help key opens it)
-TLS.OVL       a Direct connection: the TLS, loaded when needed (TT, Falcon)
-TLSFB.OVL     the same for a FireBee
+TLS.OVL       a Direct connection: the TLS, loaded when needed (TT, Falcon, FireBee)
 CACERT.PEM    a Direct connection: the root certificates (copy them here)
 ROOTS.DAT     a Direct connection: the same, decoded ahead of time
 EFTP.INF      settings and sites (each setting has a note above it)
@@ -74,14 +73,15 @@ SIGS.DAT      a Direct connection: certificate signatures already checked
 ```
 
 You copy the program and the guide, and for a Direct connection
-`TLS.OVL` (on a FireBee `TLSFB.OVL`) and the two certificate files; EFTP makes the others when it needs them.
+`TLS.OVL` and the two certificate files; EFTP makes the others when it needs them.
 `ROOTS.DAT` only saves time: without it, or when `CACERT.PEM` has
 changed, EFTP reads `CACERT.PEM` itself the first time (slower) and
 writes a new `ROOTS.DAT`.
 
 To update EFTP, copy the new release's `EFTP.PRG`, `EFTP.HYP`, and on a
-TT or Falcon `TLS.OVL` (on a FireBee, from its package, `EFTP.PRG` and
-`TLSFB.OVL`), `CACERT.PEM` and `ROOTS.DAT`, over the old ones. `EFTP.INF`
+TT, Falcon or FireBee `TLS.OVL`, `CACERT.PEM` and `ROOTS.DAT`, from the
+package for your Atari, over the old ones. A FireBee that has
+`TLSFB.OVL` from an older release no longer needs it. `EFTP.INF`
 and `EFTP.KEY` stay as they are, and with them your settings, sites
 and passwords.
 
@@ -208,7 +208,7 @@ Falcon, TT:  Falcon (EFTP.PRG, TLS 1.2, RSA on the DSP) ------------------------
 - **A Direct connection.** On a TT or Falcon EFTP speaks FTPS itself,
   TLS 1.2 with BearSSL, as EMail and ECal do. Switch it on with
   **Options > Direct connection** or in Settings > Secure. It
-  needs a 68020 or better (a TT or Falcon; a FireBee with its package's `EFTP.PRG` and `TLSFB.OVL`), and `TLS.OVL` and
+  needs a 68020 or better (a TT, a Falcon or a FireBee), and `TLS.OVL` and
   `CACERT.PEM` next to `EFTP.PRG`, with `ROOTS.DAT` to start faster;
   EFTP loads `TLS.OVL` as you switch it on, and says so at once if it
   is missing. **Check certificates
@@ -508,7 +508,7 @@ Undo or the Stop button stops it.
   set up the gateway (Settings > Secure), or switch on a Direct
   connection for FTPS.
 - **"TLS.OVL is missing"**, **"damaged"** or **"doesn't suit this
-  program"**: copy `TLS.OVL` (on a FireBee `TLSFB.OVL`) from EFTP's release next to `EFTP.PRG`.
+  program"**: copy `TLS.OVL` from the package for your Atari next to `EFTP.PRG`.
 - **A certificate that "didn't check out"** (a Direct connection, or the Pi's
   log): the Atari's clock, or a server whose certificate is made by its
   own authority (a NAS): through the Pi, `--cafile` (AERA-Gateway's

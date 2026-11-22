@@ -307,24 +307,25 @@ itest: $(OBJDIR)/ftp-cli
 	python3 -m unittest discover -s gateway -p 'test_aeragate.py'
 	python3 -m unittest discover -s gateway -p 'test_eftpgate.py'
 
-# a release's files: each one in dist/, and all of them in
-# dist/eftp-x.y.zip (the icons in icons/), for the release workflow; every
-# name in lowercase (6.6), the icons' too. And the FireBee package,
-# dist/eftp-x.y-firebee.zip, with the same names (Erez, 22 Nov 2026: "two
-# packages, one for FireBee and the other for standard ST"; the guidelines,
-# 7.4): its eftp.prg is binary/eftpfb.prg, the ColdFire build, and its TLS
-# tlsfb.ovl. The loose files are the standard package's
-DIST    := binary/eftp.prg binary/tls.ovl binary/tlsfb.ovl binary/cacert.pem binary/roots.dat binary/eftp.hyp
-DISTFB  := binary/tlsfb.ovl binary/cacert.pem binary/roots.dat binary/eftp.hyp
+# a release is two packages and nothing else (Erez, 22 Nov 2026: "two
+# packages, one for FireBee and the other for standard ST", "Same names",
+# "Remove all files from root and just have two ZIP files, one for each
+# platform", "rename all other FB files into their standard filename"; the
+# guidelines, 7.4), for the release workflow: dist/eftp-x.y.zip for the ST,
+# TT and Falcon, and dist/eftp-x.y-firebee.zip, whose eftp.prg is
+# binary/eftpfb.prg (the ColdFire build) and tls.ovl is tlsfb.ovl. Every
+# name in lowercase (6.6), the icons' too, in icons/
+DIST    := binary/eftp.prg binary/tls.ovl binary/cacert.pem binary/roots.dat binary/eftp.hyp
+DISTFB  := binary/cacert.pem binary/roots.dat binary/eftp.hyp
 ICONS   := icons/EFTP.RSC icons/EFTPNV.RSC icons/EFTP.ICN icons/EFTPMK.ICN
 dist: all help
 	rm -rf dist
 	mkdir -p dist/zip/icons dist/zipfb/icons
-	cp $(DIST) dist/
 	cp $(DIST) dist/zip/
 	cp $(DISTFB) dist/zipfb/
 	cp binary/eftpfb.prg dist/zipfb/eftp.prg
-	for f in $(ICONS); do l=$$(basename $$f | tr A-Z a-z); cp $$f dist/$$l; cp $$f dist/zip/icons/$$l; cp $$f dist/zipfb/icons/$$l; done
+	cp binary/tlsfb.ovl dist/zipfb/tls.ovl
+	for f in $(ICONS); do l=$$(basename $$f | tr A-Z a-z); cp $$f dist/zip/icons/$$l; cp $$f dist/zipfb/icons/$$l; done
 	cd dist/zip && zip -q -9 -r ../eftp-$(VERSION_STR).zip .
 	cd dist/zipfb && zip -q -9 -r ../eftp-$(VERSION_STR)-firebee.zip .
 	rm -rf dist/zip dist/zipfb
