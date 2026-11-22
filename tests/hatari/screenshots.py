@@ -85,7 +85,7 @@ try:
     time.sleep(25)
     r.key(0x33, ctrl=True)                     # Settings (^,: Options' second entry is Sites since 2.5)
     time.sleep(2)
-    r.click(140, 305)                          # the Secure part (Settings 18 rows tall since 2.17)
+    r.click(140, 321)                          # the Secure part
     r.move(600, 450)
     time.sleep(1.5)
     keep(r, "settings", "settings.png")

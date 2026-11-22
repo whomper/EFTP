@@ -34,7 +34,7 @@ print("on %s, %s" % (m.describe(), m.prg), flush=True)
 srv, home = server.ftp_server(work)
 hd = server.drive_c(work, prg=m.prg)
 inf = rig.machines.ci_path(hd, "eftp.inf")
-CONNECTION, SECURE = (150, 265), (150, 305)     # Settings' parts, in its list (18 rows tall since 2.17)
+CONNECTION, SECURE = (150, 281), (150, 321)     # Settings' parts, in its list
 fails = []
 
 
