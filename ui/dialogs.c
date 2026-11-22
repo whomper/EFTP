@@ -1138,10 +1138,18 @@ static short pick_over(const char *title, const char **items, short n, short lw,
 /* every zone with its offset now; the one chosen goes into s_zone */
 static void zone_pick(void)
 {
-	static char lab[120][40];
-	static const char *items[120];
+	/* the labels from the heap while the list is open, not 5 KB of BSS
+	   for good: EFTP's load (text, data and BSS) is what TOS must find
+	   free to start it, and a 1 MB ST with EContact's accessory had less
+	   than 1 KB to spare (the hub's family check, 22 Nov 2026) */
+	char (*lab)[40] = malloc(120 * 40 + 120 * sizeof(char *));
+	const char **items = (const char **)(lab + 120);
 	long now = zone_utc_now();
 	short n = (short)tz_count(), i, sel = 0;
+	if (!lab) {
+		alert(1, "[3][Not enough memory for the|list of time zones.][ OK ]");
+		return;
+	}
 	if (n > 120)
 		n = 120;
 	for (i = 0; i < n; i++) {
@@ -1154,6 +1162,7 @@ static void zone_pick(void)
 			sel = i;
 	}
 	i = pick_over("Your time zone", items, n, 38, sel);
+	free(lab);
 	if (i >= 0)
 		str_copy(s_zone, tz_index(i)->name, sizeof(s_zone));
 	zone_label();

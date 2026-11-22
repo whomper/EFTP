@@ -260,13 +260,34 @@ $(OBJDIR)/replay_%: tests/fuzz/fuzz_%.c $(HOSTSRC) $(HDRS) $(HOSTLIB) $(REPLAYSR
 
 # make test also looks for word and long accesses at an odd offset from
 # the stack in EFTP.PRG's code: a 68000's address error (the guidelines,
-# The machines; common's oddaccess.py)
-test: $(OBJDIR)/unit $(addprefix $(OBJDIR)/replay_,$(FUZZERS)) $(OBJDIR)/eftp.elf build/prof/EFTP.PRG
+# The machines; common's oddaccess.py). And EFTP.PRG's load (text, data
+# and BSS: what TOS must find free in one block to start it) against
+# LOADMAX: on a 1 MB ST beside EContact's accessory, 2.15's 363,364 bytes
+# had less than 1 KB to spare, and 2.16's first candidate, 1,020 more,
+# didn't start (the hub's family check, 22 Nov 2026). LOADMAX keeps 1 KB
+# under 2.15's; tests/hatari/memory_test.py measures the room on ST-1
+LOADMAX := 362340
+test: $(OBJDIR)/unit $(addprefix $(OBJDIR)/replay_,$(FUZZERS)) $(OBJDIR)/eftp.elf build/prof/EFTP.PRG binary/eftp.prg
 	$(OBJDIR)/unit
 	@for f in $(FUZZERS); do \
 	  $(OBJDIR)/replay_$$f tests/fuzz/seeds/$$f $$(ls -d tests/fuzz/found/$$f 2>/dev/null) || exit 1; \
 	done
 	python3 common/tools/oddaccess.py $(OBJDIR)/eftp.elf
+	@python3 -c 'import struct,sys; t,d,b=struct.unpack(">III",open("binary/eftp.prg","rb").read(14)[2:]); n=t+d+b; \
+	  print("load: text %d + data %d + bss %d = %d bytes, LOADMAX %d (%d under)" % (t,d,b,n,$(LOADMAX),$(LOADMAX)-n)); \
+	  sys.exit(n > $(LOADMAX))' || { echo "FAIL EFTP.PRG's load is over LOADMAX: a 1 MB ST with EContact's accessory can't start it"; exit 1; }
+loadmax:
+	@echo $(LOADMAX)
+
+# tests/hatari/memory_test.py's probe: the block TOS gives a program, on
+# Hatari's console
+build/mp/memprobe.prg: tests/hatari/memprobe.c $(OBJDIR)/crt0.o $(OBJDIR)/nf.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o
+	@mkdir -p build/mp
+	$(CC) $(CFLAGS) -c -o build/mp/memprobe.o $<
+	$(CC) -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/atari/link.ld -Wl,--gc-sections \
+	    -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments -o build/mp/memprobe.elf $(OBJDIR)/crt0.o $(OBJDIR)/nf.o \
+	    build/mp/memprobe.o $(OBJDIR)/libc.o $(OBJDIR)/tos.o -lgcc
+	PRGFLAGS=7 python3 common/tools/elf2tos.py build/mp/memprobe.elf $@
 
 # make cftest: the FireBee edition's FTP core under qemu-m68k -cpu cfv4e
 # (the guidelines, 7.4; apt install qemu-user): tests/coldfire/core.c
@@ -333,4 +354,4 @@ dist: all help
 clean:
 	rm -rf $(OBJDIR) binary dist
 
-.PHONY: all help icons dist test itest cftest clean fuzz FORCE
+.PHONY: all help icons dist test itest cftest loadmax clean fuzz FORCE
