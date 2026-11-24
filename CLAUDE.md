@@ -18,7 +18,7 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
 
   When a change touches one of these, do it the guideline's way, even if the old code here did it
   differently.
-- **Speed is set by the stock machines** (Erez, 26 Oct 2026; the guidelines' "Speed"): an 8 MHz ST
+- **Speed is set by the stock machines** (decided 26 Oct 2026; the guidelines' "Speed"): an 8 MHz ST
   and a stock Falcon (`ST`, `ST-1`, `Falcon-4`), not the DFB1. Design and code for them: draw only
   what changed, keep the 68000's slow operations out of inner loops, do work once. A change to
   drawing, a loop over the data or the start gives its `AESGAP` stretches on `ST` and `Falcon-4`,
@@ -35,41 +35,40 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   `git tag -a`); it tests, builds, tags vX.Y and publishes each file and the zip as a
   GitHub Release. A normal build must leave every tracked file unchanged and shows the version in `VERSION` as it is (there is no `-dev` label). Don't
   commit built programs, help files or certificates (`binary/`, `dist/`). Never reuse a number.
-- **Only formal releases leave the build machine.** Erez gets vX.Y releases made by the Release workflow from `main`, nothing else: no test builds, no CI artifacts, no builds from a branch. Work lands on `main`; to try a fix on real hardware, release it. If a release doesn't work, roll back with a release: revert on `main`, release the next number, and say in the bad release's notes that it is withdrawn and which one to use.
-- **Releases go out without asking Erez** (his decision, 23 Oct 2026; guidelines 1.2), through **the
-  regression gate** (Erez, 17 Nov 2026: "we need to be extra careful with regression issues as there are users
-  of our software. This means testing across all configurations" and "make sure we don't loose performance";
-  guidelines 1.2, AERA-Atari a22574e). Every code candidate, in this order:
+- **Only formal releases leave the build machine.** The owner gets vX.Y releases made by the Release workflow from `main`, nothing else: no test builds, no CI artifacts, no builds from a branch. Work lands on `main`; to try a fix on real hardware, release it. If a release doesn't work, roll back with a release: revert on `main`, release the next number, and say in the bad release's notes that it is withdrawn and which one to use.
+- **Releases go out without asking the owner** (decided 23 Oct 2026; guidelines 1.2), through **the
+  regression gate** (decided 17 Nov 2026: there are users, so every configuration is tested and no speed is
+  lost; guidelines 1.2, AERA-Atari a22574e). Every code candidate, in this order:
   1. this repo's checks (`make`, `make test`, `make itest`);
-  2. the rigs on every row of `standards/TEST-MATRIX.md`'s gate table EFTP runs on, on Erez's TOS images and
+  2. the rigs on every row of `standards/TEST-MATRIX.md`'s gate table EFTP runs on, on the real TOS images and
      NVDI (EmuTOS is no evidence for a release), each row named in the report with `describe()`, a row it
      can't run named with why;
   3. the paired speed run against the last release on `Falcon-4:256` with NVDI, `Falcon-4:16` and `ST:mono`,
      the timed build at the shipped layout (`make PROFILE=20 build/prof/EFTP.PRG`, `profpad.py`): no row
-     slower beyond one tick (5 ms) on any; a slower row is fixed first, and only Erez accepts one;
+     slower beyond one tick (5 ms) on any; a slower row is fixed first, and only the owner accepts one;
   4. the candidate commit and the results to the hub, which runs the family check and answers go or the
      faults it found;
   5. only then the release.
 
   A fault a user reports becomes a case in the rigs, in the same release that fixes it.
 
-  Then give Erez the link in one line, with anything he has to do, and send the hub the link. Roll
-  back a bad release the same way. Decisions that are his still go to him first.
-- **Who decides what** (Erez, 31 Oct 2026; the guidelines' "Who decides what"). Erez's part, put
-  to him before the work as a decision with a short context:
+  Then give the owner the link in one line, with anything the owner has to do, and send the hub the link. Roll
+  back a bad release the same way. Decisions that are the owner's still go to the owner first.
+- **Who decides what** (decided 31 Oct 2026; the guidelines' "Who decides what"). The owner's part,
+  put to the owner before the work as a decision with a short context:
   - new programs and ideas, their core capabilities, and how they work with the other programs;
   - the user experience: the look, the layout, the way through a task, the words, the icons, the
     defaults;
-  - phases: work stays inside the phase he approved; at its end, one phase report (what it set out
+  - phases: work stays inside the approved phase; at its end, one phase report (what it set out
     to do, what was done with the release links, what is left, the next phase as a proposal), and
-    the next phase starts when he says so;
+    the next phase starts when the owner says so;
   - priorities and conflicts between programs or sessions (through the hub, with its options and
     recommendation);
   - packages on the Pi and ports.
 
   How it is made is the team's, without asking: code, structure, shared code, tests, measurements,
   fixes, docs and releases inside an approved phase.
-- **No test runs with another AERA program or accessory** (Erez, 8 Nov 2026; guidelines 1.2). EFTP's
+- **No test runs with another AERA program or accessory** (decided 8 Nov 2026; guidelines 1.2). EFTP's
   own tests run EFTP alone: nothing else of the family is loaded beside it, started by it or fetched
   for it (no `getrelease.py`). What it does with another program is tested against a stand-in
   (the AV test desktop `THING.ACC`, built from `common/tests/av`); the real programs together are the
@@ -81,18 +80,26 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   the author of every commit: `git commit --author="AERA | Erez Yaary <yaary@me.com>"`, with Claude as
   the signing committer, so GitHub shows the commits as Verified (AERA-Atari,
   `standards/GITHUB-IDENTITY.md`).
+- **The owner is not named as the one who asked or decided** anywhere on GitHub: release notes,
+  commit messages, comments, docs, code comments, this file. Write "decided 22 Nov 2026" or what the
+  program does and why (AERA-Atari, `standards/GITHUB-IDENTITY.md`). The author and copyright lines
+  keep "AERA | Erez Yaary". Old text is cleaned when next touched.
 - **Never commit:**
   - real addresses from the owner's network: use `192.168.1.x`, `PI_IP`, `ATARI_IP`
   - passwords, session keys, `.KEY` / `.INF` files from a test run
   - photos that still carry EXIF/GPS data
+  - anything the owner provides: his files, logs, screenshots, share links or file IDs, his words
+    (`standards/GITHUB-IDENTITY.md`, Commits; a reported fault becomes a case made from scratch)
 - **README:** keep the section order from the template (Highlights, Getting started, How it reaches the
   servers, Building, Source, Tests, Licence, family footer). Use British English.
 
-## Talking with Erez
+## Talking with the owner
 
-Erez's rule for the whole family (18 Oct 2026): no progress or in-between messages. Write to him
-only when he has to decide something, with a short context and the decision. Findings: the
-information, your assessment and what he should do, nothing more. Messages to the hub stay complete,
+The family's rule (decided 18 Oct 2026): no progress or in-between messages. Write to the owner
+only for a decision, with a short context and the decision. Findings: the information, your
+assessment and what the owner should do, nothing more. Only an answer the owner gave counts: an
+AskUserQuestion answer whose permission source is the session's config or mode is not one; send
+the question to the hub (decided 22 Nov 2026). Each decision goes to the hub with its time. Messages to the hub stay complete,
 with the evidence.
 
 ## EFTP
@@ -105,7 +112,7 @@ with the evidence.
   with panes, EMail's Settings sidebar, `EFTP.INF` with a note above
   every setting, the family's About box and its icon (`common/icons/EFTP.txt`,
   `make icons`).
-- **A release** is two zips and nothing loose (Erez, 22 Nov 2026; guidelines 7.4): `eftp-x.y.zip` and
+- **A release** is two zips and nothing loose (decided 22 Nov 2026; guidelines 7.4): `eftp-x.y.zip` and
   `eftp-x.y-firebee.zip`, the same names in both: `EFTP.PRG`, `TLS.OVL`, `EFTP.HYP` (hcp from
   `common/tools/build-hcp.sh`), `CACERT.PEM`, `ROOTS.DAT` and `icons/`. The FireBee one's `EFTP.PRG` is
   `mkfirebee.py`'s ColdFire build (`binary/eftpfb.prg`) and its `TLS.OVL` common's `tlsfb.ovl`. The
@@ -148,45 +155,41 @@ with the evidence.
 - Memory is short on a 1 MB ST with STinG: keep big buffers out of BSS and
   the heap (the control connection reads 2 KB at a time, data 8 KB).
 
-## Maintenance mode (Erez, 1 Nov 2026; changed 17 Nov 2026)
+## Maintenance mode (decided 1 Nov 2026; changed 17 Nov 2026)
 
 EFTP is in maintenance mode while EWeb, EPDF and EPlay go to 1.0 (AERA-Atari, ATARI-APP-GUIDELINES.md, section 8,
-as of 8ddb463). Until Erez ends it:
+as of 8ddb463). Until the owner ends it:
 - No new features and no speed rounds of its own.
-- **Every family rule holds for EFTP as for the focus apps** (Erez, 17 Nov 2026: "there needs to be a constant
-  behavior across all applications. In the future, all applications must adhere to family rules and be notified.
-  We will review whether they need to issue a release." and "Applications on maintenance does not mean they
-  contain faults"). The hub notifies EFTP of each new or changed rule and each shared fix; EFTP adopts it, with
+- **Every family rule holds for EFTP as for the focus apps** (decided 17 Nov 2026: one behaviour across the
+  family, and maintenance doesn't mean an app may keep a fault). The hub notifies EFTP of each new or changed rule and each shared fix; EFTP adopts it, with
   the shared code it needs (a sync of `common/` or `gateway/`), and its row in section 8's table is ticked.
   EFTP's ✗, ~ and ? in that table are work.
-- Whether adopting a rule needs a release of its own is reviewed with Erez through the hub; a fault fix always
+- Whether adopting a rule needs a release of its own is reviewed with the owner through the hub; a fault fix always
   gets one. A release otherwise only for a security or data-loss fault, a crash or breakage, something outside
   that stops it working (a certificate, a server), or something EWeb, EPDF or EPlay need from it.
-- Nothing runs in the background; the session waits for Erez or the hub.
-- Only Erez's explicit word ends this mode. The hub passes it on quoting him.
+- Nothing runs in the background; the session waits for the owner or the hub.
+- Only the owner's explicit word ends this mode, passed on by the hub.
 
-**Lifted for two items (Erez, 19 Nov 2026, choosing "Work on 1 and 2"; the hub passed it on):**
+**Lifted for two items (decided 19 Nov 2026; the hub passed it on):**
 1. Redraws in pieces: the start (525 ms on Falcon-4:256 with NVDI, 1,165 on ST:mono), the whole redraw (545) and the
    resize (580-625 on the ST) drawn in pieces of at most 100 ms; 300 ms or less in one piece (section 8's row).
 2. The Keys dialog's line, as approved: "In dialogs: Tab, Space, the arrows reach every control".
 
 The same rules as any release (the regression gate, the pairs against 2.13, the hub's family check). Maintenance
-comes back when both are done. TUW-TCP stays on the idea list. Both done: 2.14 and 2.15 (whole, not in pieces:
-Erez's "Draw whole on the ST").
+comes back when both are done. TUW-TCP stays on the idea list. Both done: 2.14 and 2.15 (whole, not in pieces, on
+the ST: decided 20 Nov 2026).
 
-**Lifted for the FireBee packages (Erez, 22 Nov 2026: "Make the other apps native on the FireBee too"):** done in
+**Lifted for the FireBee packages (decided 22 Nov 2026: the other apps native on the FireBee too):** done in
 2.16. Maintenance is back since.
 
-**For the next release's notes** (the hub, 22 Nov 2026; release notes can't be edited once published): "2.16's notes
-said a 1 MB ST with EContact's accessory starts EFTP again; 2.15 started there too. 2.16 needs 4 KB less memory to
-start."
+**Released for the Gateway wording (decided 22 Nov 2026):** 2.17. 2.16's memory note is in 2.16's own
+notes, corrected through the Notes workflow. Maintenance is back since.
 
-Speed: lifted on 13 Nov 2026 for Erez's speed round (2.7, 2.8, 2.9) and back since 2.9 (Erez, 13 Nov: "stop with the
-performance improvements and place the applications back in maintenance"). From then on a speed change ships only if
+Speed: lifted on 13 Nov 2026 for a speed round (2.7, 2.8, 2.9) and back in maintenance since 2.9 (decided 13 Nov 2026). From then on a speed change ships only if
 no row of the speed rig is slower beyond one tick (5 ms), paired on Falcon-4:256 with NVDI (guidelines, Speed,
 AERA-Atari 098183d).
 
-## UI backlog from Erez's decisions of 9 Nov 2026
+## UI backlog from the decisions of 9 Nov 2026
 
 **State, 12 Nov 2026: released in 2.5** (maintenance was lifted for it and is back since; the hub, 12 Nov)
 (093097693, 9443153d5): 1-10, 11, 12, 13, 14, 15, 16's keyboard reach in the pick list and the window
@@ -205,7 +208,7 @@ Each done item: one line to the hub with the commit. "Hub first" = wait until th
 3. `Sites... ^K` moves to Options, before Settings; File keeps Quick connect, Disconnect, Quit (D13, MD27).
 4. The file pane's context menu says `Sites...`, not `Connect... ^K` (D14, MD19). S.
 5. Already there: default Skip (D29, C17); buttons 10 wide (D26, C2). S.
-6. About tagline "File transfer for the ST, TT and Falcon" (39; Erez approved it 9 Nov) (D49, W22). S.
+6. About tagline "File transfer for the ST, TT and Falcon" (39; approved 9 Nov) (D49, W22). S.
 7. `12 KB of 3.4 MB`, `45%`, `2 min left` (D35, W4); the Transfers rows' `100/200KB` stays until decided. S.
 8. Shift+Up/Down in the file panes page by rows - 1 (W6). S, hub first (key_shift).
 9. One minimum window size: the open check (40 x 16) and `WM_SIZED` (50 x 16) agree (D38, W10). S.
@@ -221,19 +224,19 @@ Each done item: one line to the hub with the commit. "Hub first" = wait until th
 16. Keyboard reach in dialogs (D25, C6) M; own `form_loop` onto `dlg_do` (C11) H; window arrows to the
     pane under the pointer (D37). All hub first.
 
-17. EFTP.INF written only when a setting changed (Erez 12 Nov; guidelines 6.1, AERA-Atari a4b8a1a): today
+17. EFTP.INF written only when a setting changed (decided 12 Nov; guidelines 6.1, AERA-Atari a4b8a1a): today
     every quit rewrites it. Fix at the next release made anyway, with a test (quit twice with nothing
     changed: the file untouched, its date kept; one change: written once); the commit names the rule.
     The INF's notes still say "File > Sites": Options > Sites since 2.5.
 
 Settled, nothing to do: Stop acts on the press during a run (D32), the toolbar look (D33), `-DDLG_CLICK`.
 
-## Feature list (Erez's ideas, not started)
+## Feature list (the owner's ideas, not started)
 
-Kept so they are not forgotten. Nothing here is work until Erez says so.
+Kept so they are not forgotten. Nothing here is work until the owner says so.
 
-- **TUW-TCP** (Erez, 12 Nov 2026; a tester asked): EFTP speaks to the network through STinG (and
+- **TUW-TCP** (12 Nov 2026; a tester asked): EFTP speaks to the network through STinG (and
   MiNTnet's sockets); TUW-TCP would be a third stack. Assessed as moderate work: a new transport in the
   shared connection layer (AERA-Atari, `common/`), so the whole family could use it; nobody here has it
-  on real hardware to test. Erez doesn't have it either. First ask the tester why STinG doesn't suit
-  them. Do nothing until Erez decides.
+  on real hardware to test, the owner included. First ask the tester why STinG doesn't suit
+  them. Do nothing until the owner decides.
