@@ -61,8 +61,8 @@ void icon_window(GRECT *area)
 }
 
 /* (last in the file: a function new in the middle of about.o moves the rest) the 256-colour icon's map made while
-   EFTP is idle, from its first timer event: the About box's first opening then finds it (common a769b86; on
-   Erez's Falcon, NVDI in 256 colours, EUpdate's opening 170 -> 130 ms) */
+   EFTP is idle, from its first timer event: the About box's first opening then finds it, and opens faster in
+   256 colours (common a769b86) */
 void about_ready(void)
 {
 	ABOUT a = { "EFTP", ftp_version, "File transfer for the ST, TT and Falcon", { 0, 0, 0 }, { 0, 0, 0 },

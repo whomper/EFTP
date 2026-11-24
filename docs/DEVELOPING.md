@@ -34,9 +34,9 @@ under FreeMiNT, or MagiC-Net. A Direct connection needs a 68020 or better: a TT 
 
 **With STinG, set the Delay in `STING.CPX` to suit the machine:** 10 on a
 Falcon or TT, 25 to 50 on an ST, as STinG's manual says. STinG looks at the network card that
-often, so it sets the speed of every STinG program: on Erez's Falcon with a NetUSBee, Delay 10
-took EFTP's downloads from 40 to 75 KB/s. With a NetUSBee, also keep STinG's TCP receive window
-small (5840 with an MSS of 1460): the card holds about four full packets.
+often, so it sets the speed of every STinG program: a fast Atari at a long Delay leaves the data
+waiting. With a network card that holds only a few packets, also keep STinG's TCP receive window
+small, about four full packets (four times the MSS).
 
 **Under TOS, put Atari's `FOLDR100.PRG` first in `AUTO`**, renamed for more room (`FOLDR400.PRG`).
 TOS keeps an entry in a small internal pool for every folder a program or accessory has looked

@@ -3,11 +3,12 @@
 # Copyright (C) 2026 AERA | Erez Yaary
 """EFTP's clock on an Atari whose 200 Hz counter runs fast, in Hatari.
 
-On Erez's Falcon a transfer of 16 real seconds showed as 25: TOS's 200 Hz
-counter (_hz_200), which everything EFTP times counts, ran about 1.56
-times too fast. EFTP measures it against MFP timer C's count-down at
+On some accelerated machines TOS's 200 Hz counter (_hz_200), which
+everything EFTP times counts, runs fast, and a transfer's time and speed
+come out wrong. EFTP measures it against MFP timer C's count-down at
 start-up and corrects its times (atari/plat_tos.c, pf_ms). Here a file
-C:\\FASTCLK makes FAKESTNG set timer C to 312 Hz, as on that Falcon; one
+C:\\FASTCLK makes FAKESTNG set timer C to 312 Hz, about 1.56 times too
+fast, a case made up for the test; one
 download's time in EFTP.LOG is then compared with the time this computer
 saw it take (Hatari runs in real time), and once more on a 200 Hz clock.
 

@@ -490,15 +490,13 @@ Undo or the Stop button stops it.
 - **Transfers are slow on a fast Atari**: STinG works the network
   every Delay milliseconds (STING.CPX; THREADING= in DEFAULT.CFG, 50
   as it comes). On a Falcon or TT set it to 10, the least, as STinG's
-  own manual advises for fast machines: on a Falcon with a NetUSBee,
-  downloads went from 40 KB/s to 75. An ST is better at 25-50.
+  own manual advises for fast machines. An ST is better at 25-50.
 - **Downloads are slow, or slow down as they go**: STinG's TCP receive
-  window can be too big for the network card. A NetUSBee holds only
-  about four full packets, so a window of 32000 lets the server send
-  more at once than it can keep: packets are lost, and the server
-  waits before it sends them again. With an MSS of 1460, a window of
-  5840 (four packets) was the fastest on a Falcon with a NetUSBee:
-  about 40 KB/s (Delay 20), against 14 with 32000 and 25 with 7300.
+  window can be too big for the network card. Some cards hold only
+  a few full packets, so a big window lets the server send more at
+  once than the card can keep: packets are lost, and the server
+  waits before it sends them again. Try a window of about four
+  packets (four times the MSS).
 - **Not enough memory**: EFTP needs about 350 KB free when it starts,
   and about 140 KB more for a Direct connection (`TLS.OVL`); on a 1 MB
   machine leave out accessories you don't need. **"EFTP can't

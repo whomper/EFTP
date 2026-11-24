@@ -391,9 +391,9 @@ void ui_poll(void)
 
 /* waiting for the network. While data moves (some came or went in the
    last half second) EFTP looks again at once and gives GEM a turn every
-   50 ms: a turn with a pause lasts a tick or more, and on a Falcon with
-   a NetUSBee the data was taken only every 120 ms, so a small STinG
-   window filled and the server had to wait (19 Oct 2026). When nothing
+   50 ms: a turn with a pause lasts a tick or more, several times the
+   gap between segments on a fast network, so a small STinG window
+   filled and the server had to wait (19 Oct 2026). When nothing
    moves, the short pause as before, so a long wait for the server
    leaves the CPU to the others under a multitasking AES */
 static long idle_seen = -1, idle_turns;
