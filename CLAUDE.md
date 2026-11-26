@@ -43,6 +43,11 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   its notes say why. A reported fault is fixed with its rig case and rides the next release; docs and rig
   changes need no release; the hub's shared fixes ride the next release unless the hub names one the
   exception. This replaces 23 Oct's "release as soon as the work is done".
+- **Nothing known is left in a queue behind a release** (decided 26 Nov 2026; guidelines 1.2, AERA-Atari
+  bf0b8d5, c8429a7): before a candidate goes to the gate, every known fault and pending item that can be
+  done within a few days is folded in; the candidate's message to the hub lists what was left out and why,
+  and the hub checks that list before its go. A reported fault that is waiting goes into the release being
+  prepared, not the one after. In maintenance, this decides what a release carries, not whether there is one.
 - **Releases go out without asking the owner** (decided 23 Oct 2026; guidelines 1.2) when a body of work on `main` is ready, through **the
   regression gate** (decided 17 Nov 2026: there are users, so every configuration is tested and no speed is
   lost; guidelines 1.2, AERA-Atari a22574e). Every code candidate, in this order:
@@ -199,11 +204,9 @@ AERA-Atari 098183d).
 
 ## UI backlog from the decisions of 9 Nov 2026
 
-**State, 12 Nov 2026: released in 2.5** (maintenance was lifted for it and is back since; the hub, 12 Nov)
-(093097693, 9443153d5): 1-10, 11, 12, 13, 14, 15, 16's keyboard reach in the pick list and the window
-arrows. Left: 16's keyboard reach in the other dialogs (a focus ring) and `form_loop` onto `dlg_do`
-(C11): both wait for hub code (the shared dialog loop, the password eye and long fields in `dlg_do`);
-the hub says when, and they go in with the next release made anyway.
+**State, 26 Nov 2026: all done.** 1-15 and 16's pick list and window arrows in 2.5 (093097693,
+9443153d5); 16's focus ring (f78773f) and `form_loop` onto `dlg_do` (C11, ac44cda) in 2.13; 17 in 2.6
+(797bb69). Item 7's Transfers rows keep `100/200KB` (decided 22 Nov 2026). The list below is the record.
 
 AERA-Atari a261597 (`standards/ui/DECISIONS-2026-11-09.md`, MENUS/CONTROLS/WINDOWS, DEVIATIONS rows).
 Since 17 Nov 2026 the rest is work (the hub: section 8's rows, 16's focus ring, `form_loop` onto `dlg_do`, 17),
