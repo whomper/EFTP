@@ -130,8 +130,10 @@ with the evidence.
   `mkfirebee.py`'s ColdFire build (`binary/eftpfb.prg`) and its `TLS.OVL` common's `tlsfb.ovl`. The
   workflow uploads the FireBee zip first and the standard one last, and checks the order as the API returns
   it (EUpdate up to 2.14 unpacks every zip; the last wins). The icons are committed in `icons/`
-  (`make icons`). `make test` holds EFTP.PRG's load to `LOADMAX` (a 1 MB ST beside EContact's accessory;
-  `tests/hatari/memory_test.py` measures the room); `make cftest` runs the FireBee build's core under qemu.
+  (`make icons`). `make test` holds EFTP.PRG's load to `LOADMAX`, a size guard
+  (`tests/hatari/memory_test.py` measures the room). No accessory runs on a 1 MB machine (decided 26 Nov 2026;
+  guidelines 2.1, AERA-Atari 042fc11), so EFTP on a 1 MB ST runs alone: at the next release, with the common
+  sync, LOADMAX is rebased on the room of EFTP alone on ST-1, with a margin, and the release's list says so; `make cftest` runs the FireBee build's core under qemu.
 - One `EFTP.PRG` for every Atari (guidelines 7.4): the TLS of a Direct
   connection (the user never sees "Falcon mode"; the INF keeps `FALCON=`)
   is the family's `TLS.OVL`, which a TT or Falcon loads when needed. It
