@@ -36,7 +36,14 @@ These come from AERA-Atari's repo template and are the same in every app's CLAUD
   GitHub Release. A normal build must leave every tracked file unchanged and shows the version in `VERSION` as it is (there is no `-dev` label). Don't
   commit built programs, help files or certificates (`binary/`, `dist/`). Never reuse a number.
 - **Only formal releases leave the build machine.** The owner gets vX.Y releases made by the Release workflow from `main`, nothing else: no test builds, no CI artifacts, no builds from a branch. Work lands on `main`; to try a fix on real hardware, release it. If a release doesn't work, roll back with a release: revert on `main`, release the next number, and say in the bad release's notes that it is withdrawn and which one to use.
-- **Releases go out without asking the owner** (decided 23 Oct 2026; guidelines 1.2), through **the
+- **Fewer releases, each carrying more** (decided 26 Nov 2026; guidelines 1.2, AERA-Atari 9da7632): no
+  release for every single fix or feature. Changes gather on `main` and go out together when a body of work
+  is complete, as one candidate through the gate and the hub's family check. Only a data-loss, security or
+  crash fault (or a breakage that stops users working) goes out on its own at once, with only that fix, and
+  its notes say why. A reported fault is fixed with its rig case and rides the next release; docs and rig
+  changes need no release; the hub's shared fixes ride the next release unless the hub names one the
+  exception. This replaces 23 Oct's "release as soon as the work is done".
+- **Releases go out without asking the owner** (decided 23 Oct 2026; guidelines 1.2) when a body of work on `main` is ready, through **the
   regression gate** (decided 17 Nov 2026: there are users, so every configuration is tested and no speed is
   lost; guidelines 1.2, AERA-Atari a22574e). Every code candidate, in this order:
   1. this repo's checks (`make`, `make test`, `make itest`);
@@ -164,9 +171,10 @@ as of 8ddb463). Until the owner ends it:
   family, and maintenance doesn't mean an app may keep a fault). The hub notifies EFTP of each new or changed rule and each shared fix; EFTP adopts it, with
   the shared code it needs (a sync of `common/` or `gateway/`), and its row in section 8's table is ticked.
   EFTP's ✗, ~ and ? in that table are work.
-- Whether adopting a rule needs a release of its own is reviewed with the owner through the hub; a fault fix always
-  gets one. A release otherwise only for a security or data-loss fault, a crash or breakage, something outside
-  that stops it working (a certificate, a server), or something EWeb, EPDF or EPlay need from it.
+- Whether adopting a rule needs a release of its own is reviewed with the owner through the hub. A release
+  only for a security or data-loss fault, a crash or breakage, something outside that stops it working (a
+  certificate, a server), or something EWeb, EPDF or EPlay need from it; other fixes, reported faults
+  included, gather on `main` and ride it (decided 26 Nov 2026).
 - Nothing runs in the background; the session waits for the owner or the hub.
 - Only the owner's explicit word ends this mode, passed on by the hub.
 
