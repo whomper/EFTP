@@ -56,6 +56,9 @@ int  pf_dir(const char *dir, int (*cb)(const char *name, long size, const PFTIME
 				       int flags, void *ud), void *ud);
 long pf_drives(void);			/* bit n set: drive 'A' + n exists */
 long pf_free(int drive);		/* bytes free on drive 'A' + drive, -1 unknown */
+/* KB free on drive 'A' + drive and its cluster's bytes (*cluster), -1 when
+   not known: in KB, as a big partition's bytes don't fit in a long */
+long pf_room_kb(int drive, long *cluster);
 int  pf_settime_h(int h, const PFTIME *t);	/* an open file's date, after its last write */
 /* the hooks common's file reading takes (pf_load, TLS's files): one look
    at the directory a file (the guidelines, 6.5) */

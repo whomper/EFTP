@@ -858,6 +858,8 @@ static int run_file(FTP *f, long i)
 	return XS_DONE;
 }
 
+static int room_check(void);
+
 int xfer_run(FTP *f, const SITE *site, long *failed)
 {
 	long i;
@@ -900,6 +902,10 @@ int xfer_run(FTP *f, const SITE *site, long *failed)
 			break;
 		}
 	}
+	/* the room the downloads need, before the first file comes down */
+	xfer_short = -1;
+	if (ok && !room_check())
+		ok = 0;
 	/* then the folders and files, in order */
 	for (i = 0; i < xn && ok; i++) {
 		int st;
@@ -947,4 +953,93 @@ int xfer_run(FTP *f, const SITE *site, long *failed)
 		ftp_cd(f, back);
 	seen_forget();
 	return ok && ftp_alive(f);
+}
+
+/* ---------------- the room a download needs ---------------- */
+
+void (*xfer_noroom)(int drive, long need_kb, long free_kb);
+int xfer_short = -1;
+
+/* the KB a file of n bytes takes in clusters of cl bytes */
+static long kb_taken(long n, long cl)
+{
+	long k;
+	if (n <= 0)
+		return 0;
+	if (cl < 512)
+		cl = 512;
+	k = n / cl + (n % cl != 0);
+	return cl >= 1024 ? k * (cl / 1024) : (k * cl + 1023) / 1024;
+}
+
+/* the drive a path on the Atari is on, 0 for A:; 'C:' when it names none
+   (the host's tests) */
+static int drive_of(const char *path)
+{
+	int c = toupper((unsigned char)path[0]);
+	if (path[1] == ':' && c >= 'A' && c <= 'Z')
+		return c - 'A';
+	return 2;
+}
+
+/* every waiting download counted against its drive's free room, before
+   the first file comes down: a file at its size in whole clusters, less
+   the one there that it replaces or goes on from; a text file a
+   sixteenth more, for the CR each line gets; a folder not there yet one
+   cluster. A size the server didn't give can't be counted. One Dfree a
+   drive (it reads the whole FAT); a drive whose room isn't known isn't
+   checked. 0, and the UI told, when one is short: nothing starts */
+static int room_check(void)
+{
+	long need[26], cl[26], room[26], i;
+	char seen_drv[26];
+	int d;
+	memset(seen_drv, 0, sizeof(seen_drv));
+	for (i = 0; i < xn; i++) {
+		XITEM *x = &xq[i];
+		FENTRY *e;
+		long k;
+		if (x->dir != XD_DOWN || x->state != XS_WAIT)
+			continue;
+		d = drive_of(x->local);
+		if (!seen_drv[d]) {
+			seen_drv[d] = 1;
+			need[d] = 0;
+			cl[d] = 1024;
+			room[d] = pf_room_kb(d, &cl[d]);
+		}
+		if (room[d] < 0)
+			continue;
+		if (x->isdir) {
+			if (!pf_isdir(x->local))
+				need[d] += kb_taken(1, cl[d]);
+			continue;
+		}
+		if (x->size <= 0)
+			continue;
+		k = kb_taken(x->text ? x->size + x->size / 16 : x->size, cl[d]);
+		if ((e = seen_find(x->local, 0)) != 0)
+			k -= kb_taken(e->size, cl[d]);
+		if (k > 0)
+			need[d] += k;
+	}
+	for (d = 0; d < 26; d++)
+		if (seen_drv[d] && room[d] >= 0 && need[d] > room[d]) {
+			/* the downloads to that drive fail, saying why, so a later
+			   download isn't held up behind them; Retry tries them
+			   again once there is room */
+			unsigned long now = pf_ms();
+			for (i = 0; i < xn; i++)
+				if (xq[i].dir == XD_DOWN && xq[i].state == XS_WAIT && drive_of(xq[i].local) == d) {
+					xq[i].state = XS_FAIL;
+					xq[i].t0 = xq[i].t1 = now;
+					snprintf(xq[i].note, sizeof(xq[i].note), "not enough room on %c:", 'A' + d);
+				}
+			changed(-1);
+			xfer_short = d;
+			if (xfer_noroom)
+				xfer_noroom(d, need[d], room[d]);
+			return 0;
+		}
+	return 1;
 }

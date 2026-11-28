@@ -305,8 +305,14 @@ static void draw_white(WIN *w, GRECT *clip)
 			done.y++;
 			done.h -= 2;
 			done.w = bar.w - 2;
-			if (pct > 0)	/* the family's bar (progbar, D48), a bar a running row */
+			if (pct > 0) {	/* the family's bar (progbar, D48), a bar a running row */
 				progbar_fill(vdi_h, done.x, done.y, done.w, done.h, 0, (short)((long)PB_FULL * pct / 100));
+				/* it sets the fill colour itself: fill() would take its
+				   last shade for the next fill, and the Transfers header,
+				   drawn again as its counts change, came out in the bar's
+				   blues, changing as the bar grew */
+				fill_forget();
+			}
 			speed_str(x->done, pf_ms() - x->t0, sp, sizeof(sp));
 			{
 				char lt[24];
@@ -510,6 +516,8 @@ void queue_run(void)
 		keys_flush();
 		conn_stop = 0;
 		str_copy(m, "Stopped. Transfers > Retry goes on where it stopped.", sizeof(m));
+	} else if (xfer_short >= 0) {
+		snprintf(m, sizeof(m), "Not enough room on %c: - nothing was downloaded.", 'A' + xfer_short);
 	} else {
 		char sz[16], sp[16];
 		unsigned long ms = pf_ms() - t0;
@@ -642,6 +650,27 @@ static int tip(WIN *w, short mx, short my, char *out, int size)
 	return 1;
 }
 
+/* KB as the lists show sizes: "640 KB", "12.4 MB", "1.2 GB" */
+static void kb_str(long kb, char *out, int size)
+{
+	if (kb < 1000)
+		snprintf(out, size, "%ld KB", kb);
+	else if (kb < 1000L * 1024)
+		snprintf(out, size, "%ld.%ld MB", kb / 1024, kb % 1024 * 10 / 1024);
+	else
+		snprintf(out, size, "%ld.%ld GB", kb / (1024L * 1024), kb % (1024L * 1024) * 10 / (1024L * 1024));
+}
+
+/* the waiting downloads won't fit on the drive: said before any starts */
+static void no_room(int drive, long need_kb, long free_kb)
+{
+	char n[16], f[16];
+	kb_str(need_kb, n, sizeof(n));
+	kb_str(free_kb, f, sizeof(f));
+	alert(1, "[3][Not enough room on drive %c:|The download needs %s;|%s is free. Nothing|was downloaded.][ OK ]",
+	      'A' + drive, n, f);
+}
+
 void queue_init(void)
 {
 	w_queue.pane = 1;
@@ -654,6 +683,7 @@ void queue_init(void)
 	w_queue.head_h = 2;
 	xfer_changed = queue_changed;
 	xfer_ask = dlg_exists;
+	xfer_noroom = no_room;
 	ftp_watch = queue_log;
 	queue_titles();
 }

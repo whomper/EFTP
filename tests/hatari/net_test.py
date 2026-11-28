@@ -57,6 +57,14 @@ def check(cond, what):
         fails.append(what)
 
 
+def new_colours(before, after):
+    """the pixels of after in a colour before has nowhere"""
+    from PIL import Image
+    x, y = Image.open(before).convert("RGB"), Image.open(after).convert("RGB")
+    had = set(c for _, c in x.getcolors(1 << 24))
+    return sum(n for n, c in y.getcolors(1 << 24) if c not in had)
+
+
 def same(a, b):
     try:
         return open(a, "rb").read() == open(b, "rb").read()
@@ -178,7 +186,16 @@ try:
     time.sleep(1.5)
     r.click(*DOWNLOAD)
     wait_for(lambda: os.path.exists(part), 60)
-    time.sleep(0.4 * os.path.getsize(sting) / bps)
+    # while it runs, only the row's bar brings colours the window hadn't:
+    # the Transfers header, drawn again as its counts change, once took the
+    # bar's last shade (fill()'s colour kept over progbar_fill), a blue that
+    # changed as the bar grew
+    time.sleep(1.5)
+    r.shot("t6a-running")
+    shots = os.path.join(work, "shots")
+    new = new_colours(os.path.join(shots, "t4-uploaded.png"), os.path.join(shots, "t6a-running.png"))
+    check(new < 4000, "running: the Transfers header in its own colour (%d pixels in new colours)" % new)
+    time.sleep(max(0.0, 0.4 * os.path.getsize(sting) / bps - 1.5))
     r.key(K["ESC"])                                 # Stop, and Esc again as a hurried
     time.sleep(0.3)                                 # hand (or a repeating key) does: the
     r.key(K["ESC"])                                 # second mustn't stop what follows

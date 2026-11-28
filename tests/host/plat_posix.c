@@ -138,6 +138,17 @@ int pf_dir(const char *dir, int (*cb)(const char *, long, const PFTIME *, int, v
 
 long pf_drives(void) { return 1L << 2; }	/* "C:" */
 long pf_free(int drive) { (void)drive; return -1; }
+/* the room a download needs: unknown unless a test gives it, EFTP_FREE_KB
+   and EFTP_CLUSTER (bytes, 1024 if not given) */
+long pf_room_kb(int drive, long *cluster)
+{
+	const char *f = getenv("EFTP_FREE_KB"), *c = getenv("EFTP_CLUSTER");
+	(void)drive;
+	if (!f)
+		return -1;
+	*cluster = c ? atol(c) : 1024;
+	return atol(f);
+}
 
 static time_t pf_mktime(const PFTIME *t)
 {

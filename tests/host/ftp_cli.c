@@ -70,6 +70,12 @@ static int ask(XITEM *x, long have, int *all)
 	return getenv("ANSWER") ? atoi(getenv("ANSWER")) : EX_RESUME;
 }
 
+/* the downloads won't fit (xfer.c's room_check): said, nothing starts */
+static void no_room(int drive, long need_kb, long free_kb)
+{
+	printf("no room on %c: %ld KB needed, %ld KB free\n", 'A' + drive, need_kb, free_kb);
+}
+
 static void print_list(FLIST *l)
 {
 	long i;
@@ -121,6 +127,7 @@ int main(int argc, char **argv)
 	ftp_timeout = 10;
 	xfer_changed = progress_changed;
 	xfer_ask = ask;
+	xfer_noroom = no_room;
 	conn_tick = tick;
 	if (getenv("LOG"))
 		str_copy(conn_logfile, getenv("LOG"), sizeof(conn_logfile));

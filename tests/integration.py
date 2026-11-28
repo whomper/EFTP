@@ -134,6 +134,26 @@ def main():
     check(r.returncode != 0 and open(got, "rb").read() == big and os.path.getmtime(got) == stamp,
           "stopped at the question, the file untouched: " + r.stdout)
 
+    # the room a download needs, checked before it starts (the drive's
+    # free KB given by EFTP_FREE_KB, clusters of 1 KB): BIG.DAT is 300,000
+    # bytes, 293 clusters
+    os.remove(got)
+    r = cli(port, "get", "/pub/BIG.DAT", ".", env={"EFTP_FREE_KB": "292"}, ok=False)
+    check(r.returncode != 0 and "no room on C: 293 KB needed, 292 KB free" in r.stdout
+          and not os.path.exists(got), "no room: refused, nothing came: " + r.stdout)
+    r = cli(port, "get", "/pub/BIG.DAT", ".", env={"EFTP_FREE_KB": "293"})
+    check(r.returncode == 0 and "no room" not in r.stdout and open(got, "rb").read() == big,
+          "room for it exactly: it came")
+    r = cli(port, "get", "/pub/BIG.DAT", ".", env={"EFTP_FREE_KB": "0", "EXISTS": "1"})
+    check(r.returncode == 0 and "no room" not in r.stdout and open(got, "rb").read() == big,
+          "replacing the file there needs no more room: " + r.stdout)
+    r = cli(port, "get", "/pub/BIG.DAT", ".", env={"EFTP_FREE_KB": "1", "EFTP_CLUSTER": "32768"})
+    check(r.returncode == 0 and "no room" not in r.stdout, "replacing it, big clusters: " + r.stdout)
+    # a folder: listed all the way down, then refused before anything is made
+    r = cli(port, "get", "/pub/demos", ".", env={"EFTP_FREE_KB": "2"}, ok=False)
+    check(r.returncode != 0 and "no room on C:" in r.stdout and not os.path.exists(os.path.join(work, "DEMOS")),
+          "a folder with no room: refused, no folder made: " + r.stdout)
+
     # a whole folder down: 8+3 names, nested folders, text
     r = cli(port, "get", "/pub/demos", ".")
     check(r.returncode == 0, "get folder: " + r.stdout + r.stderr)

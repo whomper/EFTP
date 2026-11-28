@@ -61,6 +61,11 @@ extern void (*xfer_changed)(long i);	/* item i changed; -1 the whole list */
    EX_STOP (the transfer stops here, the file left as it is);
    *all set means the same for the rest of this run */
 extern int (*xfer_ask)(XITEM *x, long have, int *all);
+/* before the first file comes down: the drive ('A' + drive) has less room
+   than the waiting downloads need (KB), so nothing was started; the items
+   still wait. xfer_short is that drive after the run, else -1 */
+extern void (*xfer_noroom)(int drive, long need_kb, long free_kb);
+extern int xfer_short;
 
 /* paths */
 void rpath_join(char *out, long size, const char *dir, const char *name);

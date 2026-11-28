@@ -343,6 +343,21 @@ other side:
 - **Replace it**, **Resume where it stopped**, **Skip it**: always
 - **Replace it if older**: only when the one coming is newer
 
+## When the disk is too full
+
+Before the first file of a download comes, EFTP adds up what the whole
+download needs on each drive it goes to (the folders too, listed all the
+way down) and compares it with the room the drive has free. If it won't
+fit, nothing is downloaded: an alert says how much it needs and how much
+is free, and its files show "Failed: not enough room on C:" in the list.
+Make room on the drive, then **Transfers > Retry the failed ones**.
+
+A file the copy on the Atari replaces, or resumes, needs only the
+difference. A text file is counted a little larger, for the CR each line
+gets. A file whose size the server doesn't give can't be counted, and a
+drive that doesn't say how much room it has (some MiNT file systems) isn't
+checked.
+
 ## Stopping and resuming
 
 Stop (Esc) ends a transfer at once; what has come so far is written to
