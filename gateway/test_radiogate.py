@@ -9,6 +9,8 @@ A test that needs ffmpeg says SKIPPED where there is none.
 
     python3 radio/test_radiogate.py
 """
+import contextlib
+import io
 import os
 import re
 import socket
@@ -69,6 +71,11 @@ class Station(threading.Thread):
             path = req.split()[1].decode()
             head, body, metaint, title = self.routes[path]
             c.sendall(head.encode())
+            if title == "then silent":
+                # (a station that answers, sends body, then nothing, and holds on)
+                c.sendall(body)
+                time.sleep(10)
+                return
             if not metaint:
                 c.sendall(body)
                 return
@@ -153,6 +160,30 @@ def mp3_frames(audio):
 
 
 class Tests(unittest.TestCase):
+
+    def silent(self, body):
+        """a station that answers and then falls silent, holding on: one
+        answer only, the 200, whatever came of it after"""
+        st = Station({"/live": ("ICY 200 OK\r\nicy-name: Quiet FM\r\nicy-metaint: 8000\r\n"
+                                "Content-Type: audio/mpeg\r\n\r\n", body, 0, "then silent")})
+        g = Gate()
+        radiogate.Config.timeout = 1
+        log = io.StringIO()
+        with contextlib.redirect_stderr(log):
+            status, heads, got = g.ask("http://127.0.0.1:%d/live" % st.port, want=10 ** 6)
+        g.stop()
+        self.assertIn("200", status)
+        self.assertNotIn(b"HTTP/1.", got)               # no second status line in the stream
+        self.assertIn("(the station fell silent)", log.getvalue())
+        self.assertIn("listened to 127.0.0.1", log.getvalue())
+        return got
+
+    def test_a_station_silent_before_its_first_byte(self):
+        self.assertEqual(self.silent(b""), b"")
+
+    def test_a_station_silent_after_some_audio(self):
+        self.assertTrue(self.silent(b"\xff\xfb\x90\x00" + b"\0" * 400))
+
     @classmethod
     def setUpClass(cls):
         cls.mp3 = open(make("tone.mp3", "-c:a", "libmp3lame", "-b:a", "128k"), "rb").read() \
@@ -422,6 +453,37 @@ class Tests(unittest.TestCase):
         radiogate.Config.rb_api = ["http://127.0.0.1:1"]
         status, _, _ = g.ask("", path="/search?q=jazz", meta=False)
         self.assertIn("502", status)
+        g.stop()
+
+    def test_search_without_a_name(self):
+        """a search with no name: each filter alone, two together, and none
+        at all are each answered 200, the filters passed on and no name"""
+        import json
+        st = Station({})
+        asked = []
+
+        class Routes(dict):
+            def __getitem__(self, p):
+                asked.append(p)
+                body = json.dumps([{"name": "Jazz FM", "countrycode": "DE", "codec": "MP3", "bitrate": 128,
+                                    "url_resolved": "http://jazz.example/live"}])
+                return ("HTTP/1.0 200 OK\r\nContent-Type: application/json\r\n\r\n", body.encode(), 0, "")
+        st.routes = Routes()
+        radiogate.Config.rb_api = ["http://127.0.0.1:%d" % st.port]
+        g = Gate()
+        for query, want in (("tag=jazz", ["tag=jazz"]),
+                            ("tag=hip%20hop&country=DE", ["tag=hip%20hop", "countrycode=DE"]),
+                            ("country=DE", ["countrycode=DE"]),
+                            ("language=german", ["language=german"]),
+                            ("q=&tag=jazz", ["tag=jazz"]),
+                            ("", [])):
+            status, _, body = g.ask("", path="/search?" + query, meta=False)
+            self.assertIn("200", status, query)
+            self.assertEqual(body.decode("utf-8").splitlines(), ["Jazz FM\tDE\tMP3\t128\thttp://jazz.example/live"],
+                             query)
+            self.assertNotIn("name=", asked[-1], query)
+            for w in want:
+                self.assertIn(w, asked[-1], query)
         g.stop()
 
     def test_icy_in_out(self):

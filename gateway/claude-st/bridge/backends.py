@@ -124,7 +124,7 @@ MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", 
 def date_heading(when, now=None):
     """The heading a chat goes under in a list: "Today", "Yesterday", the
     day of the week ("Monday") for the rest of the last seven days, and
-    before that the date ("Oct 22", "Oct 22, 2025" in another year; Erez,
+    before that the date ("Oct 22", "Oct 22, 2025" in another year; decided
     29 Oct 2026). `when` is an ISO time or a Unix time."""
     from datetime import datetime, timezone
     if when in (None, ""):
@@ -300,13 +300,26 @@ def plan_name(capabilities, tier="", billing=""):
 
 def _event_payload(ev):
     """A Claude Code session event -> (type, payload). Events carry the
-    stream-json message either directly or under "data"."""
+    stream-json message either directly or under "data", or (claude.ai's
+    newer events) under their kind, with the message one level further in,
+    in "internal_anthropic_catchall": {"assistant": {"uuid": ...,
+    "internal_anthropic_catchall": {"message": ...}}}. Missed, a session
+    showed only its older messages, stopping in its middle (27 Nov 2026)"""
     p = ev.get("data") if isinstance(ev.get("data"), dict) else ev
     t = p.get("type")
+    if isinstance(p.get("payload"), dict) and ("event_type" in p or "sequence_num" in p):
+        # claude.ai's Code page's address: {"event_type": "user", "event_id",
+        # "sequence_num", "payload": {"type": "user", "message", "uuid"}}.
+        # Missed, a session read from there showed nothing (27 Nov 2026)
+        t, p = p.get("event_type") or p["payload"].get("type"), p["payload"]
     if t not in ("user", "assistant", "result", "system"):
         for k in ("user", "assistant", "result", "system"):
             if isinstance(p.get(k), dict):
-                return k, p[k]
+                t, p = k, p[k]
+                break
+    inner = p.get("internal_anthropic_catchall")
+    if isinstance(inner, dict) and "message" not in p:
+        p = dict(inner, **{k: v for k, v in p.items() if k != "internal_anthropic_catchall"})
     return t, p
 
 
@@ -963,7 +976,7 @@ class ClaudeAiBackend(Backend):
                  s.get("updated_at") or s.get("created_at"), bool(s.get("unread")),
                  code_state(s)) for s in sessions]
 
-    def _code_events(self, session_id, after=None, cap=2000, want=60, deadline=None):
+    def _code_events(self, session_id, after=None, cap=700, want=20, deadline=None):
         """The events after AFTER; with no AFTER, the session's latest
         events, enough for WANT messages. A long session holds tens of
         thousands of events (most of them tool calls), so it is read from
@@ -992,31 +1005,82 @@ class ClaudeAiBackend(Backend):
     # first: the bridge answers nothing else meanwhile, and the Atari pings
     # after 30 quiet seconds. With code_progress (a function of the events
     # read, which the bridge shows on the Atari: any line keeps it waiting)
-    # it may take CODE_LONG
+    # an open reads on until it reaches the session's latest messages
+    # (decided 26 Nov 2026), saving its place as it goes; CODE_LONG only
+    # stops a read that would never end, and the next open goes on from there
     CODE_SECONDS = 25
-    CODE_LONG = 240
-    _code_tail, code_partial, code_progress = None, False, None
+    CODE_LONG = 3600
+    CODE_SHOWN = 200        # events kept from a read out of time, for the next to show
+    # code_stop (the bridge's: whether the Atari sent a line or connected
+    # again) ends a read at once, its place kept; code_stopped then says so
+    _code_tail, code_partial, code_progress, code_stop, code_stopped = None, False, None, None, False
 
     def _marks(self):
         if not hasattr(self, "marks"):
             self.marks = ChoiceMemory()
         return self.marks
 
+    # claude.ai's own Code page reads a session from its newest end: this
+    # address, sort_order=desc, and a numeric cursor that counts back
+    # (decided 27 Nov 2026: a session's last messages, no place to keep)
+    CODE_LATEST = "https://claude.ai/v1/code/sessions/%s/events"
+    CODE_SKIP = ("stream_event", "tool_progress", "keep_alive")
+
+    def _code_latest(self, session_id, cap, want, deadline):
+        """The session's latest events, oldest first, read newest first as
+        claude.ai's Code page does; None where that address isn't served
+        (the older read follows), or with no HTTP session (a test's backend)"""
+        http = getattr(self, "http", None)
+        if http is None:
+            return None
+        headers = {"anthropic-version": "2023-06-01", "anthropic-beta": "ccr-byoc-2025-07-29",
+                   "anthropic-client-feature": "ccr", "anthropic-client-platform": "web_claude_ai",
+                   "x-organization-uuid": getattr(self, "org", "")}
+        base = [("limit", 200), ("sort_order", "desc")] + [("exclude_types", t) for t in self.CODE_SKIP]
+        got, cursor = [], None
+        while True:
+            params = base + ([("cursor", cursor)] if cursor is not None else [])
+            try:
+                r = http.get(self.CODE_LATEST % session_id, headers=headers, params=params, timeout=60)
+            except Exception as e:      # noqa: BLE001 - the network: the older read says so
+                log.debug("Code session: newest-first read failed: %s", type(e).__name__)   # (its text names the session)
+                return None if not got else got[::-1]
+            if r.status_code != 200:
+                log.debug("Code session: newest-first read: HTTP %s", r.status_code)
+                if got:
+                    break
+                return None
+            page = r.json() if r.content else {}
+            data = self._data(page)
+            got += data
+            cursor = page.get("next_cursor") if isinstance(page, dict) else None
+            if (not data or cursor in (None, "", 0, "0") or len(got) >= cap or time.time() >= deadline
+                    or len(code_messages(got[::-1])) >= want or self._stopped()):
+                break
+        events = got[::-1]
+        self._code_tail = event_id(events[-1]) if events else None
+        log.debug("Code session: newest first, %d events", len(events))
+        return events
+
     def _code_recent(self, session_id, cap, want):
         path = "/sessions/%s/events" % session_id
         deadline = time.time() + (self.CODE_LONG if self.code_progress else self.CODE_SECONDS)
-        self.code_partial = False
+        self.code_partial = self.code_stopped = False
+        latest = self._code_latest(session_id, cap, want, deadline)
+        if latest is not None:
+            return latest
         page = self._code("get", path, limit=200)
         events = self._data(page)
         tail = (isinstance(page, dict) and page.get("last_id")) or (events and event_id(events[-1])) or None
         self._code_tail = tail
         if not (isinstance(page, dict) and page.get("has_more")) or not events or not tail:
+            log.debug("Code session: one page")
             return events
         # which end is this? Older events before it: not the start, so the
         # newest page (claude.ai's, with no cursor). Asking for newer ones
         # instead misjudged a session still running: its new events made
         # the newest page look like the oldest, and the bridge read on from
-        # where an earlier read had stopped, out of time (Erez, 9 Nov 2026)
+        # where an earlier read had stopped, out of time (decided 9 Nov 2026)
         seen = set(map(event_id, events))
         first = page.get("first_id") or event_id(events[0])
         older = []
@@ -1031,25 +1095,30 @@ class ClaudeAiBackend(Backend):
                 events = older + events
                 first = (isinstance(page, dict) and page.get("first_id")) or event_id(older[0])
                 if (not first or not (isinstance(page, dict) and page.get("has_more"))
-                        or len(code_messages(events)) >= want or time.time() >= deadline):
+                        or len(code_messages(events)) >= want or time.time() >= deadline
+                        or self._stopped()):
                     break
                 page = self._code("get", path, limit=200, before_id=first)
                 older = [e for e in self._data(page) if event_id(e) not in seen]
                 if not older:
                     break
+            log.debug("Code session: newest first, read back")
             return events
         # nothing before it: the oldest page (or a server without before_id)
         newer = self._code_events(session_id, after=tail, cap=1)     # one page
         if not newer:       # and nothing after it either: all there is
             self._code_tail = tail
+            log.debug("Code session: one page")
             return events
         # the oldest page: the newest end, if the server sorts on request
         latest = self._code_newest(session_id, path, events + newer, want, deadline)
         if latest:
+            log.debug("Code session: oldest first, read with order=desc")
             return latest
         # else walk forward, keeping the latest: from where the last read
         # of this session got to (code-marks.json), or from the start
         mark = self._marks().get(session_id)
+        log.debug("Code session: oldest first, walked from %s", "its mark" if mark else "the start")
         if mark:
             try:
                 got = self._code_walk(session_id, mark, [], cap, deadline)
@@ -1057,6 +1126,8 @@ class ClaudeAiBackend(Backend):
                     return got
             except RuntimeError:
                 pass
+            if self.code_stopped:
+                return []
             self.code_partial = False           # the mark is gone: from the start
         return self._code_walk(session_id, self._code_tail, events + newer, cap, deadline)
 
@@ -1067,7 +1138,15 @@ class ClaudeAiBackend(Backend):
         out of time, the next read goes on from as far as this one got."""
         mark, read, told = None if events else start, 0, time.time()
         self._code_tail = event_id(events[-1]) if events else start
-        while time.time() < deadline:
+        while True:
+            if time.time() >= deadline or self._stopped():
+                # out of time, or the Atari wants something else: the next
+                # read goes on from here, keeping a page to show (had fewer
+                # than CAP events come, the mark stayed where this read
+                # began, and every open read the same stretch again)
+                self.code_partial = True
+                mark = self._walk_mark(events, mark)
+                break
             more = self._code_events(session_id, after=self._code_tail, cap=cap, deadline=deadline)
             if not more:
                 break
@@ -1079,11 +1158,25 @@ class ClaudeAiBackend(Backend):
             if self.code_progress and time.time() - told >= 5:
                 self.code_progress(read)
                 told = time.time()
-        else:
-            self.code_partial = True    # out of time before the end
+                self._marks().set(session_id, self._walk_mark(events, mark))   # kept if cut off
         if mark:
             self._marks().set(session_id, mark)
+        log.debug("Code session: walked %d events%s", read,
+                  ", stopped" if self.code_stopped else ", out of time" if self.code_partial else "")
         return events
+
+    def _stopped(self):
+        if self.code_stop and self.code_stop():
+            self.code_stopped = True
+        return self.code_stopped
+
+    def _walk_mark(self, events, mark):
+        """Where a walk cut short goes on from: CODE_SHOWN events before as
+        far as it got, so the next read has a page to show"""
+        if not events:
+            return mark
+        keep = events[-self.CODE_SHOWN - 1] if len(events) > self.CODE_SHOWN else events[0]
+        return event_id(keep) or mark
 
     def _code_newest(self, session_id, path, read, want, deadline):
         """The session's latest events with order=desc, oldest first; None
@@ -1100,7 +1193,7 @@ class ClaudeAiBackend(Backend):
         seen = set(map(event_id, got))
         newest = event_id(got[0])
         while (isinstance(page, dict) and page.get("has_more") and time.time() < deadline
-               and len(code_messages(got[::-1])) < want):
+               and len(code_messages(got[::-1])) < want and not self._stopped()):
             try:
                 page = self._code("get", path, limit=200, order="desc",
                                   after_id=page.get("last_id") or event_id(got[-1]))
@@ -1884,6 +1977,15 @@ class LazyBackend:
 
     def __getattr__(self, attr):
         return getattr(self._get(), attr)
+
+    def __setattr__(self, attr, value):
+        """what the bridge sets (code_progress, code_stop) goes to the real
+        backend: kept here, an open had 25 s, not CODE_LONG, and said "too
+        long to read" (27 Nov 2026)"""
+        if attr in ("factory", "name", "real"):
+            object.__setattr__(self, attr, value)
+        else:
+            setattr(self._get(), attr, value)
 
 
 # ---------------------------------------------------------------------------
