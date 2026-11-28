@@ -48,7 +48,7 @@ BSSL    := common/third_party/bearssl
 BSSLSRC := $(wildcard $(BSSL)/src/*/*.c)
 HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
-CORE    := util charset conn ftp xfer store futil bidi secret ctime tz ovl
+CORE    := util charset conn ftp xfer store futil bidi secret ctime tz ovl room
 ATARI   := libc tos plat_tos net_tos sting gem tls_ovl crash bigbuf
 UI      := main draw win files queue dialogs popup font fontsel about theme colours dsp_ovl help av alert dialog field mbar aboutbox iconify clip clipedit dd panebar text notify aboutline offdraw click hebkey tooltip arrowed progbar offpage eye cpucheck
 
@@ -76,9 +76,9 @@ HOT     := xfer ftp files draw win text offpage conn charset
 # block where 2.11's speed was measured, modulo 256: common's conn.c grew by
 # 426 bytes (17 Nov 2026) and moved all of it by 170, a file's start in the
 # folder of 400 575 -> 595 ms on Falcon-4:256 with NVDI (with the pad:
-# 575-580; 212 since common a62cb16's text.c; 60 since common c0fa029 and the resize's event call, 19 Nov 2026; 30 since common 7029ef0, text.c's scr_rows by the CPU, 22 Nov 2026; 12 since xfer.c's room_check, 28 Nov 2026). When a hot object grows, set HOTPAD so str_copy keeps its place
+# 575-580; 212 since common a62cb16's text.c; 60 since common c0fa029 and the resize's event call, 19 Nov 2026; 30 since common 7029ef0, text.c's scr_rows by the CPU, 22 Nov 2026; 34 since room.c, the room check out of the hot block, 28 Nov 2026). When a hot object grows, set HOTPAD so str_copy keeps its place
 # modulo 256 (0x...3e, as at 8864e9d) and run the speed pair against 2.11
-HOTPAD  := 12
+HOTPAD  := 34
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/crash_s.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(HOT))) $(OBJDIR)/hotpad.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(filter-out $(HOT),$(CORE) $(ATARI) $(UI))))
