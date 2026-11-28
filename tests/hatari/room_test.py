@@ -7,10 +7,12 @@ Dfree the host's free room in whole 4 MB (f_bavail / 1024 * the block, in
 integers: under 4 MB it says none), so EFTP sees 4096 KB free. In Hatari:
 
   1. zz.bin (4300 KB) to C: an alert in the middle of the screen
-     (shots/noroom.png), no RETR in EFTP.LOG, no file on C:; Return closes
-     it and the window is as it was;
+     (shots/noroom.png), no RETR in EFTP.LOG, no file on C:; Return
+     (Cancel, the default) closes it and the window is as it was;
   2. index.html (14 bytes): it comes, the refused download not in its way
-     (it failed, "not enough room on C:", and waits for Retry).
+     (it failed, "not enough room on C:", and waits for Retry);
+  3. zz.bin again, and Download anyway: it starts (then stopped: 4.3 MB
+     through the rig's network takes minutes).
 
     room_test.py WORKDIR [MACHINE]    (Xvfb, xdotool, pip install
     pyftpdlib; root, for the tmpfs; make first)
@@ -68,6 +70,8 @@ print("C: %d KB free" % (st.f_bavail * st.f_frsize // 1024), flush=True)
 SLOW = 8 if m.name in ("ST", "ST-1") else 1
 PAUSE = 3 if m.name in ("ST", "ST-1") else 1
 ROW0, ROWH = 131, 16
+# the alert's Download anyway: y 280 on a 640x480 screen, 241 on the mono one
+BUTTON_Y = 241 if m.screen == "mono" else 280
 CONNECT, DOWNLOAD = (50, 73), (240, 73)
 REMOTE_X, SITE1 = 400, (60, 92)
 fails = []
@@ -140,6 +144,28 @@ try:
     check(wait_for(lambda: os.path.exists(got) and open(got, "rb").read() == want, 60),
           "2: index.html came, the refused download not in its way")
     r.shot("small")
+
+    # 3: zz.bin again, and Download anyway: it starts as usual (the tmpfs
+    # has room the 4 MB steps hide); 4.3 MB through the rig's network takes
+    # minutes, so once it is under way it is stopped
+    r.click(REMOTE_X, row(5))
+    time.sleep(1.5)
+    r.click(*DOWNLOAD)
+    time.sleep(6 * PAUSE)
+    r.shot("ask")
+    started = False
+    for _ in range(2):                                  # once more if TOS 1.04 missed the click
+        r.move(0, 0)                                    # the corner first: the ST's mouse moves
+        time.sleep(1)                                   # by steps, and drifts on a long way
+        r.drag(248, BUTTON_Y, 248, BUTTON_Y, 0.3)       # Download anyway, held as a hand does
+        started = wait_for(lambda: "RETR /pub/atari/zz.bin" in open(elog, errors="replace").read(), 8)
+        if started:
+            break
+    check(started, "3: Download anyway: it started")
+    time.sleep(3 * PAUSE)
+    r.key(K["ESC"])
+    time.sleep(4 * PAUSE)
+    r.shot("anyway")
 finally:
     r.stop()
     m.stop()

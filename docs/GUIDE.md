@@ -348,9 +348,13 @@ other side:
 Before the first file of a download comes, EFTP adds up what the whole
 download needs on each drive it goes to (the folders too, listed all the
 way down) and compares it with the room the drive has free. If it won't
-fit, nothing is downloaded: an alert says how much it needs and how much
-is free, and its files show "Failed: not enough room on C:" in the list.
-Make room on the drive, then **Transfers > Retry the failed ones**.
+fit, an alert says how much it needs and how much is free, and asks:
+
+- **Download anyway**: it starts as usual; if the drive fills, the file
+  being written then fails
+- **Cancel** (Return, Esc): nothing is downloaded, and its files show
+  "Failed: not enough room on C:" in the list. Make room on the drive,
+  then **Transfers > Retry the failed ones**.
 
 A file the copy on the Atari replaces, or resumes, needs only the
 difference. A text file is counted a little larger, for the CR each line

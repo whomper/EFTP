@@ -149,6 +149,11 @@ def main():
           "replacing the file there needs no more room: " + r.stdout)
     r = cli(port, "get", "/pub/BIG.DAT", ".", env={"EFTP_FREE_KB": "1", "EFTP_CLUSTER": "32768"})
     check(r.returncode == 0 and "no room" not in r.stdout, "replacing it, big clusters: " + r.stdout)
+    # asked, and downloaded anyway: it comes as usual
+    os.remove(got)
+    r = cli(port, "get", "/pub/BIG.DAT", ".", env={"EFTP_FREE_KB": "292", "ROOM_ANSWER": "1"})
+    check(r.returncode == 0 and "no room on C:" in r.stdout and open(got, "rb").read() == big,
+          "no room, downloaded anyway: it came: " + r.stdout)
     # a folder: listed all the way down, then refused before anything is made
     r = cli(port, "get", "/pub/demos", ".", env={"EFTP_FREE_KB": "2"}, ok=False)
     check(r.returncode != 0 and "no room on C:" in r.stdout and not os.path.exists(os.path.join(work, "DEMOS")),

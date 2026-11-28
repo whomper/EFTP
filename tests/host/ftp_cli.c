@@ -70,10 +70,12 @@ static int ask(XITEM *x, long have, int *all)
 	return getenv("ANSWER") ? atoi(getenv("ANSWER")) : EX_RESUME;
 }
 
-/* the downloads won't fit (xfer.c's room_check): said, nothing starts */
-static void no_room(int drive, long need_kb, long free_kb)
+/* the downloads won't fit (xfer.c's room_check): said, and answered as
+   ROOM_ANSWER says (1: download anyway; else cancel) */
+static int no_room(int drive, long need_kb, long free_kb)
 {
 	printf("no room on %c: %ld KB needed, %ld KB free\n", 'A' + drive, need_kb, free_kb);
+	return getenv("ROOM_ANSWER") && atoi(getenv("ROOM_ANSWER")) == 1;
 }
 
 static void print_list(FLIST *l)

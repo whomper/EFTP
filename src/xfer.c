@@ -957,7 +957,7 @@ int xfer_run(FTP *f, const SITE *site, long *failed)
 
 /* ---------------- the room a download needs ---------------- */
 
-void (*xfer_noroom)(int drive, long need_kb, long free_kb);
+int (*xfer_noroom)(int drive, long need_kb, long free_kb);
 int xfer_short = -1;
 
 /* the KB a file of n bytes takes in clusters of cl bytes */
@@ -988,7 +988,9 @@ static int drive_of(const char *path)
    sixteenth more, for the CR each line gets; a folder not there yet one
    cluster. A size the server didn't give can't be counted. One Dfree a
    drive (it reads the whole FAT); a drive whose room isn't known isn't
-   checked. 0, and the UI told, when one is short: nothing starts */
+   checked. When one is short the UI asks (decided 28 Nov 2026): download
+   anyway (a full disk then fails a file as it always did), or cancel: 0,
+   nothing starts */
 static int room_check(void)
 {
 	long need[26], cl[26], room[26], i;
@@ -1025,10 +1027,13 @@ static int room_check(void)
 	}
 	for (d = 0; d < 26; d++)
 		if (seen_drv[d] && room[d] >= 0 && need[d] > room[d]) {
-			/* the downloads to that drive fail, saying why, so a later
-			   download isn't held up behind them; Retry tries them
-			   again once there is room */
-			unsigned long now = pf_ms();
+			unsigned long now;
+			if (xfer_noroom && xfer_noroom(d, need[d], room[d]))
+				continue;	/* download anyway */
+			/* cancelled: the downloads to that drive fail, saying why,
+			   so a later download isn't held up behind them; Retry
+			   tries them again once there is room */
+			now = pf_ms();
 			for (i = 0; i < xn; i++)
 				if (xq[i].dir == XD_DOWN && xq[i].state == XS_WAIT && drive_of(xq[i].local) == d) {
 					xq[i].state = XS_FAIL;
@@ -1037,8 +1042,6 @@ static int room_check(void)
 				}
 			changed(-1);
 			xfer_short = d;
-			if (xfer_noroom)
-				xfer_noroom(d, need[d], room[d]);
 			return 0;
 		}
 	return 1;

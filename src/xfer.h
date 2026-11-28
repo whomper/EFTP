@@ -62,9 +62,11 @@ extern void (*xfer_changed)(long i);	/* item i changed; -1 the whole list */
    *all set means the same for the rest of this run */
 extern int (*xfer_ask)(XITEM *x, long have, int *all);
 /* before the first file comes down: the drive ('A' + drive) has less room
-   than the waiting downloads need (KB), so nothing was started; the items
-   still wait. xfer_short is that drive after the run, else -1 */
-extern void (*xfer_noroom)(int drive, long need_kb, long free_kb);
+   than the waiting downloads need (KB). Non-zero: download anyway; 0
+   (or no hook): cancel, nothing starts and those downloads fail ("not
+   enough room on C:") for Retry. xfer_short is that drive after a
+   cancelled run, else -1 */
+extern int (*xfer_noroom)(int drive, long need_kb, long free_kb);
 extern int xfer_short;
 
 /* paths */

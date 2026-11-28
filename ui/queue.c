@@ -661,14 +661,15 @@ static void kb_str(long kb, char *out, int size)
 		snprintf(out, size, "%ld.%ld GB", kb / (1024L * 1024), kb % (1024L * 1024) * 10 / (1024L * 1024));
 }
 
-/* the waiting downloads won't fit on the drive: said before any starts */
-static void no_room(int drive, long need_kb, long free_kb)
+/* the waiting downloads won't fit on the drive: asked before any starts,
+   Cancel the default and Esc's (decided 28 Nov 2026). 1: download anyway */
+static int no_room(int drive, long need_kb, long free_kb)
 {
 	char n[16], f[16];
 	kb_str(need_kb, n, sizeof(n));
 	kb_str(free_kb, f, sizeof(f));
-	alert(1, "[3][Not enough room on drive %c:|The download needs %s;|%s is free. Nothing|was downloaded.][ OK ]",
-	      'A' + drive, n, f);
+	return alert(2, "[2][Not enough room on drive %c:|The download needs %s;|%s is free.][Download anyway|Cancel]",
+		     'A' + drive, n, f) == 1;
 }
 
 void queue_init(void)
