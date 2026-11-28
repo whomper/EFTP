@@ -983,48 +983,59 @@ static int drive_of(const char *path)
 }
 
 /* every waiting download counted against its drive's free room, before
-   the first file comes down: a file at its size in whole clusters, less
-   the one there that it replaces or goes on from; a text file a
-   sixteenth more, for the CR each line gets; a folder not there yet one
-   cluster. A size the server didn't give can't be counted. One Dfree a
-   drive (it reads the whole FAT); a drive whose room isn't known isn't
-   checked. When one is short the UI asks (decided 28 Nov 2026): download
+   the first file comes down: a file at its size in whole clusters (a text
+   file a sixteenth more, for the CR each line gets), a folder not there
+   yet one cluster. A size the server didn't give can't be counted. One
+   Dfree a drive (it reads the whole FAT); a drive whose room isn't known
+   isn't checked. Only when that comes out short is a copy already there
+   looked for (it is replaced or resumed, so only the difference counts):
+   listing the folders it goes to is the check's dear part, 45 ms of a
+   Falcon's start in a folder of 400, so a download that fits anyway skips
+   it. When one is short the UI asks (decided 28 Nov 2026): download
    anyway (a full disk then fails a file as it always did), or cancel: 0,
    nothing starts */
+static long room_count(int d, long cl, int there)
+{
+	long i, k, n = 0;
+	for (i = 0; i < xn; i++) {
+		XITEM *x = &xq[i];
+		FENTRY *e;
+		if (x->dir != XD_DOWN || x->state != XS_WAIT || drive_of(x->local) != d)
+			continue;
+		if (x->isdir) {
+			if (!there || !pf_isdir(x->local))
+				n += kb_taken(1, cl);
+			continue;
+		}
+		if (x->size <= 0)
+			continue;
+		k = kb_taken(x->text ? x->size + x->size / 16 : x->size, cl);
+		if (there && (e = seen_find(x->local, 0)) != 0)
+			k -= kb_taken(e->size, cl);
+		if (k > 0)
+			n += k;
+	}
+	return n;
+}
+
 static int room_check(void)
 {
 	long need[26], cl[26], room[26], i;
 	char seen_drv[26];
 	int d;
 	memset(seen_drv, 0, sizeof(seen_drv));
-	for (i = 0; i < xn; i++) {
-		XITEM *x = &xq[i];
-		FENTRY *e;
-		long k;
-		if (x->dir != XD_DOWN || x->state != XS_WAIT)
-			continue;
-		d = drive_of(x->local);
-		if (!seen_drv[d]) {
-			seen_drv[d] = 1;
-			need[d] = 0;
-			cl[d] = 1024;
-			room[d] = pf_room_kb(d, &cl[d]);
+	for (i = 0; i < xn; i++)
+		if (xq[i].dir == XD_DOWN && xq[i].state == XS_WAIT) {
+			d = drive_of(xq[i].local);
+			if (!seen_drv[d]) {
+				seen_drv[d] = 1;
+				cl[d] = 1024;
+				room[d] = pf_room_kb(d, &cl[d]);
+				need[d] = room[d] < 0 ? 0 : room_count(d, cl[d], 0);
+				if (need[d] > room[d])
+					need[d] = room_count(d, cl[d], 1);
+			}
 		}
-		if (room[d] < 0)
-			continue;
-		if (x->isdir) {
-			if (!pf_isdir(x->local))
-				need[d] += kb_taken(1, cl[d]);
-			continue;
-		}
-		if (x->size <= 0)
-			continue;
-		k = kb_taken(x->text ? x->size + x->size / 16 : x->size, cl[d]);
-		if ((e = seen_find(x->local, 0)) != 0)
-			k -= kb_taken(e->size, cl[d]);
-		if (k > 0)
-			need[d] += k;
-	}
 	for (d = 0; d < 26; d++)
 		if (seen_drv[d] && room[d] >= 0 && need[d] > room[d]) {
 			unsigned long now;
