@@ -544,15 +544,3 @@ void pf_bigfree(void *p)
 }
 
 
-/* KB free and the cluster's size, for the room a download needs (xfer.c);
-   last in the file: a function in the middle moves every one after it */
-long pf_room_kb(int drive, long *cluster)
-{
-	long info[4];		/* free clusters, clusters, sector size, sectors a cluster */
-	long cl;
-	if (Dfree(info, (short)(drive + 1)) < 0 || info[2] <= 0 || info[3] <= 0)
-		return -1;
-	cl = info[2] * info[3];
-	*cluster = cl;
-	return cl >= 1024 ? info[0] * (cl / 1024) : info[0] / (1024 / cl);
-}

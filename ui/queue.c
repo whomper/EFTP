@@ -650,28 +650,6 @@ static int tip(WIN *w, short mx, short my, char *out, int size)
 	return 1;
 }
 
-/* KB as the lists show sizes: "640 KB", "12.4 MB", "1.2 GB" */
-static void kb_str(long kb, char *out, int size)
-{
-	if (kb < 1000)
-		snprintf(out, size, "%ld KB", kb);
-	else if (kb < 1000L * 1024)
-		snprintf(out, size, "%ld.%ld MB", kb / 1024, kb % 1024 * 10 / 1024);
-	else
-		snprintf(out, size, "%ld.%ld GB", kb / (1024L * 1024), kb % (1024L * 1024) * 10 / (1024L * 1024));
-}
-
-/* the waiting downloads won't fit on the drive: asked before any starts,
-   Cancel the default and Esc's (decided 28 Nov 2026). 1: download anyway */
-static int no_room(int drive, long need_kb, long free_kb)
-{
-	char n[16], f[16];
-	kb_str(need_kb, n, sizeof(n));
-	kb_str(free_kb, f, sizeof(f));
-	return alert(2, "[2][Not enough room on drive %c:|The download needs %s;|%s is free.][Download anyway|Cancel]",
-		     'A' + drive, n, f) == 1;
-}
-
 void queue_init(void)
 {
 	w_queue.pane = 1;
@@ -684,7 +662,7 @@ void queue_init(void)
 	w_queue.head_h = 2;
 	xfer_changed = queue_changed;
 	xfer_ask = dlg_exists;
-	xfer_noroom = no_room;
+	xfer_noroom = room_ask;	/* roomask.c */
 	ftp_watch = queue_log;
 	queue_titles();
 }

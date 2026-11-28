@@ -39,7 +39,7 @@ CFLAGS  := -m68000 -Os -fomit-frame-pointer -ffreestanding -fno-builtin \
            -fno-asynchronous-unwind-tables -ffunction-sections -fdata-sections -Wall -Wno-pointer-sign \
            -DFTP_TOS -DDLG_CPU -DDLG_CLICK -nostdinc -isystem $(GCCINC) -Iatari/include -Icommon/atari/include \
            -Isrc -Icommon/src -Iatari -Icommon/atari -Iui -Icommon/ui -Icommon/third_party/bearssl/inc
-LDFLAGS := -Wl,-u,hotpad -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/atari/link.ld \
+LDFLAGS := -Wl,-u,hotpad -Wl,-u,queuepad -m68000 -nostdlib -static -no-pie -Wl,--emit-relocs -Wl,-T,common/atari/link.ld \
            -Wl,--build-id=none -Wl,-z,noexecstack -Wl,--no-warn-rwx-segments -Wl,--gc-sections
 
 # BearSSL 0.6, for the tests on this computer: on the Atari the TLS is
@@ -48,9 +48,14 @@ BSSL    := common/third_party/bearssl
 BSSLSRC := $(wildcard $(BSSL)/src/*/*.c)
 HBSSLOBJ = $(patsubst $(BSSL)/src/%.c,$(OBJDIR)/hbssl/%.o,$(BSSLSRC))
 
-CORE    := util charset conn ftp xfer store futil bidi secret ctime tz ovl room
+CORE    := util charset conn ftp xfer store futil bidi secret ctime tz ovl
+# linked after everything else: code new since 2.17 that the speed rig's
+# actions don't use, so it moves none of theirs (room.c in CORE's place moved
+# the UI's code by 700 bytes; a file's start in the folder of 400 575 -> 600
+# ms on the Falcons, 28 Nov 2026)
+LAST    := room room_tos roomask
 ATARI   := libc tos plat_tos net_tos sting gem tls_ovl crash bigbuf
-UI      := main draw win files queue dialogs popup font fontsel about theme colours dsp_ovl help av alert dialog field mbar aboutbox iconify clip clipedit dd panebar text notify aboutline offdraw click hebkey tooltip arrowed progbar offpage eye cpucheck
+UI      := main draw win files queue queuepad dialogs popup font fontsel about theme colours dsp_ovl help av alert dialog field mbar aboutbox iconify clip clipedit dd panebar text notify aboutline offdraw click hebkey tooltip arrowed progbar offpage eye cpucheck
 
 OBJDIR  := build
 # make PROFILE=20 build/prof/EFTP.PRG: the speed rig's build
@@ -81,7 +86,8 @@ HOT     := xfer ftp files draw win text offpage conn charset
 HOTPAD  := 30
 OBJS0   := $(OBJDIR)/crt0.o $(OBJDIR)/sting_s.o $(OBJDIR)/nf.o $(OBJDIR)/crash_s.o \
            $(addprefix $(OBJDIR)/,$(addsuffix .o,$(HOT))) $(OBJDIR)/hotpad.o \
-           $(addprefix $(OBJDIR)/,$(addsuffix .o,$(filter-out $(HOT),$(CORE) $(ATARI) $(UI))))
+           $(addprefix $(OBJDIR)/,$(addsuffix .o,$(filter-out $(HOT),$(CORE) $(ATARI) $(UI)))) \
+           $(addprefix $(OBJDIR)/,$(addsuffix .o,$(LAST)))
 OBJS    := $(OBJS0)
 HDRS    := $(wildcard src/*.h atari/*.h atari/include/*.h ui/*.h \
            common/src/*.h common/atari/*.h common/atari/include/*.h common/ui/*.h common/dsp/*.h)
@@ -151,6 +157,12 @@ $(OBJDIR)/eftp.elf: $(OBJS) $(OBJDIR)/build.o common/atari/link.ld
 
 $(OBJDIR)/hotpad.o: common/atari/codepad.S Makefile | $(OBJDIR)
 	$(CC) -m68000 -DPAD_NAME=hotpad -DPAD_TEXT=$(HOTPAD) -DPAD_RO=0 -DPAD_DATA=0 -DPAD_BSS=0 -c -o $@ $<
+# after queue.o, which grew by 54 bytes for the room check's status line and
+# the Transfers header's fill_forget (28 Nov 2026): the code after it at its
+# place modulo 256, as the speed rig measured it (QUEUEPAD + 54 = 256)
+QUEUEPAD := 202
+$(OBJDIR)/queuepad.o: common/atari/codepad.S Makefile | $(OBJDIR)
+	$(CC) -m68000 -DPAD_NAME=queuepad -DPAD_TEXT=$(QUEUEPAD) -DPAD_RO=0 -DPAD_DATA=0 -DPAD_BSS=0 -c -o $@ $<
 $(OBJDIR)/%.o: src/%.c $(HDRS) | $(OBJDIR)
 	$(CC) $(CFLAGS) -c -o $@ $<
 $(OBJDIR)/%.o: atari/%.c $(HDRS) | $(OBJDIR)
@@ -182,7 +194,7 @@ HOSTCC     ?= cc
 HOSTCFLAGS := -O1 -g -Wall -Wextra -Wno-unused-parameter -Wno-sign-compare \
               -Wno-format-truncation -Isrc -Icommon/src -fsanitize=address,undefined
 # each core file is the app's own (src/) or shared (common/src/)
-HOSTSRC    := $(foreach m,$(CORE) tls,$(firstword $(wildcard src/$(m).c common/src/$(m).c))) \
+HOSTSRC    := $(foreach m,$(CORE) $(LAST) tls,$(firstword $(wildcard src/$(m).c common/src/$(m).c))) \
               tests/host/plat_posix.c
 HOSTLIB    := $(OBJDIR)/libbearssl-host.a
 

@@ -241,6 +241,7 @@ void date_str(CTIME t, int wall, char *out, int size);
 
 /* a Direct connection (dsp_ovl.c, TLS.OVL): RSA on the DSP when there is one */
 void falcon_dsp_init(void);
+int  room_ask(int drive, long need_kb, long free_kb);	/* roomask.c: 1 download anyway */
 int  falcon_mode_set(int on);	/* main.c: 0 and an alert when it can't be */
 const char *falcon_dsp_state(void);	/* "DSP" or "68030" */
 
