@@ -35,7 +35,7 @@ of them.
 | `translate` | EMail, EWeb, EPDF | `translategate.py`        | 8480                                     |
 | `radio`  | EPlay               | `radiogate.py`             | 8580                                     |
 | `claude` | ClaudeST            | ClaudeST's bridge          | 2323                                     |
-| `dash`   | a browser at home   | `dashgate.py`              | 8888                                     |
+| `dash`   | a browser at home   | `dashgate.py`, `dashadmin.py` | 8888, and 8889 for its admin pages    |
 
 What each one speaks (requests, answers, refusals, limits) is in
 [docs/SERVICES.md](../docs/SERVICES.md).
@@ -214,7 +214,7 @@ It installs `python3-paramiko` too (for SSH) if it isn't there. The Atari
 names the server in its login, the way FTP proxies have always done it,
 
 ```
-USER sftp:erez@my.server.net:22         also ftps:  and  ftps-implicit:
+USER sftp:demo@my.server.net:22         also ftps:  and  ftps-implicit:
 PASS (the server's own password)
 ```
 
@@ -475,7 +475,18 @@ a password or a key) and the Pi's memory, disk, load and temperature. It
 refreshes itself. The gateways tell it who connected through aeragate;
 the counts start again when it starts. The home network may see it, or
 only the computers named with `--allow`. `install all` includes it, for
-the home network. Details: [docs/SERVICES.md](../docs/SERVICES.md#dash-the-dashboard).
+the home network.
+
+```
+sudo aera-gateway install dash --password
+```
+
+adds its admin pages, at `https://GATEWAY_IP:8889/` behind that password:
+each service's statistics, settings and log, its settings changed (who may
+connect, servers at home, every request logged) and a Restart button. The
+changes go through `aera-gateway` itself, so a service that doesn't answer
+afterwards gets its settings before back; ports aren't changed there. The
+browser asks you to trust the Pi's own certificate the first time. Details: [docs/SERVICES.md](../docs/SERVICES.md#dash-the-dashboard).
 
 ## claude: ClaudeST's bridge
 
@@ -485,13 +496,13 @@ its changes). `aera-gateway` sets it up from there, or from a ClaudeST
 copy you name with `--from`:
 
 ```
-sudo aera-gateway install claude --network --atari 192.168.1.20
+sudo aera-gateway install claude --network --atari 192.168.1.60
 sudo aera-gateway install claude --backend api
 sudo aera-gateway set-key        paste a new claude.ai session key
 ```
 
 ClaudeST reaches it through STinG. The serial cable went with
-ClaudeST 2.3 (Erez, 9 Nov 2026): a Gateway set up for it keeps its old
+ClaudeST 2.3 (decided 9 Nov 2026): a Gateway set up for it keeps its old
 bridge, on its cable, for the ClaudeST it has, and `update` says how to
 move to the network (the command above; ClaudeST 2.3 or later on the Atari).
 

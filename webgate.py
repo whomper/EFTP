@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
-"""webgate - the Raspberry Pi gateway for EWeb on the Atari.
+"""webgate - the Gateway's service for EWeb on the Atari.
 
 EWeb on a Falcon makes its own secure connections (TLS 1.2, the curves on
 the DSP); the ST edition, EWEBST.PRG, can't, and some sites take TLS 1.3
@@ -49,7 +49,7 @@ or 1.3) and hands the answer back as it comes:
     systemd starts one a connection, as its own user, with little memory
     and time); X-Gateway-Pens names it ("aerapens COMMON BUILD"), and the
     log says which once. Without it, or when it fails or is too slow, the
-    picture comes as above. soft=N (1 to 15; EWeb, Erez 22 Nov 2026) asks
+    picture comes as above. soft=N (1 to 15; EWeb, decided 22 Nov 2026) asks
     for the softer dither, N sixteenths of each pixel's error passed on
     (common's pic_pal_soft, the request's byte 7), and the answer says
     "X-Gateway-Soft: N"; without it, the whole dither, Floyd-Steinberg.
@@ -80,7 +80,7 @@ or 1.3) and hands the answer back as it comes:
     when the script doesn't compile, the script comes as it came (EWeb
     compiles it itself). The server is asked for it unpacked.
 
-Translation (Erez, 8 Nov 2026; AERA-Atari standards/TRANSLATION-SERVICE.md):
+Translation (decided 8 Nov 2026; AERA-Atari standards/TRANSLATION-SERVICE.md):
 a GET with "X-Gateway-Translate: to=CODE" whose answer is a document
 (text/html, application/xhtml+xml or text/plain, 200) comes translated
 into CODE by translategate on this machine (its local socket: the text
@@ -139,7 +139,7 @@ first /live (w=W&h=H, in pixels): the picture is then the browser's
 view at 1:1, as wide as EWeb's page and three of its screens tall
 (webgate-ext sizes the browser's window to it), so EWeb scrolls through
 it itself and asks for a new picture only after a click or past its
-third screen (Erez, 30 Oct 2026). Without them, the view is 1024x768,
+third screen (decided 30 Oct 2026). Without them, the view is 1024x768,
 made 608 pixels wide. The picture button has its height too, and the
 picture honours X-Gateway-Picture: asked as pens, it comes as the
 Atari's pens, made by aerapens, as any other picture does. http://webgate/live?url=ADDRESS opens
@@ -155,7 +155,7 @@ EWeb shows on its "can't open" page.
 Only standard Python 3 is needed, and aeragate.py next to it.
 `aera-gateway install web` sets it up as a service.
 
-    webgate.py [--port 8280] [--allow 192.168.1.50] [--allow-local] [--cafile F] [--pens-socket P] [-v]
+    webgate.py [--port 8280] [--allow 192.168.1.60] [--allow-local] [--cafile F] [--pens-socket P] [-v]
 """
 
 import argparse
@@ -217,7 +217,7 @@ PREFETCH_BYTES = 48 << 20       # what they may take in all
 PREFETCH_ITEMS = 100            # the most of a list
 PREFETCH_PLAIN_MAX = 1 << 20    # the most of an answer that isn't a picture made that is kept
 TRANSLATE_PAGE_MAX = 4 << 20    # the most of a page webgate translates
-TRANSLATE_TEXT = 64 << 10       # the most of its text translated (EWeb's proposal, Erez 8 Nov 2026)
+TRANSLATE_TEXT = 64 << 10       # the most of its text translated (EWeb's proposal, decided 8 Nov 2026)
 TRANSLATE_SECONDS = 90          # and the time for it
 TRANSLATE_TYPES = ("text/html", "application/xhtml+xml", "text/plain")
 RTL = {"he", "ar", "fa", "ur", "yi", "ps", "dv"}
@@ -763,6 +763,13 @@ class Upstream(threading.local):
                     ctx.verify_mode = ssl.CERT_NONE
                 proxy = _proxy("https")
                 if proxy:
+                    # the proxy dials the server, so the home network is
+                    # checked here first, as _dial does without one (7.3),
+                    # before a connection is kept for it. (The proxy looks
+                    # the name up again itself: one whose answer changes in
+                    # between can't be caught without breaking the
+                    # certificate's name check.)
+                    aeragate.lookup(host, port, Config.allow_local)
                     c = http.client.HTTPSConnection(proxy[0], proxy[1], timeout=Config.timeout, context=ctx)
                     c.set_tunnel(host, port)
                 else:
@@ -783,6 +790,18 @@ class Upstream(threading.local):
 UP = Upstream()
 
 
+
+# Ubuntu's Chromium snap runs as webgate's own systemd unit (aera-gateway
+# puts it here), the others as a system one
+SNAP_UNIT = "/var/lib/webgate/.config/systemd/user/webgate-browser.service"
+
+
+def restart_browser():
+    """the command that restarts the Gateway's browser, as it was set up"""
+    if os.path.exists(SNAP_UNIT):
+        return "sudo systemctl --user -M webgate@ restart webgate-browser"
+    return "sudo systemctl restart webgate-browser"
+
 class Bridge:
     """webgate-ext's side: the address the browser is to open next, and
     the snapshot it sends back. One page at a time."""
@@ -802,7 +821,7 @@ class Bridge:
 
     def gone(self):
         """the extension isn't asking for addresses: Chromium not running,
-        or webgate-ext stopped in it (Erez's live view, 30 Oct 2026: it
+        or webgate-ext stopped in it (the live view, 30 Oct 2026: it
         waited the whole minute for a browser that wasn't listening)"""
         return not self.polling and time.monotonic() - self.polled > self.GONE
 
@@ -810,7 +829,7 @@ class Bridge:
         """what to say when the browser didn't answer"""
         if self.gone():
             return ("the Gateway's browser isn't listening (webgate-ext last asked %d s ago); "
-                    "on the Raspberry Pi: sudo systemctl restart webgate-browser" % (time.monotonic() - self.polled))
+                    "on the Raspberry Pi: %s" % (time.monotonic() - self.polled, restart_browser()))
         return "it didn't answer"
 
     def ask(self, url, wait, **more):
@@ -911,7 +930,7 @@ def picture_want(value):
     (None: fit wide at most), pens=N, pal=CRC (8 hex digits), ed=lj or
     tj, deep=1 (a true-colour screen: make_picture), soft=N (the pens'
     dither softer: N sixteenths of each pixel's error passed on, 1 to 15;
-    EWeb, Erez 22 Nov 2026): a dict; pens 0 when they weren't asked for, or
+    EWeb, decided 22 Nov 2026): a dict; pens 0 when they weren't asked for, or
     not right; soft 0 for the whole dither"""
     want = {"fit": 0, "size": None, "pens": 0, "pal": None, "ed": "lj", "deep": False, "soft": 0}
     for part in (value or "").split(";"):
@@ -1057,8 +1076,8 @@ def make_ahead(url, pic, cookie, headers):
     if cookie:
         h["Cookie"] = cookie
     for attempt in (1, 2):
-        conn = UP.get(u.scheme, u.hostname, port)
         try:
+            conn = UP.get(u.scheme, u.hostname, port)
             conn.request("GET", path, headers=h)
             resp = conn.getresponse()
             break
@@ -1224,25 +1243,27 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_snap(snap, self.path, " (on the browser for the visit)")
                 return
             visiting(u.hostname, False)     # (asked as usual: the check again, if it is that)
-        headers = {k: v for k, v in self.headers.items() if k.lower() not in HOP_BY_HOP}
+        # webgate's own headers (X-Gateway-...) are for webgate alone, in any
+        # case: never passed on to the server (7.3; X-Gateway-Picture's
+        # colours would tell an Atari apart)
+        headers = {k: v for k, v in self.headers.items()
+                   if k.lower() not in HOP_BY_HOP and not k.lower().startswith("x-gateway-")}
         headers["Host"] = u.netloc.rsplit("@", 1)[-1]
         # what the Atari unpacks itself, and nothing it can't
         asked = (self.headers.get("Accept-Encoding") or "").lower()
         headers["Accept-Encoding"] = ", ".join(e for e in ("gzip", "deflate") if e in asked) or "identity"
         script = self.headers.get("X-Gateway-Script") if self.command == "GET" and not self.for_browser else None
         tr = self.headers.get("X-Gateway-Translate") if self.command == "GET" and not self.for_browser else None
-        headers.pop("X-Gateway-Translate", None)
         if tr is not None:
             # (translated here: the page whole and unpacked)
             for k in ("If-None-Match", "If-Modified-Since"):
                 headers.pop(k, None)
             headers["Accept-Encoding"] = "identity"
         if script:
-            headers.pop("X-Gateway-Script", None)
             headers["Accept-Encoding"] = "identity"     # (compiled here: it comes unpacked)
         for attempt in (1, 2):
-            conn = UP.get(u.scheme, u.hostname, port)
             try:
+                conn = UP.get(u.scheme, u.hostname, port)
                 conn.request(self.command, path, body=body, headers=headers)
                 resp = conn.getresponse()
                 break
@@ -1473,7 +1494,7 @@ class Handler(BaseHTTPRequestHandler):
         part = u.path[len("/live"):]
         if part == "/shot.jpg":
             # live view's picture as pens: with pens asked for, it comes as the Atari's screen
-            # shows it, nothing left for it to decode (Erez, 30 Oct 2026)
+            # shows it, nothing left for it to decode (decided 30 Oct 2026)
             want = self.picture_ask()
             if want["pens"] and PALETTES.get(want["pal"]) is None:
                 self.send_body(409, b"webgate: send the colours first\n", "text/plain", [("X-Gateway-Palette", "need")])
@@ -1551,7 +1572,7 @@ class Handler(BaseHTTPRequestHandler):
             # nothing open in the browser yet (live view from a page that
             # isn't on the web, or a webgate just started): no screen to
             # show (the extension can't take a blank tab's), so Go to first
-            # (Erez, 28 Oct 2026: an address typed into the page's field
+            # (decided 28 Oct 2026: an address typed into the page's field
             # went nowhere, and its picture never came)
             screen = LIVE_NONE
         else:
@@ -1560,7 +1581,7 @@ class Handler(BaseHTTPRequestHandler):
             # links (an image map: EWeb shows the pointing hand over them)
             # and says when a field there has the keyboard (EWeb sends what
             # is typed there); and it comes once the browser's screen is
-            # there to show (Erez, 21 Nov 2026)
+            # there to show (decided 21 Nov 2026)
             # (pic=1: EWeb's live view and the 303 after a click or keys)
             shot = live_shot() if a.get("pic") else None
             if shot and shot.get("pic"):

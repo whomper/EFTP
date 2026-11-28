@@ -66,7 +66,7 @@ class Markdown(unittest.TestCase):
 
 class Links(unittest.TestCase):
     def test_tcp_only(self):
-        """ClaudeST 2.3 reaches the bridge through STinG only (Erez, 9 Nov
+        """ClaudeST 2.3 reaches the bridge through STinG only (decided 9 Nov
         2026): the serial cable's --serial, --baud and --pipe are gone,
         and the bridge says it needs --tcp"""
         import contextlib
@@ -449,7 +449,7 @@ class ScriptMadeFiles(unittest.TestCase):
                 return listing[o:o + params["limit"]]
             return by_id[path.rsplit("/", 1)[1]]
         be._get = get
-        letter = self.docx("Dear hiring manager,", "Erez &amp; co")
+        letter = self.docx("Dear hiring manager,", "Demo &amp; co")
 
         class Resp:
             status_code, content = 200, letter
@@ -477,7 +477,7 @@ class ScriptMadeFiles(unittest.TestCase):
         self.assertEqual([a[1] for a in arts],
                          ["Cover Letter Globex.docx", "Cover_Letter_Acme.docx", "Snake"])
         title, body = be.get_artifact(arts[0][0])
-        self.assertIn("Dear hiring manager,\nErez & co", body)
+        self.assertIn("Dear hiring manager,\nDemo & co", body)
         name, data = be.artifact_file(arts[1][0])
         self.assertEqual(name, "COVER_LE.DOC")
         self.assertTrue(data.startswith(b"PK"))     # saved as the real .docx
@@ -926,7 +926,7 @@ class MovedChats(unittest.TestCase):
 
 class DateHeadings(unittest.TestCase):
     """Chat lists grouped: Pinned, Today, Yesterday, the rest of the week
-    by the day's name, then by date (Erez, 29 Oct 2026)."""
+    by the day's name, then by date (decided 29 Oct 2026)."""
 
     def test_headings(self):
         from datetime import datetime, timedelta, timezone
@@ -1044,7 +1044,7 @@ class LongRunningBridge(unittest.TestCase):
         s.handle(b"FETCH\tARTIFACT\t" + s.short_id(aid).encode())
         self.assertEqual(len(downloads), 2)
         self.assertNotIn("data", be._artifacts[aid])
-        self.assertIn([b"G", str(len(t.docx("Dear hiring manager,", "Erez &amp; co"))).encode()],
+        self.assertIn([b"G", str(len(t.docx("Dear hiring manager,", "Demo &amp; co"))).encode()],
                       link.lines())
 
     def test_effort_per_chat_survives_a_restart(self):
@@ -1107,6 +1107,30 @@ class ToolSteps(unittest.TestCase):
             {"id": "5", "type": "assistant", "message": {"content": [{"type": "text", "text": "Done."}]}},
         ]
         self.assertEqual(code_messages(ev), [("A", "Checking.\n\n\x01Ran 1 command, used 1 tool\n\nDone.")])
+
+    def test_events_with_the_message_in_internal_anthropic_catchall(self):
+        """claude.ai's newer events: the kind at the top, the message inside
+        internal_anthropic_catchall. A session mixing them with the older
+        form showed only the older messages, stopping in its middle"""
+        from backends import code_messages, event_id
+
+        def new(kind, uid, content):
+            return {"created_at": "2026-11-26T10:00:00Z", kind: {"uuid": uid, "internal_anthropic_catchall": {
+                "message": {"role": kind, "content": content}, "session_id": "s"}}}
+        ev = [
+            {"id": "1", "type": "user", "message": {"content": "an older question"}},
+            {"id": "2", "type": "assistant", "message": {"content": [{"type": "text", "text": "An older answer."}]}},
+            new("user", "u3", [{"type": "text", "text": "a newer question"}]),
+            new("assistant", "u4", [{"type": "thinking", "thinking": ""}]),
+            new("assistant", "u5", [{"type": "text", "text": "Checking."}]),
+            new("assistant", "u6", [{"type": "tool_use", "name": "Bash", "input": {"command": "ls"}}]),
+            new("user", "u7", [{"type": "tool_result", "content": "a b"}]),
+            new("assistant", "u8", [{"type": "text", "text": "The newest answer."}]),
+        ]
+        self.assertEqual(code_messages(ev), [
+            ("U", "an older question"), ("A", "An older answer."), ("U", "a newer question"),
+            ("A", "Checking.\n\n\x01Ran ls\n\nThe newest answer.")])
+        self.assertEqual(event_id(ev[-1]), "u8")
 
     def test_a_grey_line_goes_out_as_g(self):
         link = FakeLink()
@@ -1301,7 +1325,7 @@ class CodeSessions(unittest.TestCase):
                 self.assertEqual(len(gets), 2)
 
     def test_a_long_session_still_running_shows_its_latest_messages(self):
-        """Erez, 9 Nov 2026: a long session that was still running opened
+        """decided 9 Nov 2026: a long session that was still running opened
         somewhere in its middle, with "too long to read to its end", and
         each open read on. Its new events made the newest page look like
         the oldest; whether events come before the page tells the ends
@@ -1315,6 +1339,85 @@ class CodeSessions(unittest.TestCase):
         self.assertEqual(msgs[-1], ("A", "a19999"))
         self.assertGreaterEqual(len(msgs), 40)
         self.assertLess(len(gets), 5)           # the newest page and a few back: no walk
+
+    def test_a_slow_long_session_read_to_its_end_in_one_open(self):
+        """decided 26 Nov 2026: a long session served oldest first, on slow
+        reads, said "too long to read" at every open. An open now reads on
+        to the latest messages, telling the Atari how far it has got, and
+        the place is remembered: the next open reads only what came since."""
+        be, gets = self.long_session(False, n=20000)
+        self.clocked(be, secs_a_read=30.0)      # an hour's reads: 120
+        told = []
+        be.code_progress = told.append
+        title, msgs = be.get_code_session("session_l")
+        self.assertFalse(be.code_partial)
+        self.assertEqual(msgs[-1], ("A", "a19999"))
+        self.assertGreater(len(told), 10)       # the Atari kept waiting
+        del gets[:]
+        title, msgs = be.get_code_session("session_l")
+        self.assertEqual(msgs[-1], ("A", "a19999"))
+        self.assertLess(len(gets), 10)          # from the mark, not the start
+
+    def test_a_walk_cut_short_goes_on_at_the_next_open(self):
+        """a read out of time (CODE_LONG, or no progress shown: CODE_SECONDS)
+        left the mark where it began when it had got fewer events than it
+        keeps, and every open read the same stretch again"""
+        be, gets = self.long_session(False, n=20000)
+        self.clocked(be, secs_a_read=3.0)       # 8 reads in CODE_SECONDS
+        be._code_last = {}
+        last, opens = -1, 0
+        while True:
+            opens += 1
+            title, msgs = be.get_code_session("session_l")
+            got = int(msgs[-1][1][1:])
+            self.assertGreater(got, last)       # every open goes further
+            last = got
+            if not be.code_partial:
+                break
+            self.assertLess(opens, 40)
+        self.assertEqual(msgs[-1], ("A", "a19999"))
+
+    def test_an_open_through_lazybackend_reads_to_the_end(self):
+        """claude.ai's backend is always behind a LazyBackend, which passed
+        reads on but kept what was set: code_progress and code_stop never
+        reached the backend, so an open had 25 s, not CODE_LONG, and said
+        "too long to read" (27 Nov 2026)"""
+        from backends import LazyBackend
+        be, gets = self.long_session(False, n=20000)
+        self.clocked(be, secs_a_read=30.0)
+        be.chat_choice = None
+        lazy = LazyBackend(lambda: be, "claude.ai")
+        link = FakeLink()
+        s = Session(link, lazy)
+        s.cmd_open("CODE", "session_l")
+        sent = link.sent.decode("latin-1")
+        self.assertNotIn("too long to read", sent)
+        self.assertIn("steps read", sent)               # the Atari kept waiting
+        self.assertIn("a19999", sent)                   # the newest message
+        self.assertIsNone(be.code_progress)             # and taken off again
+        self.assertIsNone(be.code_stop)
+
+    def test_a_long_read_stopped_by_the_atari_keeps_its_place(self):
+        """anything the Atari does during an open (another chat, Reconnect)
+        ends the read at once (code_stop); the place is kept, and the next
+        open goes on from it to the end"""
+        be, gets = self.long_session(False, n=20000)
+        self.clocked(be, secs_a_read=30.0)
+        be.code_progress = lambda n: None
+        asked = []
+        be.code_stop = lambda: asked.append(1) or len(asked) > 20
+        title, msgs = be.get_code_session("session_l")
+        self.assertTrue(be.code_stopped)
+        self.assertTrue(be.code_partial)
+        stopped_at = int(msgs[-1][1][1:])
+        self.assertLess(stopped_at, 19999)
+        be.code_stop = None
+        del gets[:]
+        title, msgs = be.get_code_session("session_l")
+        self.assertFalse(be.code_stopped)
+        self.assertFalse(be.code_partial)
+        self.assertEqual(msgs[-1], ("A", "a19999"))
+        self.assertLess(len(gets), (20000 - stopped_at) // 200 + 10)    # from the place kept
 
     def test_a_long_session_whose_events_carry_uuids(self):
         """claude.ai's events have no "id", only the message's "uuid": 1.54
@@ -1352,7 +1455,7 @@ class CodeSessions(unittest.TestCase):
         self.addCleanup(patch.stop)
 
     def test_a_session_too_long_to_read_goes_on_where_it_stopped(self):
-        """Erez's long Code sessions (31 Oct 2026): served oldest first, they
+        """Long Code sessions (31 Oct 2026): served oldest first, they
         ran out of time before their newest messages, each time. Where a
         read got to is remembered, so the next one goes on from there, and
         once at the end, opening the session starts near it"""
@@ -1440,10 +1543,10 @@ class AccountPage(unittest.TestCase):
 
         def get(path, **params):
             if path == "/account":
-                return {"full_name": "Erez Yaary", "email_address": "erez@example.com",
+                return {"full_name": "Demo User", "email_address": "demo@example.com",
                         "created_at": "2023-03-14T10:00:00Z", "memberships": [
                             {"organization": {"uuid": "o0", "name": "Other"}},
-                            {"organization": {"uuid": "o1", "name": "Erez's org",
+                            {"organization": {"uuid": "o1", "name": "Demo's org",
                                               "capabilities": ["chat", "claude_max"],
                                               "rate_limit_tier": "default_claude_max_20x"}}]}
             if path == "/organizations/o1/usage":
@@ -1463,9 +1566,9 @@ class AccountPage(unittest.TestCase):
         self.assertNotIn("Opus", page)
         self.assertNotIn("guana", page)          # shown under its real name
         self.assertIn("Cloud session credits\n  [#-------------------] 3% used\n  expires in ", page)
-        self.assertIn("Name: Erez Yaary", page)
-        self.assertIn("Email: erez@example.com", page)
-        self.assertIn("Organization: Erez's org", page)
+        self.assertIn("Name: Demo User", page)
+        self.assertIn("Email: demo@example.com", page)
+        self.assertIn("Organization: Demo's org", page)
         self.assertIn("Member since: 2023-03-14", page)
 
     def test_used_up_credit_is_hidden(self):
@@ -1625,6 +1728,242 @@ class Gateway(unittest.TestCase):
             s.handle(b"HELLO\t1\t1.0")
 
 
+class RecordedCodeSession(unittest.TestCase):
+    """A claude.ai Code session made from scratch, served as claude.ai serves
+    one, through the bridge's own path (Session, LazyBackend,
+    ClaudeAiBackend): claude.ai's Code page's address (/v1/code/sessions,
+    newest first, a numeric cursor counting back, exclude_types) and the
+    older one (/v1/sessions, oldest first, after_id, has_more, before_id
+    giving nothing); events in the older form and the newer one
+    (internal_anthropic_catchall), and the stream's chatter (decided 27 Nov
+    2026, after three Code fixes in two days)"""
+
+    N = 6000
+
+    def events(self):
+        out = []
+        for i in range(self.N):
+            uid = "u%05d" % i
+            if i % 50 == 7:         # the stream's chatter, left out on request
+                out.append({"created_at": "t", "stream_event": {"uuid": uid}})
+                continue
+            kind = "user" if i % 10 == 0 else "assistant"
+            if i % 10 == 0:
+                content = "question %d" % i
+            elif i % 10 == 5:
+                content = [{"type": "tool_use", "name": "Bash", "input": {"command": "ls"}}]
+            else:
+                content = [{"type": "text", "text": "answer %d" % i}]
+            if i < self.N // 2:     # the older form
+                out.append({"id": uid, "data": {"type": kind, "message": {"role": kind, "content": content}}})
+            else:                   # the newer form
+                out.append({"created_at": "t", kind: {"uuid": uid, "internal_anthropic_catchall": {
+                    "message": {"role": kind, "content": content}}}})
+        return out
+
+    def backend(self, latest=True):
+        from backends import ClaudeAiBackend, event_id, _event_payload
+        ev = self.events()
+        ids = [event_id(e) for e in ev]
+        calls = {"latest": 0, "older": 0}
+
+        class Response:
+            def __init__(self, code, body):
+                self.status_code, self._body = code, body
+                self.content = b"{}"
+
+            def json(self):
+                return self._body
+
+        class Http:
+            def get(self, url, headers=None, params=(), timeout=None):
+                calls["latest"] += 1
+                if not latest:
+                    return Response(404, {"type": "error"})
+                p = dict(params)
+                skip = {v for k, v in params if k == "exclude_types"}
+                rows = [e for e in at_latest if e["event_type"] not in skip]
+                assert p["sort_order"] == "desc"
+                hi = int(p.get("cursor", len(rows)))
+                lo = max(hi - int(p["limit"]), 0)
+                return Response(200, {"data": rows[lo:hi][::-1],
+                                      "next_cursor": str(lo) if lo else None, "resume_cursor": str(lo)})
+
+        # the session as claude.ai's Code page's address serves it. Its shape
+        # is the one recorded on 27 Nov 2026 from a real answer (field names
+        # and types only, no content): every event in one envelope, the kind
+        # in event_type, what it carries in payload; and, between the
+        # messages, events that are none (the context's use asked and
+        # answered, background tasks, a turn's result, notifications, the
+        # rate limit, the environment's log)
+        OTHERS = [
+            ("control_request", {"request": {"subtype": "get_context_usage"}, "request_id": "r"}),
+            ("control_response", {"response": {"request_id": "r", "subtype": "success",
+                                               "response": {"totalTokens": 1, "maxTokens": 2, "percentage": 50}}}),
+            ("system", {"subtype": "background_tasks_changed", "session_id": "s",
+                        "tasks": [{"description": "x", "run_id": "r", "task_id": "t", "task_type": "shell"}]}),
+            ("result", {"subtype": "success", "is_error": False, "result": "x", "num_turns": 1, "session_id": "s",
+                        "usage": {"input_tokens": 1, "output_tokens": 1}, "origin": {"kind": "human"}}),
+            ("queued_notification", {"notification": {"content": "x", "notification_id": "n", "origin": "o",
+                                                      "priority": "next", "queued_at": "t"}}),
+            ("rate_limit_event", {"session_id": "s", "rate_limit_info": {"status": "allowed", "utilization": 0.5}}),
+            ("env_manager_log", {"data": {"category": "x", "content": "x", "level": "info", "timestamp": "t"}}),
+        ]
+
+        def envelope(kind, payload, seq):
+            payload = dict(payload, type=kind, uuid=payload.get("uuid") or "x%d" % seq)
+            return {"created_at": "t", "device_attestation_status": "x", "event_id": "e%d" % seq,
+                    "event_type": kind, "payload": payload, "sent_by_account_id": None,
+                    "sequence_num": str(seq), "source": "x"}
+
+        def served(e, seq):
+            kind, inner = _event_payload(e)
+            msg = inner.get("message") if isinstance(inner, dict) else None
+            if kind == "stream_event" or msg is None:
+                return envelope("stream_event", {"uuid": event_id(e)}, seq)
+            if kind == "assistant":
+                msg = dict(msg, type="message", id="msg", model="m", container=None, context_management=None,
+                           diagnostics=None, input_transformations=[], stop_details=None, stop_reason=None,
+                           stop_sequence=None, usage={"input_tokens": 1, "output_tokens": 1})
+            return envelope(kind, {"uuid": event_id(e), "message": msg, "session_id": "s", "timestamp": "t",
+                                   "parent_tool_use_id": None}, seq)
+
+        at_latest = []
+        for e in ev:
+            if len(at_latest) % 13 == 12:
+                kind, payload = OTHERS[len(at_latest) % len(OTHERS)]
+                at_latest.append(envelope(kind, payload, len(at_latest)))
+            at_latest.append(served(e, len(at_latest)))
+
+        be = ClaudeAiBackend.__new__(ClaudeAiBackend)
+        be.http, be.org = Http(), "org"
+
+        def code(method, path, body=None, **params):
+            if not path.endswith("/events"):
+                return {"title": "Recorded"}
+            calls["older"] += 1
+            if params.get("before_id"):
+                return {"data": [], "has_more": False}
+            lo = ids.index(params["after_id"]) + 1 if params.get("after_id") else 0
+            if params.get("order"):
+                lo = 0                      # ignored, as claude.ai does
+            page = ev[lo:lo + params["limit"]]
+            return {"data": page, "has_more": lo + len(page) < len(ev),
+                    "first_id": event_id(page[0]) if page else None, "last_id": event_id(page[-1]) if page else None}
+        be._code = code
+        be._memory = lambda: {}
+        return be, calls
+
+    def open(self, be):
+        from backends import LazyBackend
+        link = FakeLink()
+        Session(link, LazyBackend(lambda: be, "claude.ai")).cmd_open("CODE", "session_r")
+        return link.sent.decode("latin-1")
+
+    def test_opens_at_the_newest_messages_from_the_newest_end(self):
+        be, calls = self.backend()
+        sent = self.open(be)
+        self.assertIn("answer %d" % (self.N - 1), sent)
+        self.assertNotIn("too long to read", sent)
+        self.assertNotIn("stream_event", sent)
+        self.assertLessEqual(calls["latest"], 3)        # a page or few, not the whole session
+        self.assertEqual(calls["older"], 0)
+        self.assertFalse(hasattr(be, "marks") and be.marks.get("session_r"))   # no place kept
+
+    def test_without_that_address_the_older_read_still_gets_there(self):
+        be, calls = self.backend(latest=False)
+        be.code_progress = None
+        sent = self.open(be)
+        self.assertIn("answer %d" % (self.N - 1), sent)
+        self.assertNotIn("too long to read", sent)
+        self.assertGreater(calls["older"], 1)
+
+    def test_every_attribute_the_bridge_sets_reaches_the_real_backend(self):
+        import re
+        from backends import LazyBackend
+        src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "claude_bridge.py")).read()
+        names = set(re.findall(r"self\.be\.([a-z_]+) *=[^=]", src))
+        self.assertTrue(names)
+        real = type("Real", (), {})()
+        lazy = LazyBackend(lambda: real, "claude.ai")
+        for n in sorted(names):
+            setattr(lazy, n, n)
+            self.assertEqual(getattr(real, n, None), n, n)
+            self.assertNotIn(n, vars(lazy))
+
+
+class LongOpenOverTcp(unittest.TestCase):
+    """A Code session read for a long time (up to CODE_LONG): the Atari's
+    PINGs are answered meanwhile, and anything else it sends, or a new
+    connection, ends the read at once and is served"""
+
+    def setUp(self):
+        import threading
+        from claude_bridge import TcpLink
+        self.walking = threading.Event()
+        self.stopped = threading.Event()
+        test = self
+
+        class Long(DemoBackend):
+            code_progress = code_stop = None
+            code_stopped = False
+
+            def get_code_session(self, sid):
+                self.code_stopped = False
+                test.walking.set()
+                end = time.time() + 20
+                while time.time() < end:
+                    if self.code_stop and self.code_stop():
+                        self.code_stopped = True
+                        test.stopped.set()
+                        break
+                    time.sleep(0.05)
+                return "Long session", [("U", "q"), ("A", "a")]
+
+        import time
+        self.link = TcpLink("127.0.0.1:0", allow=["127.0.0.1"])
+        self.port = self.link.srv.getsockname()[1]
+        self.session = Session(self.link, Long())
+        threading.Thread(target=self.session.run, daemon=True).start()
+
+    def connect(self):
+        import socket
+        c = socket.create_connection(("127.0.0.1", self.port), timeout=5)
+        c.settimeout(5)
+        c.sendall(b"HELLO\t1\t2.16\n")
+        TcpGateway.read_until(self, c, b"S\tOnline")
+        return c
+
+    def test_a_ping_is_answered_and_the_read_goes_on(self):
+        c = self.connect()
+        c.sendall(b"OPEN\tCODE\tsession_x\n")
+        self.assertTrue(self.walking.wait(5))
+        c.sendall(b"PING\n")
+        self.assertIn(b"p\n", TcpGateway.read_until(self, c, b"p\n"))
+        self.assertFalse(self.stopped.is_set())
+        c.close()
+
+    def test_another_command_ends_the_read_and_is_served(self):
+        c = self.connect()
+        c.sendall(b"OPEN\tCODE\tsession_x\n")
+        self.assertTrue(self.walking.wait(5))
+        c.sendall(b"LIST\tCHATS\n")
+        got = TcpGateway.read_until(self, c, b"L\tCHATS")
+        self.assertTrue(self.stopped.is_set())
+        self.assertIn(b"L\tCHATS", got)
+        self.assertNotIn(b"T\tLong session", got)      # the stopped session is not shown
+        c.close()
+
+    def test_a_reconnect_is_served_at_once(self):
+        c = self.connect()
+        c.sendall(b"OPEN\tCODE\tsession_x\n")
+        self.assertTrue(self.walking.wait(5))
+        d = self.connect()          # served well before the read's 20 s
+        self.assertTrue(self.stopped.is_set())
+        d.close()
+        c.close()
+
+
 class TcpGateway(unittest.TestCase):
     """The --tcp link as ClaudeST uses it over STinG."""
 
@@ -1669,7 +2008,7 @@ class TcpGateway(unittest.TestCase):
 
     def test_allow_list(self):
         from claude_bridge import TcpLink
-        link = TcpLink("127.0.0.1:0", allow=["192.168.1.20"])
+        link = TcpLink("127.0.0.1:0", allow=["192.168.1.60"])
         import socket
         import threading
         t = threading.Thread(target=link._accept, daemon=True)
@@ -1700,7 +2039,7 @@ class TcpGateway(unittest.TestCase):
         link = TcpLink("127.0.0.1:0")
         link.srv.close()
         link.srv = FakeServer()
-        for addr, accepted in (("8.8.8.8", False), ("192.168.1.20", True),
+        for addr, accepted in (("8.8.8.8", False), ("192.168.1.60", True),
                                ("10.0.0.5", True), ("127.0.0.1", True)):
             conn = FakeConn()
             link.srv.next = (conn, (addr, 1234))

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
-"""eftpgate - the Raspberry Pi gateway for EFTP on the Atari.
+"""eftpgate - the Gateway's service for EFTP on the Atari.
 
 Servers on the internet want FTPS (FTP over TLS) or SFTP (SSH), which an
 8 MHz ST can't do. So EFTP speaks plain FTP to the Pi on your home
@@ -13,7 +13,7 @@ network, and eftpgate speaks FTPS or SFTP to the server:
 The Atari names the server in its login, the way FTP proxies have always
 done it:
 
-    USER sftp:erez@my.server.net:22        (sftp, ftps, ftps-implicit)
+    USER sftp:demo@my.server.net:22        (sftp, ftps, ftps-implicit)
     PASS the server's own password
 
 and eftpgate logs in there with them. To the Atari it is an ordinary,
@@ -29,7 +29,7 @@ python3-paramiko), and aeragate.py next to it. `aera-gateway install ftp`
 sets it up as a service. Falcon mode doesn't need it for FTPS: the Falcon
 does TLS itself.
 
-    eftpgate.py [--port 2121] [--allow 192.168.1.50] [--allow-local]
+    eftpgate.py [--port 2121] [--allow 192.168.1.60] [--allow-local]
                 [--state /var/lib/eftpgate] [-v]
 """
 
@@ -173,6 +173,18 @@ class Backend:
     def describe(self): return ""
 
 
+# a known server's key changed, or offered in a kind it isn't known by; and
+# the Gateway's known_hosts there but unreadable: one sentence each, as the
+# Atari's status line and alert show them
+CHANGED_KEY = "%s's SSH key has changed: if that is right, remove it from known_hosts on the Gateway"
+UNREADABLE_KNOWN = "The Gateway can't read its known_hosts: remove it there and connect again"
+
+
+def KEY_KIND(kind):
+    """the kind a negotiated host-key type is filed under in known_hosts"""
+    return "ssh-rsa" if kind.startswith("rsa-sha2-") else kind
+
+
 class SFTPBackend(Backend):
     text_newlines = True
 
@@ -186,13 +198,31 @@ class SFTPBackend(Backend):
             sock = aeragate.dial(addrs, 20)
         except OSError as e:
             raise GateError(530, "can't reach %s:%d: %s" % (host, port, e.strerror or e))
+        name = host if port == 22 else "[%s]:%d" % (host, port)
+        try:
+            keys = self.known_keys(known_hosts)
+        except GateError:
+            sock.close()
+            raise
+        known = keys.lookup(name)
         t = paramiko.Transport(sock)
+        if known:
+            # a known server is held to the kinds of key it is known by: one
+            # (or someone in between) offering only another kind fails here,
+            # whatever paramiko's own order is (rsa-sha2-* are ssh-rsa keys)
+            opts = t.get_security_options()
+            kinds = [k for k in opts.key_types if KEY_KIND(k) in known]
+            if kinds:
+                opts.key_types = kinds
         try:
             t.start_client(timeout=20)
         except Exception as e:
             t.close()
+            if known and "host key" in str(e).lower():
+                log("%s offered no kind of key it is known by in %s" % (name, known_hosts))
+                raise GateError(530, CHANGED_KEY % host)
             raise GateError(530, "%s:%d doesn't speak SSH: %s" % (host, port, e))
-        self.check_host_key(t, host, port, known_hosts)
+        self.check_host_key(t, name, host, keys, known_hosts)
         try:
             t.auth_password(user, password)
         except paramiko.BadAuthenticationType as e:
@@ -212,24 +242,36 @@ class SFTPBackend(Backend):
         self.sftp = paramiko.SFTPClient.from_transport(t)
         self.desc = "SFTP to %s, %s" % (host, t.remote_cipher)
 
-    def check_host_key(self, t, host, port, path):
+    def known_keys(self, path):
+        """the Gateway's known_hosts; one that is there but can't be read
+        whole is refused, not taken as empty (every server new again)"""
+        keys = self.paramiko.HostKeys()
+        if not os.path.exists(path):
+            return keys
+        try:
+            with open(path, encoding="utf-8") as f:
+                lines = [ln for ln in f.read().splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
+            keys.load(path)
+        except Exception as e:      # (unreadable, not UTF-8, or paramiko's InvalidHostKey and the like)
+            log("can't read %s: %s" % (path, type(e).__name__))
+            raise GateError(530, UNREADABLE_KNOWN)
+        got = len(getattr(keys, "_entries", lines))     # (lines read; paramiko skips those it can't)
+        if got != len(lines):
+            log("can't read %s: %d of its %d lines" % (path, got, len(lines)))
+            raise GateError(530, UNREADABLE_KNOWN)
+        return keys
+
+    def check_host_key(self, t, name, host, keys, path):
         """the server's key the first time is remembered; a different one
-        later is refused (someone in between, or a reinstalled server)"""
-        paramiko = self.paramiko
+        later, or one of another kind, is refused (someone in between, or a
+        reinstalled server)"""
         key = t.get_remote_server_key()
-        name = host if port == 22 else "[%s]:%d" % (host, port)
-        keys = paramiko.HostKeys()
-        if os.path.exists(path):
-            try:
-                keys.load(path)
-            except (IOError, paramiko.SSHException):
-                pass
         known = keys.lookup(name)
-        if known is not None and key.get_name() in known:
-            if known[key.get_name()] != key:
+        if known:
+            if key.get_name() not in known or known[key.get_name()] != key:
                 t.close()
-                raise GateError(530, "%s's SSH key has changed: if that is right, remove it from %s on the Gateway"
-                                % (host, path))
+                log("%s's SSH key isn't the one in %s" % (name, path))
+                raise GateError(530, CHANGED_KEY % host)
             return
         keys.add(name, key.get_name(), key)
         try:
@@ -541,7 +583,7 @@ class _FTPDataFile:
 # ---------------------------------------------------------------- the Atari's side
 
 def parse_login(spec):
-    """'sftp:erez@my.server.net:22' -> (proto, user, host, port)"""
+    """'sftp:demo@my.server.net:22' -> (proto, user, host, port)"""
     m = re.match(r"(sftp|ftps|ftps-implicit|ftpes):(.*)@([^@:]+|\[[^]]+\])(?::(\d+))?$", spec, re.I)
     if not m:
         return None
@@ -980,7 +1022,7 @@ class Server(socketserver.ThreadingTCPServer):
 
 def parser():
     """the command line (aera-gateway reads a service's settings with it)"""
-    ap = argparse.ArgumentParser(description="the Raspberry Pi gateway for EFTP: plain FTP in, FTPS or SFTP out")
+    ap = argparse.ArgumentParser(description="the Gateway's service for EFTP: plain FTP in, FTPS or SFTP out")
     ap.add_argument("--port", type=int, default=2121)
     ap.add_argument("--bind", default="0.0.0.0")
     ap.add_argument("--allow", action="append", help="only this Atari's address (may be given more than once)")

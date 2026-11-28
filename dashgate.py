@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 AERA | Erez Yaary
 """dashgate - the Gateway's dashboard, for a browser on the home network
-(Erez, 10 Nov 2026).
+(decided 10 Nov 2026).
 
 One page, read-only, at http://GATEWAY:8888/, sent filled in (it reads the
-same with a browser's scripts off: Erez, 10 Nov 2026): each service running or not
+same with a browser's scripts off: decided 10 Nov 2026): each service running or not
 and since when, its ports, the connections today and this run, the Ataris
 that came and where they went, the settings (never a password or a key)
 and the computer's memory, disk, load and temperature. It refreshes
@@ -24,7 +24,7 @@ Where the numbers come from:
     kernel lists them (/proc/net/tcp);
   - systemd (on a Raspberry Pi) or aera-gateway-run (in a container): each
     service's state and its settings, from its command line.
-The counts start again when dashgate starts (Erez, 10 Nov 2026).
+The counts start again when dashgate starts (decided 10 Nov 2026).
 
 Who may see it: the home network, or with --allow only those addresses
 (the rule the gateways share, aeragate.client_ok). Standard Python 3 only.
@@ -39,22 +39,25 @@ import json
 import os
 import pwd
 import re
+import secrets
 import shlex
 import socket
 import socketserver
+import ssl
 import struct
 import subprocess
 import sys
 import threading
 import time
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import aeragate  # noqa: E402
+import dashadmin  # noqa: E402
 
 aeragate.DASH_SOCKET = ""           # (its own visitors aren't the Ataris')
 
-VERSION = "1.1"
+VERSION = "1.2"
 HERE = os.path.dirname(os.path.realpath(__file__))
 
 # key, its user (and unit), its script, the apps, what it speaks, its ports
@@ -87,6 +90,17 @@ class Config:
     proc = "/proc"
     users = {s[1]: s[0] for s in SERVICES if s[0] != "claude"}   # who may tell it what
     verbose = False
+    # the admin pages (decided 28 Nov 2026): HTTPS on their own port, behind
+    # a password; off without --admin-port
+    admin_port = 0
+    admin_cert = "/var/lib/dashgate/admin.crt"
+    admin_key = "/var/lib/dashgate/admin.key"
+    admin_password = dashadmin.PASSWORD
+    admin_request = dashadmin.REQUEST
+    admin_result = dashadmin.RESULT
+    idle = 15 * 60                      # a session ends after this long unused
+    tries, lock_s = 5, 15 * 60          # bad passwords from one address before it waits, and how long
+    all_tries = 20                      # from every address together
 
 
 def say(*words):
@@ -493,7 +507,8 @@ def status(stats, host_header="", found=None, started=None, peers=None):
     return {
         "gateway": {"version": gateway_version(), "dashgate": VERSION, "address": own_address(host_header),
                     "where": "container" if Config.container else "systemd", "model": model(),
-                    "since": started, "now": time.time(), "port": Config.port},
+                    "since": started, "now": time.time(), "port": Config.port,
+                    "admin_port": Config.admin_port or None},
         "services": services,
         "ataris": ataris,
         "events": events,
@@ -504,7 +519,7 @@ def status(stats, host_header="", found=None, started=None, peers=None):
 
 # ---------------------------------------------------------------- the web page
 #
-# The page comes filled in (Erez, 10 Nov 2026: EWeb shows it with its
+# The page comes filled in (decided 10 Nov 2026: EWeb shows it with its
 # scripts off): dash.js only fetches it again every few seconds and puts
 # the new parts in place, and picks out one service's activity. Without
 # scripts it refreshes itself every 30 s (<noscript>).
@@ -704,9 +719,44 @@ def part_meters(d):
     return '<div id="meters" class="list">%s</div>' % "".join(out)
 
 
+def part_admin(d):
+    """Configure: the admin pages, in a window of their own; how to turn
+    them on, when they aren't (decided 28 Nov 2026)"""
+    g = d["gateway"]
+    if not g.get("admin_port"):
+        return '<a class="btn" href="/configure">Configure</a>'
+    host = g["address"] if ":" not in (g["address"] or "") else "[%s]" % g["address"]
+    return ('<a class="btn" href="https://%s:%d/" target="_blank" rel="noopener noreferrer">Configure</a>'
+            % (esc(host), g["admin_port"]))
+
+
+CONFIGURE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configure AERA-Gateway</title>
+<link rel="stylesheet" href="/dash.css">
+</head>
+<body>
+<div class="wrap">
+<section class="card"><h2>Configure</h2>
+<p>The pages where each service's settings and log are seen and changed aren't turned on yet. To turn them
+on, with a password of your own, run this on the Gateway:</p>
+<pre class="mono">sudo aera-gateway install dash --password</pre>
+<p>Then Configure opens them, at https://GATEWAY_IP:8889/. The browser asks you to trust the Gateway's own
+certificate the first time.</p>
+<p><a class="btn" href="/">Back to the dashboard</a></p>
+</section>
+</div>
+</body>
+</html>
+"""
+
+
 def page(d):
     return PAGE % {
-        "accent": ACCENT, "overall": part_overall(d), "updated": esc("updated " + when(d["gateway"]["now"])),
+        "accent": ACCENT, "admin": part_admin(d), "overall": part_overall(d), "updated": esc("updated " + when(d["gateway"]["now"])),
         "tiles": part_tiles(d), "services": part_services(d), "events": part_events(d),
         "ataris": part_ataris(d), "settings": part_settings(d), "meters": part_meters(d)}
 
@@ -734,6 +784,7 @@ PAGE = """<!doctype html>
   <div class="tools">
     %(overall)s
     <span id="updated" class="mono small muted">%(updated)s</span>
+    %(admin)s
     <button type="button" id="theme" class="btn js-only" aria-label="Switch between light and dark">
       <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor"
         stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path
@@ -869,6 +920,10 @@ dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}
 .bar{display:block}.bar .track{fill:var(--soft)}.bar .fill{fill:var(--accent)}.bar .fill.hot{fill:var(--warn)}
 .foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px}
 .empty{color:var(--muted);padding:6px 0}
+.inline{display:inline}form label{display:inline-block;margin:6px 0}
+input[type=text],input[type=password]{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--muted);
+background:var(--soft);color:inherit;max-width:100%}
+pre.log{max-height:60vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
 """
 
 JS = r"""
@@ -958,7 +1013,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if Config.verbose:
             path = urlsplit(getattr(self, "path", "") or "").path
             say("%s %s %s" % (self.client_address[0], getattr(self, "command", None) or "-",
-                              path if path in FILES or path in ("/", "/status.json") else "(another page)"))
+                              path if path in FILES or path in ("/", "/status.json", "/configure") else "(another page)"))
 
     def send(self, status, ctype, body):
         body = body.encode("utf-8") if isinstance(body, str) else body
@@ -984,6 +1039,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             return self.send(200, "text/html; charset=utf-8", page(status(self.stats, self.headers.get("Host", ""))))
         if path in FILES:
             return self.send(200, *FILES[path])
+        if path == "/configure":
+            return self.send(200, "text/html; charset=utf-8", CONFIGURE)
         if path == "/status.json":
             body = json.dumps(status(self.stats, self.headers.get("Host", "")), separators=(",", ":"))
             return self.send(200, "application/json", body)
@@ -997,6 +1054,463 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
 
 
+# ---------------------------------------------------------------- the admin pages
+#
+# Decided 28 Nov 2026: per service, its statistics, its settings and its
+# log, and its settings changed or the service restarted, behind a
+# password, over HTTPS with the Pi's own certificate on a port of their
+# own (the overview stays open to the home network on --port). What 7.3
+# asks of them: the password stored hashed (dashadmin), never logged; a
+# session cookie (HttpOnly, Secure, SameSite=Strict) that ends after
+# Config.idle unused; an address that gets the password wrong
+# Config.tries times waits Config.lock_s, and so does everyone after
+# Config.all_tries; a token in every form that changes something, and its
+# Origin checked; the home network only, as the overview. Changes go
+# through dashadmin, as root, which runs the installer: never a unit
+# edited here.
+
+class Admin:
+    def __init__(self, now=time.time):
+        self.now = now
+        self.lock = threading.Lock()
+        self.sessions = {}              # token -> {"ip", "last", "csrf", "said"}
+        self.fails = collections.defaultdict(list)     # ip -> times
+        self.all_fails = []
+        self.asking = threading.Lock()  # one request to dashadmin at a time
+
+    def locked(self, ip):
+        t = self.now()
+        with self.lock:
+            self.fails[ip] = [x for x in self.fails[ip] if t - x < Config.lock_s]
+            self.all_fails[:] = [x for x in self.all_fails if t - x < Config.lock_s]
+            return len(self.fails[ip]) >= Config.tries or len(self.all_fails) >= Config.all_tries
+
+    def sign_in(self, ip, password):
+        """a session's token, or None ("locked" while it waits)"""
+        if self.locked(ip):
+            return "locked"
+        try:
+            stored = slurp(Config.admin_password)
+        except OSError:
+            stored = ""
+        if password and dashadmin.check_password(password, stored):
+            token = secrets.token_urlsafe(32)
+            with self.lock:
+                self.fails.pop(ip, None)
+                if len(self.sessions) >= 16:        # (the oldest goes)
+                    del self.sessions[min(self.sessions, key=lambda k: self.sessions[k]["last"])]
+                self.sessions[token] = {"ip": ip, "last": self.now(), "csrf": secrets.token_urlsafe(24),
+                                        "said": None}
+            say("%s signed in to the admin pages" % ip)
+            return token
+        with self.lock:
+            self.fails[ip].append(self.now())
+            self.all_fails.append(self.now())
+        say("%s: a wrong admin password" % ip)
+        return "locked" if self.locked(ip) else None
+
+    def session(self, cookie, ip):
+        token = None
+        for part in (cookie or "").split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == "aera_admin":
+                token = v
+        if not token:
+            return None, None
+        with self.lock:
+            s = self.sessions.get(token)
+            if s is None:
+                return None, None
+            if s["ip"] != ip or self.now() - s["last"] > Config.idle:
+                del self.sessions[token]
+                return None, None
+            s["last"] = self.now()
+            return token, s
+
+    def sign_out(self, token):
+        with self.lock:
+            self.sessions.pop(token, None)
+
+    def ask(self, req, wait=20.0):
+        """(ok, text) of dashadmin's answer to req (checked here too)"""
+        req = dashadmin.request(dict(req, id=secrets.token_hex(8)))
+        with self.asking:
+            tmp = Config.admin_request + ".new"
+            try:
+                os.makedirs(os.path.dirname(Config.admin_request), exist_ok=True)
+                with private_file(tmp) as f:
+                    json.dump(req, f)
+                os.replace(tmp, Config.admin_request)
+            except OSError as e:
+                return False, "dashgate couldn't ask (%s)" % (e.strerror or type(e).__name__)
+            end = self.now() + wait
+            while self.now() < end:
+                try:
+                    with open(Config.admin_result) as f:
+                        r = json.load(f)
+                    if isinstance(r, dict) and r.get("id") == req["id"]:
+                        return bool(r.get("ok")), str(r.get("text") or "")
+                except (OSError, ValueError):
+                    pass
+                time.sleep(0.2)
+            return False, ("It is still going: look again in a minute." if req["do"] == "set" else
+                           "The Gateway didn't answer in time (is dashgate-admin.path running?).")
+
+
+class private_file:
+    """a new file only dashgate reads"""
+
+    def __init__(self, path):
+        self.path = path
+
+    def __enter__(self):
+        try:
+            os.unlink(self.path)
+        except FileNotFoundError:
+            pass
+        self.f = os.fdopen(os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600), "w")
+        return self.f
+
+    def __exit__(self, *exc):
+        self.f.close()
+
+
+def unit_stats(user, run=subprocess.run):
+    """what systemd says of the service's unit: memory, CPU, restarts"""
+    try:
+        r = run(["systemctl", "show", "-p", "MemoryCurrent", "-p", "CPUUsageNSec", "-p", "NRestarts",
+                 "-p", "MainPID", user + ".service"], capture_output=True, text=True, timeout=10)
+        v = dict(ln.split("=", 1) for ln in r.stdout.splitlines() if "=" in ln)
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    out = {}
+    for k, name in (("MemoryCurrent", "memory"), ("CPUUsageNSec", "cpu_ns"), ("NRestarts", "restarts"),
+                    ("MainPID", "pid")):
+        if v.get(k, "").isdigit() and int(v[k]) < 1 << 62:
+            out[name] = int(v[k])
+    return out
+
+
+def unit_env_names(user):
+    """the names of the unit's Environment= settings (never their values:
+    a proxy's may hold a password)"""
+    try:
+        text = slurp(os.path.join(Config.units, user + ".service"))
+    except OSError:
+        return []
+    names = []
+    for line in text.splitlines():
+        if line.startswith("Environment="):
+            try:
+                words = shlex.split(line[len("Environment="):])
+            except ValueError:
+                continue
+            names += [w.split("=", 1)[0] for w in words if "=" in w]
+    return names
+
+
+ADMIN_PAGE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>%(title)s</title>
+<link rel="stylesheet" href="/dash.css">
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div class="brand"><div><h1>%(title)s</h1><div class="sub">%(sub)s</div></div></div>
+  <div class="tools">%(tools)s</div>
+</header>
+%(body)s
+</div>
+</body>
+</html>
+"""
+
+
+def admin_page(title, sub, body, csrf=None):
+    tools = ""
+    if csrf:
+        tools = ('<a class="btn" href="/">Services</a> <form method="post" action="/logout" class="inline">'
+                 '<input type="hidden" name="csrf" value="%s"><button class="btn" type="submit">Sign out</button>'
+                 '</form>' % esc(csrf))
+    return ADMIN_PAGE % {"title": esc(title), "sub": esc(sub), "tools": tools, "body": body}
+
+
+def login_body(msg=""):
+    return ('<section class="card"><h2>Sign in</h2>%s<form method="post" action="/login">'
+            '<label>Password <input type="password" name="password" autocomplete="current-password" '
+            'autofocus required></label> <button class="btn" type="submit">Sign in</button></form></section>'
+            % ('<p class="lost">%s</p>' % esc(msg) if msg else ""))
+
+
+def admin_index(d):
+    rows = []
+    for s in d["services"]:
+        label, word = STATE.get(s["state"], ("off", s["state"]))[0], STATE.get(s["state"], ("", s["state"]))[1]
+        name = ('<a href="/s/%s">%s</a>' % (esc(s["key"]), esc(s["name"])) if s["state"] != "not installed"
+                else esc(s["name"]))
+        rows.append("<tr><td>%s</td><td>%s</td><td class=\"st-%s\">%s</td><td class=\"mono\">%s</td>"
+                    "<td class=\"mono\">%s</td></tr>" % (name, esc(s["apps"]), esc(label), esc(word),
+                                                        esc(" ".join(str(p) for p in s["ports"])),
+                                                        esc(num(s["today"]))))
+    return ('<section class="card table-card"><h2>Services</h2><div class="scroll"><table><thead><tr>'
+            '<th scope="col">Service</th><th scope="col">For</th><th scope="col">State</th>'
+            '<th scope="col">Ports</th><th scope="col">Today</th></tr></thead><tbody>%s</tbody></table>'
+            '</div></section>' % "".join(rows))
+
+
+def service_body(key, d, found, sess, log, said):
+    s = next(x for x in d["services"] if x["key"] == key)
+    user = BY_KEY[key][1]
+    args = (found.get(key) or {}).get("args") or []
+    o, pos = opts(args)
+    st = unit_stats(user) if not Config.container else {}
+    word = STATE.get(s["state"], ("", s["state"]))[1]
+    facts = [("State", word + (" since " + when(s["since"]) if s.get("since") else "")),
+             ("For", s["apps"]), ("What it does", s["speaks"]),
+             ("Ports", " ".join(str(p) for p in s["ports"])),
+             ("Connections today", num(s["today"])), ("Since dashgate started", num(s["total"])),
+             ("Connected now", num(s["live"]))]
+    if "memory" in st:
+        facts.append(("Memory", size(st["memory"])))
+    if "cpu_ns" in st:
+        facts.append(("Processor time", span(st["cpu_ns"] / 1e9) if st["cpu_ns"] >= 60e9 else
+                      "%.1f s" % (st["cpu_ns"] / 1e9)))
+    if "restarts" in st:
+        facts.append(("Restarts", num(st["restarts"])))
+    stats = "".join("<dt>%s</dt><dd>%s</dd>" % (esc(k), esc(v)) for k, v in facts)
+    sets = [("%s" % k, ", ".join(v) if any(v) else "on") for k, v in sorted(o.items())]
+    if pos:
+        sets.insert(0, ("servers", " ".join(pos)))
+    sets += [("Environment", n) for n in unit_env_names(user)]
+    settings_dl = "".join("<dt class=\"mono\">%s</dt><dd class=\"mono\">%s</dd>" % (esc(k), esc(v))
+                          for k, v in sets) or "<dt>Settings</dt><dd>its defaults</dd>"
+    csrf = esc(sess["csrf"])
+    change = ""
+    if key in dashadmin.CHANGE and not Config.container:
+        allow = ", ".join(x for a in o.get("--allow", []) for x in a.split(",") if x) or "any"
+        boxes = ""
+        if key in dashadmin.LOCAL:
+            boxes += ('<input type="hidden" name="has_allow_local" value="1"><label><input type="checkbox" '
+                      'name="allow_local" value="1"%s> Also reach servers on the home network</label><br>'
+                      % (" checked" if "--allow-local" in o else ""))
+        if key in dashadmin.VERBOSE:
+            boxes += ('<input type="hidden" name="has_verbose" value="1"><label><input type="checkbox" '
+                      'name="verbose" value="1"%s> Log every request</label><br>'
+                      % (" checked" if "-v" in o or "--verbose" in o else ""))
+        note = ("<p class=\"small muted\">Saving restarts the dashboard: sign in again after.</p>"
+                if key == "dash" else "")
+        change = ('<section class="card"><h2>Change</h2><form method="post" action="/s/%s">'
+                  '<input type="hidden" name="csrf" value="%s"><input type="hidden" name="do" value="set">'
+                  '<label>Who may connect <input type="text" name="allow" value="%s" size="40" '
+                  'spellcheck="false"></label><div class="small muted">Addresses, separated by commas, or '
+                  '"any" for the whole home network. The ports stay as they are: each app has its own in '
+                  'its settings.</div>%s%s<button class="btn" type="submit">Save</button></form></section>'
+                  % (esc(key), csrf, esc(allow), boxes, note))
+    restart = ('<form method="post" action="/s/%s" class="inline"><input type="hidden" name="csrf" value="%s">'
+               '<input type="hidden" name="do" value="restart"><button class="btn" type="submit">Restart '
+               '%s</button></form>' % (esc(key), csrf, esc(user))) if not Config.container else ""
+    result = ""
+    if said:
+        result = ('<section class="card"><h2>%s</h2><pre class="mono small">%s</pre></section>'
+                  % ("Done" if said[0] else "It didn't work", esc(said[1])))
+    return ('%s<div class="cols"><main class="main"><section class="card"><h2>Statistics</h2><dl>%s</dl>'
+            '<p>%s</p></section>%s<section class="card"><h2>Log</h2><p class="small muted">The last %d '
+            'lines, as the service keeps them: who connected where, never contents or passwords.</p>'
+            '<pre class="mono small log">%s</pre></section></main><aside class="side"><section class="card">'
+            '<h2>Settings</h2><dl>%s</dl></section></aside></div>'
+            % (result, stats, restart, change, dashadmin.LOG_LINES, esc(log), settings_dl))
+
+
+class AdminHandler(http.server.BaseHTTPRequestHandler):
+    server_version = "dashgate/" + VERSION
+    protocol_version = "HTTP/1.1"
+    stats = None
+    admin = None
+
+    def log_message(self, fmt, *args):
+        pass                            # (what it does is said by Admin and below, never a path)
+
+    def send(self, status, body, ctype="text/html; charset=utf-8", headers=()):
+        body = body.encode("utf-8") if isinstance(body, str) else body
+        self.send_response(status)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "same-origin")
+        self.send_header("Strict-Transport-Security", "max-age=31536000")
+        self.send_header("Content-Security-Policy",
+                         "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; "
+                         "form-action 'self'; frame-ancestors 'none'")
+        for k, v in headers:
+            self.send_header(k, v)
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
+    def go(self, where, cookie=None):
+        h = [("Location", where)]
+        if cookie is not None:
+            h.append(("Set-Cookie", cookie))
+        self.send(303, "", "text/plain; charset=utf-8", h)
+
+    def ip(self):
+        return self.client_address[0]
+
+    def allowed(self):
+        if aeragate.client_ok(self.ip(), Config.allow):
+            return True
+        self.send(403, "dashgate: not from this computer\n", "text/plain; charset=utf-8")
+        return False
+
+    def do_GET(self):
+        if not self.allowed():
+            return
+        path = self.path.split("?", 1)[0]
+        if path == "/dash.css":
+            return self.send(200, CSS, "text/css; charset=utf-8")
+        token, sess = self.admin.session(self.headers.get("Cookie"), self.ip())
+        if sess is None:
+            if path != "/":
+                return self.go("/")
+            return self.send(200, admin_page("AERA-Gateway admin", "Sign in to see and change the services",
+                                             login_body()))
+        found, started = (from_container() if Config.container else (from_systemd(), None))
+        d = status(self.stats, self.headers.get("Host", ""), found, started)
+        if path == "/":
+            return self.send(200, admin_page("AERA-Gateway admin", "Each service's statistics, settings and log",
+                                             admin_index(d), sess["csrf"]))
+        m = re.fullmatch(r"/s/([a-z]+)", path)
+        if not m or m.group(1) not in BY_KEY or m.group(1) not in found:
+            return self.send(404, "dashgate: no such page\n", "text/plain; charset=utf-8")
+        key = m.group(1)
+        if Config.container:
+            log = "In a container, the log is the container's: docker logs."
+        else:
+            ok, log = self.admin.ask({"do": "log", "key": key})
+            log = log or ("(nothing yet)" if ok else "")
+        said, sess["said"] = sess.get("said"), None
+        said = said if said and said[0] == key else None
+        self.send(200, admin_page(BY_KEY[key][1], "%s, on AERA-Gateway" % BY_KEY[key][3],
+                                  service_body(key, d, found, sess, log, said and said[1:]), sess["csrf"]))
+
+    do_HEAD = do_GET
+
+    def form(self):
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            n = -1
+        if not 0 <= n <= 8192:
+            return None
+        try:
+            return {k: v[-1] for k, v in parse_qs(self.rfile.read(n).decode("utf-8"), keep_blank_values=True,
+                                                  max_num_fields=20).items()}
+        except (UnicodeDecodeError, ValueError):
+            return None
+
+    def same_origin(self):
+        """not from another site's page. A browser sends its page's origin
+        (Referrer-Policy: same-origin), or "null" when it holds it back (a
+        privacy setting): the token in the form decides then. Refused
+        before (1.63): every browser's "null" under no-referrer, so nobody
+        could sign in"""
+        origin = self.headers.get("Origin")
+        return origin in (None, "null") or origin == "https://" + (self.headers.get("Host") or "")
+
+    def do_POST(self):
+        if not self.allowed():
+            return
+        path = self.path.split("?", 1)[0]
+        f = self.form()
+        if f is None or not self.same_origin():
+            return self.send(400, "dashgate: not a request this takes\n", "text/plain; charset=utf-8")
+        if path == "/login":
+            token = self.admin.sign_in(self.ip(), f.get("password", ""))
+            if token == "locked":
+                return self.send(429, admin_page("AERA-Gateway admin", "Sign in", login_body(
+                    "Too many wrong passwords: try again in %d minutes." % (Config.lock_s // 60))))
+            if token is None:
+                return self.send(403, admin_page("AERA-Gateway admin", "Sign in", login_body("Wrong password.")))
+            return self.go("/", "aera_admin=%s; Path=/; Secure; HttpOnly; SameSite=Strict" % token)
+        token, sess = self.admin.session(self.headers.get("Cookie"), self.ip())
+        if sess is None or not secrets.compare_digest(f.get("csrf", ""), sess["csrf"]):
+            return self.send(403, "dashgate: sign in again\n", "text/plain; charset=utf-8")
+        if path == "/logout":
+            self.admin.sign_out(token)
+            return self.go("/", "aera_admin=; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=0")
+        m = re.fullmatch(r"/s/([a-z]+)", path)
+        if not m or m.group(1) not in BY_KEY or Config.container:
+            return self.send(404, "dashgate: no such page\n", "text/plain; charset=utf-8")
+        key = m.group(1)
+        if f.get("do") == "restart":
+            req = {"do": "restart", "key": key}
+        elif f.get("do") == "set":
+            allow = [x.strip() for x in re.split(r"[,\s]+", f.get("allow", "")) if x.strip()] or ["any"]
+            req = {"do": "set", "key": key, "allow": allow}
+            if f.get("has_allow_local"):
+                req["allow_local"] = f.get("allow_local") == "1"
+            if f.get("has_verbose"):
+                req["verbose"] = f.get("verbose") == "1"
+        else:
+            return self.send(400, "dashgate: not a request this takes\n", "text/plain; charset=utf-8")
+        try:
+            ok, text = self.admin.ask(req, wait=120.0 if req["do"] == "set" else 30.0)
+        except dashadmin.Bad as e:
+            ok, text = False, str(e)
+        say("%s %s %s: %s" % (self.ip(), "restarted" if req["do"] == "restart" else "changed the settings of",
+                              key, "done" if ok else "it didn't work"))
+        sess["said"] = (key, ok, text)
+        self.go("/s/" + key)
+
+
+class AdminServer(Server):
+    """HTTPS, TLS 1.2 or newer, each handshake in its own thread"""
+
+    def __init__(self, addr, handler, cert, key):
+        super().__init__(addr, handler)
+        self.ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        self.ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+        self.ctx.load_cert_chain(cert, key)
+
+    def finish_request(self, request, client_address):
+        if not aeragate.client_ok(client_address[0], Config.allow):
+            return                  # (no handshake for those who may not)
+        request.settimeout(30)
+        try:
+            tls = self.ctx.wrap_socket(request, server_side=True)
+        except (ssl.SSLError, OSError):
+            return
+        try:
+            self.RequestHandlerClass(tls, client_address, self)
+        finally:
+            try:
+                tls.close()
+            except OSError:
+                pass
+
+
+def start_admin(stats):
+    """the admin pages, when they're set up: a password and a certificate"""
+    if not Config.admin_port:
+        return None
+    missing = [p for p in (Config.admin_password, Config.admin_cert, Config.admin_key) if not os.path.exists(p)]
+    if missing:
+        say("the admin pages are off: %d of their files aren't there (sudo aera-gateway install dash --password)"
+            % len(missing))
+        return None
+    AdminHandler.stats, AdminHandler.admin = stats, Admin()
+    srv = AdminServer((Config.bind, Config.admin_port), AdminHandler, Config.admin_cert, Config.admin_key)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    say("dashgate's admin pages on https://%s:%d" % (Config.bind, Config.admin_port))
+    return srv
+
+
 def parser():
     ap = argparse.ArgumentParser(description="The Gateway's dashboard, for a browser on the home network")
     ap.add_argument("--port", type=int, default=8888)
@@ -1005,6 +1519,9 @@ def parser():
                     help="only this address may see it (more: repeat); default: the home network")
     ap.add_argument("--socket", default="/run/aera-dash/events.sock", help="where the gateways tell it")
     ap.add_argument("--container", action="store_true", help="in aera-gateway-run's container, not under systemd")
+    ap.add_argument("--admin-port", type=int, default=0, help="the admin pages' HTTPS port (none by default)")
+    ap.add_argument("--admin-cert", default=Config.admin_cert, help="their certificate")
+    ap.add_argument("--admin-key", default=Config.admin_key, help="its key")
     ap.add_argument("-v", "--verbose", action="store_true", help="log every request")
     return ap
 
@@ -1014,6 +1531,7 @@ def main(argv=None):
     Config.port, Config.bind, Config.socket = a.port, a.bind, a.socket
     Config.allow = [x for v in a.allow for x in v.split(",") if x]
     Config.container, Config.verbose = a.container, a.verbose
+    Config.admin_port, Config.admin_cert, Config.admin_key = a.admin_port, a.admin_cert, a.admin_key
     stats = Stats()
     Handler.stats = stats
     try:
@@ -1031,6 +1549,10 @@ def main(argv=None):
                 pass
             time.sleep(3)
     threading.Thread(target=poll, daemon=True).start()
+    try:
+        start_admin(stats)
+    except (OSError, ssl.SSLError) as e:
+        say("the admin pages are off: %s" % (getattr(e, "strerror", None) or type(e).__name__))
     srv = Server((Config.bind, Config.port), Handler)
     say("dashgate %s listening on %s:%d" % (VERSION, Config.bind, Config.port))
     srv.serve_forever()
