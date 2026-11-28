@@ -905,6 +905,12 @@ int xfer_run(FTP *f, const SITE *site, long *failed)
 	/* the room the downloads need, before the first file comes down */
 	if (ok && !room_check())
 		ok = 0;
+#ifndef __mcoldfire__
+	/* xfer_run as long as 2.17's (0x8b8): the hot code after it where the
+	   speed rig was measured; 4 bytes short, a file's start in the
+	   folder of 400 took 25 ms more on the Falcons */
+	__asm__ volatile ("nop\n\tnop");
+#endif
 	/* then the folders and files, in order */
 	for (i = 0; i < xn && ok; i++) {
 		int st;
